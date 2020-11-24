@@ -18,9 +18,15 @@
 
 #define useDecoder											// access flipflops etc. through 3 to 8 line decoder
 #define onboardLedDimming 0									// 1: enable onboard led dimming
-#define boardVersion 100									// nnn = vn.nn
 #define test_showEventStats 0								// only for testing (event message mechanism)
 
+#define boardVersion 100									// nnn = vn.nn
+
+#if boardVersion == 100
+	#define ledstripDataUsePortD 0							// 0: PORT C3
+#elif boardVersion == 101
+	#define ledstripDataUsePortD 1							// 1: port D7 (globe standard 'data' port, faster as well
+#endif
 
 // *** enumerations ***
 
@@ -75,8 +81,15 @@ constexpr uint8_t LCDenablePin{ 13 };							// port B bit 5 (Nano pin D13): LCD 
 constexpr uint8_t A2_IONotEnablePin{ A2 };						// port C bit 2 (Nano pin A2): I/O channel not enable (74HCT138 decoder)
 constexpr uint8_t portC_IOdisableBit{ B00000100 };				// port C bit 2
 #endif
+
+#if ledstripDataUsePortD
+constexpr uint8_t portD_ledstripDataBit{ B10000000 };			// port D bit 7 
+
+#else
 constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): ledstrip data
-constexpr uint8_t portC_leftLedstripDataBit{ B00001000 };		// port C bit 3 
+constexpr uint8_t portC_ledstripDataBit{ B00001000 };			// port C bit 3 
+#endif // ledstripDataUsePortD
+
 
 
 // port D
@@ -414,7 +427,7 @@ class MyEvents {
 private:
 	const uint8_t eventBufferSize{ 255 };													// max 255
 
-	uint8_t* eventBuffer{ nullptr };															// dynamic memory to store event messages until they are processed
+	uint8_t* eventBuffer{ nullptr };														// dynamic memory to store event messages until they are processed
 	uint8_t* oldestMessageStartPtr{ nullptr }, * newestMessageStartPtr{ nullptr };
 	EventStats eventStats;
 
@@ -566,7 +579,7 @@ void writeStatus();												// print on event or on command
 void writeParamLabelAndValue();									// print on event or on command
 void writeLedStrip();											// apply gamma correction and write led strip
 void LSout(uint8_t* led, uint8_t* ledstripMasks);				// write led strip
-void LSoneLedOut(uint8_t* LedData, uint8_t ledMask = 0b111);	// write one ledstrip led
+void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = 0b111);		// write one ledstrip led
 
 void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
 void readKey(char* keyAscii);									// from Serial interface and on board keys
@@ -596,7 +609,11 @@ void setup()
 #else
 	pinMode(A2, INPUT_PULLUP);									// not used
 #endif
+#if !ledstripDataUsePortD
 	pinMode(A3_ledstripDataPin, OUTPUT);
+#else
+	pinMode(A3, INPUT_PULLUP);									// not used
+#endif
 	pinMode(A4, INPUT_PULLUP);									// not used
 	pinMode(A5, INPUT_PULLUP);									// not used
 #ifdef useDecoder
@@ -895,19 +912,19 @@ void processEvent() {
 
 		// feed temp. sensor reading to smoothing filter
 		// TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
-		long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);		// convert to degrees Celcius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
-		cli();																			// tempSmooth is passed back to ISR for safety check high temperature
+		long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);			// convert to degrees Celcius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
+		cli();																				// tempSmooth is passed back to ISR for safety check high temperature
 		tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
 		sei();
 
 		partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
-		fastRateDataEventCounter++;														// overflows at 255 idle events = 255 * 128 mS, period = 32768 milli seconds
+		fastRateDataEventCounter++;															// overflows at 255 idle events = 255 * 128 mS, period = 32768 milli seconds
 		if (fastRateDataEventCounter == 0) {
 			movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];	// spans more than 5 minutes
 			for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
 			sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
 			partialSumMagnetOnCycles = 0;
-			cli();																		// highLoad is passed back to ISR for safety check high magnet load
+			cli();																			// highLoad is passed back to ISR for safety check high magnet load
 			highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
 			sei();
 			}
@@ -1225,31 +1242,39 @@ void writeLedStrip() {
 	}
 
 
-void LSout(uint8_t* led, uint8_t* ledstripMasks) {										// output data to ledstrip 
+void LSout(uint8_t* led, uint8_t* ledstripMasks) {					// output data to ledstrip 
 	uint8_t startFrame[4]{ 0, 0, 0, 0 }, colorOffAndEndFrame[4]{ 0xFF, 0, 0, 0 };		// brightness, blue, green, red
 
+	// NOTE: only Port C 'IO disable' and, if applicable, 'ledstrip data' bits, should be written to (altered) by ledstrip routines
+	uint8_t holdPortC = PORTC;															// read current PORTC bits only once (speed)
 	PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_ledstripSelect);			// PORT B bits 432: select ledstrip
-	LSoneLedOut(startFrame);															// Start-frame marker
+
+	LSoneLedOut(holdPortC, startFrame);													// Start-frame marker
 	for (uint8_t ledNo = 0; ledNo <= 7; ledNo++, ledstripMasks[0] >>= 1, ledstripMasks[1] >>= 1, ledstripMasks[2] >>= 1) {		// For each led
-		LSoneLedOut(led, (ledstripMasks[2] & 0b1) | ((ledstripMasks[1] & 0b1) << 1) | ((ledstripMasks[0] & 0b1) << 2));
+		LSoneLedOut(holdPortC, led, (ledstripMasks[2] & 0b1) | ((ledstripMasks[1] & 0b1) << 1) | ((ledstripMasks[0] & 0b1) << 2));
 		}
-	LSoneLedOut(colorOffAndEndFrame);
+	LSoneLedOut(holdPortC, colorOffAndEndFrame);
 	}
 
 
-void LSoneLedOut(uint8_t* leftLedStrip4Bytes, uint8_t ledMask = 0b111) {				// output data for 1 ledstrip led
+void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = 0b111) {	// output data for 1 ledstrip led
 	uint8_t b8;      // preserve original value
 	ledMask = (ledMask << 1) | 0b1;														// add '1' because brightness byte is always sent to led as received
 
-	for (uint8_t n = 0; n <= 3; n++, leftLedStrip4Bytes++, ledMask >>= 1) {				// 4 bytes per pointer (brightness byte, blue value, green value, red value)
-		b8 = (ledMask & 0b1) ? *leftLedStrip4Bytes : 0x00;								// 1 byte
+	for (uint8_t n = 0; n <= 3; n++, ledStrip4Bytes++, ledMask >>= 1) {					// 4 bytes per pointer (brightness byte, blue value, green value, red value)
+		b8 = (ledMask & 0b1) ? *ledStrip4Bytes : 0x00;									// 1 byte
 		for (int8_t i = 7; i >= 0; i--, b8 <<= 1) {										// shift out 8 bits
-			uint8_t holdPortC{ 0x00 };
-			if (b8 & 0x80) { holdPortC = portC_leftLedstripDataBit; }
-			cli();
-			// speed: no port writes, only two port reads
+#if	ledstripDataUsePortD
+			// NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
+			PORTD = (b8 & 0x80) ? portD_ledstripDataBit : 0x00;							
+#else
+			if (b8 & 0x80) { holdPortC |= portC_ledstripDataBit; }
+			else { holdPortC &= ~portC_ledstripDataBit; }
+#endif
+			cli();																		// do not interrupt clocking ledstrip
+			// speed: no port reads, only two port writes
 			PORTC = holdPortC & ~portC_IOdisableBit;									// setup ledstrip data at clock falling edge														
-			PORTC = holdPortC |= portC_IOdisableBit;									// clock in ledstrip data at clock rising edge
+			PORTC = holdPortC | portC_IOdisableBit;										// clock in ledstrip data at clock rising edge
 			sei();
 			}
 		}
