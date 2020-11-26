@@ -20,12 +20,12 @@
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
 
-#define boardVersion 100									// nnn = vn.nn
+#define boardVersion 100									// 100 = v1, 101 = v1 rev A
 
 #if boardVersion == 100
 	#define ledstripDataUsePortD 0							// 0: PORT C3
 #elif boardVersion == 101
-	#define ledstripDataUsePortD 1							// 1: port D7 (globe standard 'data' port, faster as well
+	#define ledstripDataUsePortD 1							// 1: port D bits 76 (globe standard 'data' port, faster as well
 #endif
 
 // *** enumerations ***
@@ -83,7 +83,7 @@ constexpr uint8_t portC_IOdisableBit{ B00000100 };				// port C bit 2
 #endif
 
 #if ledstripDataUsePortD
-constexpr uint8_t portD_ledstripDataBit{ B10000000 };			// port D bit 7 
+constexpr uint8_t portD_ledstripDataBits{ B11000000 };			// port D bits 7 and 6
 
 #else
 constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): ledstrip data
@@ -1266,7 +1266,7 @@ void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = 0
 		for (int8_t i = 7; i >= 0; i--, b8 <<= 1) {										// shift out 8 bits
 #if	ledstripDataUsePortD
 			// NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
-			PORTD = (b8 & 0x80) ? portD_ledstripDataBit : 0x00;							
+			PORTD = (b8 & 0x80) ? portD_ledstripDataBits : 0x00;						// currently, two ledstrips receive same data						
 #else
 			if (b8 & 0x80) { holdPortC |= portC_ledstripDataBit; }
 			else { holdPortC &= ~portC_ledstripDataBit; }
