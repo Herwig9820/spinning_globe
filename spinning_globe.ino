@@ -1,6 +1,6 @@
 /*
 	Name:       zwevende wereldbol.ino
-	Created:    10/08/2019 - 21/10/2020
+	Created:    10/08/2019 - 3/12/2020
 	Author:     Herwig Taveirne
 	Version:    1.0
 
@@ -16,17 +16,11 @@
 #include <Arduino.h>
 #include <stdlib.h>
 
-#define useDecoder											// access flipflops etc. through 3 to 8 line decoder
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
 
 #define boardVersion 100									// 100 = v1, 101 = v1 rev A
 
-#if boardVersion == 100
-	#define ledstripDataUsePortD 0							// 0: PORT C3
-#elif boardVersion == 101
-	#define ledstripDataUsePortD 1							// 1: port D bits 76 (globe standard 'data' port, faster as well
-#endif
 
 // *** enumerations ***
 
@@ -55,49 +49,39 @@ constexpr uint8_t A1_temperaturePin{ A1 };						// port A analog input pin A1: t
 // port B 
 constexpr uint8_t OC1Apin{ 9 };									// port B bit 1 (Nano pin D9): output pin for 16-bit timer 1 channel A (drives magnet)  
 
-#ifdef useDecoder												// use 74HCT138 decoder to select HW ? 
+#if (boardVersion == 100) 
 constexpr uint8_t portB_IOchannelSelectBitMask{ B00011100 };	// port B bits 432: I/O channel select (74HCT138 decoder)
 
 constexpr uint8_t portB_coilFlipFlopSelect{ 0 << 2 };			// decoder select lines: bits 432 = 000, 001, 010, 011				
 constexpr uint8_t portB_auxFlipFlopSelect{ 1 << 2 };
 constexpr uint8_t portB_switchesBufferSelect{ 2 << 2 };
 constexpr uint8_t portB_ledstripSelect{ 3 << 2 };
-
 #else
-constexpr uint8_t portB_coilFlipFlopClockBit{ B00000100 };		// port B bit 2: coils flip flops clock bit mask
-constexpr uint8_t portB_auxFlipFlopClockBit{ B00001000 };		// port B bit 3: aux flip flops clock bit mask
-constexpr uint8_t portB_switchesBufferDisableBit{ B00010000 };	// port B bit 4: switches buffer not enable bit mask
+constexpr uint8_t portB_IOchannelSelectBitMask{ B00110001 };	// port B bits 540: I/O channel select (74HCT138 decoder)
 
-constexpr uint8_t coilFlipFlopClockPin{ 10 };					// PORT B bit 3 (Nano pin D10): coils flip flops clock
-constexpr uint8_t auxFlipFlopClockPin{ 11 };					// PORT B bit 2 (Nano pin D11): aux flip flops clock
-constexpr uint8_t switchesBufferDisablePin{ 12 };				// PORT B bit 4 (Nano pin D12): switches buffer not enable
+constexpr uint8_t portB_coilFlipFlopSelect  { B00000000 };		// decoder select lines: bits 540 = 000, 001, 010, 011				
+constexpr uint8_t portB_auxFlipFlopSelect   { B00000001 };
+constexpr uint8_t portB_switchesBufferSelect{ B00010000 };
+constexpr uint8_t portB_ledstripSelect		{ B00010001 };
 #endif
-
-constexpr uint8_t LCDenablePin{ 13 };							// port B bit 5 (Nano pin D13): LCD enable	
 
 
 // port C 
-#ifdef useDecoder												// use 74HCT138 decoder to select HW ? 
 constexpr uint8_t A2_IONotEnablePin{ A2 };						// port C bit 2 (Nano pin A2): I/O channel not enable (74HCT138 decoder)
 constexpr uint8_t portC_IOdisableBit{ B00000100 };				// port C bit 2
-#endif
-
-#if ledstripDataUsePortD
-constexpr uint8_t portD_ledstripDataBits{ B11000000 };			// port D bits 7 and 6
-
-#else
-constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): ledstrip data
-constexpr uint8_t portC_ledstripDataBit{ B00001000 };			// port C bit 3 
-#endif // ledstripDataUsePortD
-
 
 
 // port D
 constexpr uint8_t LCDregSelPin{ 3 };							// port D bit 3 (Nano pin D3): LCD register select
 
 constexpr uint8_t portD_greenStatusLedBit{ B00010000 };			// port D bit 4: green status led bit mask
+#if (boardVersion == 100)
 constexpr uint8_t portD_interruptInProgressBit{ B00100000 };	// port D bit 5: interrupt in progress bit mask
 constexpr uint8_t portD_blueStatusLedBit{ B01000000 };			// port D bit 6: blue status led bit mask
+#else
+constexpr uint8_t portD_blueStatusLedBit{ B00100000 };			// port D bit 5: blue status led bit mask
+constexpr uint8_t portD_interruptInProgressBit{ B01000000 };	// port D bit 6: interrupt in progress bit mask
+#endif
 constexpr uint8_t portD_enableMotorBit{ B10000000 };			// port D bit 7: enable motor bit mask
 
 constexpr uint8_t pinD_firstKeyBit{ B00000100 };				// port D bit 2: first key bit
@@ -106,6 +90,20 @@ constexpr uint8_t pinD_keyBits{ B00111100 };					// port D bits 5432: keys ONLY 
 constexpr uint8_t pinD_greenwichBit{ B10000000 };				// port D bit 7: Greenwich sync bit mask
 
 uint8_t portDbuffer{ 0 }, pinDbuffer{ 0 };
+
+
+// port depending on board version
+#if (boardVersion == 100)
+constexpr uint8_t LCDenablePin{ 13 };							// port B bit 5 (Nano pin D13): LCD enable	
+
+constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): ledstrip data
+constexpr uint8_t portC_ledstripDataBit{ B00001000 };			// port C bit 3 
+
+#else
+constexpr  uint8_t LCDenablePin{ A3 };							// port C bit 3 (Nano pin A3): LCD enable. Alternatives: port B3 or B2
+
+constexpr uint8_t portD_ledstripDataBits{ B11000000 };			// port D bits 7 and 6
+#endif 
 
 
 // *** flash memory constants ***
@@ -604,55 +602,38 @@ void setup()
 	// PORT A & C (same Nano pins)
 	pinMode(A0_liftHallPin, INPUT);								// A0: hall sensor analog input pin
 	pinMode(A1_temperaturePin, INPUT);							// A1: temperature sensor analog input pin
-#ifdef useDecoder
 	pinMode(A2_IONotEnablePin, OUTPUT);							// port C bit 2 (Nano pin A2): I/O channel not enable (74HCT138 decoder)  
-#else
-	pinMode(A2, INPUT_PULLUP);									// not used
-#endif
-#if !ledstripDataUsePortD
+
+#if (boardVersion == 100)
 	pinMode(A3_ledstripDataPin, OUTPUT);
 #else
 	pinMode(A3, INPUT_PULLUP);									// not used
 #endif
+
 	pinMode(A4, INPUT_PULLUP);									// not used
 	pinMode(A5, INPUT_PULLUP);									// not used
-#ifdef useDecoder
+
 	PORTC = (PORTC | portC_IOdisableBit);						// disable I/O hardware
-#endif
 
 	// PORT B 
 	pinMode(OC1Apin, OUTPUT);									// timer 1 channel A to output pin
-#ifdef useDecoder
+
 	DDRB = DDRB | portB_IOchannelSelectBitMask;
 	PORTB = PORTB | portB_IOchannelSelectBitMask;
-#else
-	pinMode(auxFlipFlopClockPin, OUTPUT);
-	pinMode(coilFlipFlopClockPin, OUTPUT);
-	pinMode(switchesBufferDisablePin, OUTPUT);
-	PORTB = PORTB | (portB_auxFlipFlopClockBit | portB_coilFlipFlopClockBit | portB_switchesBufferDisableBit);
-#endif
 
 
 	// *** read initial switch status ***
 
 	PORTD = PORTD | B11111100;															// PORT D pins 2 to 7: prepare to enable pull ups	
 	DDRD = DDRD & B00000011;															// PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
-#ifdef useDecoder
 	PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		// PORT B bits 432: select switch buffers
 	PORTC = (PORTC & ~portC_IOdisableBit);												// enable switch buffers
-#else
-	PORTB = (PORTB & ~portB_switchesBufferDisableBit);									// enable switch buffers 
-#endif	
 
 	switchStates = PIND;																// read switches twice (stall) - allow for setup time (see Atmel data sheet)
 	switchStates = PIND & pinD_switchStateBits;											// (read twice)
 
-#ifdef useDecoder
 	PORTC = (PORTC | portC_IOdisableBit);												// disable switch buffers
 	PORTB = PORTB | portB_IOchannelSelectBitMask;
-#else
-	PORTB = (PORTB | portB_switchesBufferDisableBit);									// disable switch buffers 
-#endif
 	DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
 	prevSwitchStates = switchStates;
@@ -1264,12 +1245,13 @@ void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = 0
 	for (uint8_t n = 0; n <= 3; n++, ledStrip4Bytes++, ledMask >>= 1) {					// 4 bytes per pointer (brightness byte, blue value, green value, red value)
 		b8 = (ledMask & 0b1) ? *ledStrip4Bytes : 0x00;									// 1 byte
 		for (int8_t i = 7; i >= 0; i--, b8 <<= 1) {										// shift out 8 bits
-#if	ledstripDataUsePortD
-			// NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
-			PORTD = (b8 & 0x80) ? portD_ledstripDataBits : 0x00;						// currently, two ledstrips receive same data						
-#else
+
+#if	(boardVersion == 100)
 			if (b8 & 0x80) { holdPortC |= portC_ledstripDataBit; }
 			else { holdPortC &= ~portC_ledstripDataBit; }
+#else
+			// NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
+			PORTD = (b8 & 0x80) ? portD_ledstripDataBits : 0x00;						// currently, two ledstrips receive same data						
 #endif
 			cli();																		// do not interrupt clocking ledstrip
 			// speed: no port reads, only two port writes
@@ -1614,14 +1596,9 @@ SIGNAL(TIMER1_OVF_vect) {
 	resetHWwatchDog = false;
 	PORTD = portDbuffer;
 
-#ifdef useDecoder
 	PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);		// PORT B bits 432: select aux flip flops
 	PORTC = (PORTC & ~portC_IOdisableBit);												// clock signal for aux flip flops LOW then HIGH
 	PORTC = (PORTC | portC_IOdisableBit);
-#else
-	PORTB = (PORTB & ~portB_auxFlipFlopClockBit);										// clock signal for aux flip flops LOW then HIGH
-	PORTB = (PORTB | portB_auxFlipFlopClockBit);
-#endif
 
 
 	// flag that an ISR has run: only needed for idle time counting (signal that ISR duration must be deducted from idle time)
@@ -1639,21 +1616,13 @@ SIGNAL(TIMER1_OVF_vect) {
 	PORTD = PORTD | B11111100;															// PORT D pins 2 to 7: prepare to enable pull ups	
 	DDRD = DDRD & B00000011;															// PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
 
-#ifdef useDecoder
 	PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		// PORT B bits 432: select switch buffers
 	PORTC = (PORTC & ~portC_IOdisableBit);												// enable switch buffers
-#else
-	PORTB = (PORTB & ~portB_switchesBufferDisableBit);									// enable switch buffers 
-#endif	
 
 	pinDbuffer = PIND;																	// read switches twice (stall) - allow for setup time (see Atmel data sheet)
 	pinDbuffer = PIND; // (read twice)
 
-#ifdef useDecoder
 	PORTC = (PORTC | portC_IOdisableBit);												// disable switch buffers
-#else
-	PORTB = (PORTB | portB_switchesBufferDisableBit);									// disable switch buffers 
-#endif
 
 	DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
@@ -2070,14 +2039,9 @@ SIGNAL(ADC_vect) {
 				PORTD = portDbuffer;															// port D bits 765432 = coil wiress 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2)
 
 
-#ifdef useDecoder
 				PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B bits 432: select coils flip flops
 				PORTC = (PORTC & ~portC_IOdisableBit);											// clock signal for coil flip flops LOW then HIGH
 				PORTC = (PORTC | portC_IOdisableBit);
-#else
-				PORTB = (PORTB & ~portB_coilFlipFlopClockBit);									// clock signal for coil flip flops LOW then HIGH
-				PORTB = (PORTB | portB_coilFlipFlopClockBit);
-#endif
 				}
 
 			slowTimerSamplePeriod++;
@@ -2469,14 +2433,9 @@ SIGNAL(ADC_vect) {
 
 	PORTD = portDbuffer;
 
-#ifdef useDecoder
 	PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);				// PORT B bits 432: select aux flip flops
 	PORTC = (PORTC & ~portC_IOdisableBit);														// clock signal for aux flip flops LOW then HIGH
 	PORTC = (PORTC | portC_IOdisableBit);
-#else
-	PORTB = (PORTB & ~portB_auxFlipFlopClockBit);												// clock signal for aux flip flops LOW then HIGH
-	PORTB = (PORTB | portB_auxFlipFlopClockBit);
-#endif
 
 	PORTB = holdPortBduringInt;																	// restore port B contents
 	PORTD = holdPortDduringInt;																	// restore port D contents
