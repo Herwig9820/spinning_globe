@@ -989,7 +989,7 @@ void processCommand() {
 
 			// one-parameter commands
 		case uLedstripSelectCycle:
-			commandParamError = !(((commandParam1 >= 0) && (commandParam1 <= 3)) || (commandParam1 == 12));
+			commandParamError = !(((commandParam1 >= cLedstripOff) && (commandParam1 <= cRedGreenBlue)) || (commandParam1 == 12));	// 12: equal sign
 			if ((commandParam1 >= cLedstripOff) && (commandParam1 <= cRedGreenBlue)) { setColorCycle(commandParam1); }
 			break;
 
