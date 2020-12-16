@@ -794,6 +794,13 @@ void getCommand() {
     do {
         readKey(&keyAscii);																					// from HW buttons AND from Serial
 
+
+
+        if (keyAscii < 0) {
+            Serial.print((int8_t)keyAscii);
+            keyAscii = 0;
+        }////
+
         if (keyAscii == 0) {
             return;																							// no character read
             }
@@ -1070,7 +1077,7 @@ void writeStatus() {
         Serial.println(strcpy_P(s150, showLiveValues ? str_showLive : str_stopLive));
         }
 
-    else if ((userCommand == uLedstripSelectCycle) || (userCommand == uLedstripNextCycle)) {	// show or stop printing live values
+    else if ((userCommand == uLedstripSelectCycle) || (userCommand == uLedstripNextCycle)) {	// change ledstrip cycle
         Serial.println();
         sprintf(s30, "%d ", LScolorCycle);
         Serial.println(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
@@ -1320,7 +1327,7 @@ void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullp
 // *** read a character from the hardware buttons buffer or the Serial interface ***
 
 void readKey(char* keyAscii) {								// from Serial interface and Globe keys
-    constexpr char cmds[6] = "-+EC ";						// note that max 5 keys are available (hardware)
+    constexpr char keypressChars[6] = "-+EC ";      		// note that max 5 keys are available (hardware)
 
     *keyAscii = 0;
     int8_t key{ 0 };										// can hold negative key codes
@@ -1331,7 +1338,10 @@ void readKey(char* keyAscii) {								// from Serial interface and Globe keys
             for (size_t i = 0; i < keyBufferLength - 1; i++) { keyBuffer[i] = keyBuffer[i + 1]; }
             keysAvailable--;
             }
-        if (key > 0) { *keyAscii = cmds[key - 1]; }			// exclude negative keys, convert to ASCII for common treatment with characters read from Serial
+
+        if (key > 0) { *keyAscii = keypressChars[key - 1]; }// convert to ASCII for common treatment with characters read from Serial
+        else if (key & 0x87 == -4) {*keyAscii = key;}       // 'cancel' key: store hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
+ ////       else if (key < 0) { *keyAscii = key; }       // 'cancel' key: store hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
         }
 
     else if (Serial.available() > 0) {						// read one character from serial buffer, if available
@@ -1586,6 +1596,7 @@ SIGNAL(TIMER1_OVF_vect) {
     uint8_t holdPortBduringInt = PORTB;													// hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
     uint8_t holdPortDduringInt = PORTD;													// hold current PORT D value (LCD driver can be updating PORT D in main loop at the time this ISR occurs) 
 
+    static uint16_t keyDownTimer{0};                                                    // milliseconds - onboard cancel key only
 
     // if instructed by main loop, reset hardware watchdog
     // for testing purposes, this indicates the occurence of the timer 1 overflow event as well
@@ -1643,6 +1654,11 @@ SIGNAL(TIMER1_OVF_vect) {
             keyNumber++;
             if ((buttonsActioned & pinD_firstKeyBit) != 0) {
                 int8_t keyPressed = (buttonsPressed & pinD_firstKeyBit) ? keyNumber : -keyNumber;
+                if (keyPressed == 4) {keyDownTimer = 1;}                                 // cancel key down: enable counting
+                else if (keyPressed == -4) {                                             // cancel key up: actual function depends on keypress duration
+                    keyPressed = keyPressed - (keyDownTimer > 2000 ? 0x40 : (keyDownTimer > 700 ? 0x20 : 0x00));
+                    keyDownTimer = 0;                                                    // disable counting
+                }
                 if (keysAvailable < keyBufferLength) {									// key press ignored if buffer full
                     keyBuffer[keysAvailable] = keyPressed;
                     keysAvailable++;													// available for read
@@ -1656,6 +1672,7 @@ SIGNAL(TIMER1_OVF_vect) {
         prevSwitchStates = switchStates;
         }
 
+    if((keyDownTimer > 0) && (keyDownTimer <= 2000)) {keyDownTimer++;}
 
     // time counting (we don't use Arduino time functions based on timer 0)
     milliSecond++;
