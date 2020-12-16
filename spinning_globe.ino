@@ -1188,13 +1188,10 @@ void writeLedStrip() {
     if (ISRevent != eLedstripData) { return; }											// no change in brightness values 
 
     uint8_t LScolor[4]{ 0xFF, 0x00, 0x00, 0x00 };										// for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected
-    uint8_t ledstripMasks[3]{ 0b01000010, 0b01000010, 0b01000010 };						// RGB ledstrip mask (8 leds) for red, green, blue colors
+    uint8_t ledstripMasks[3]{ 0b10100101, 0b10100101, 0b10100101 };						// RGB ledstrip mask (8 leds) for red, green, blue colors
 
     if (ledstripDataPtr->LSupdate) {													// brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
-            // set led mask
-            if ((LScolorCycle == cCstBrightWhite) || (LScolorCycle == cCstBrightBlue)) { ledstripMasks[i] = 0b10100101; }	// 4 leds per strip for blue
-
             // assign calculated brighness values to Blue, Green and Red, respectively (order defined by ledstrip hardware)
             uint8_t brGamma = (((uint16_t)ledstripDataPtr->LSbrightness[i]) * ((uint16_t)ledstripDataPtr->LSbrightness[i])) >> 8;	// gamma correction: quadratic function (^2.6 is not needed)
             LScolor[i + 1] = brGamma;													// byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by ledstrip hardware)										
@@ -1223,6 +1220,8 @@ void writeLedStrip() {
     }
 
 
+// *** send ledstrip data to hardware ***
+
 void LSout(uint8_t* led, uint8_t* ledstripMasks) {					// output data to ledstrip 
     uint8_t startFrame[4]{ 0, 0, 0, 0 }, colorOffAndEndFrame[4]{ 0xFF, 0, 0, 0 };		// brightness, blue, green, red
 
@@ -1237,6 +1236,8 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {					// output data to ledstri
     LSoneLedOut(holdPortC, colorOffAndEndFrame);
     }
 
+
+// *** send ledstrip data for one led to hardware ***
 
 void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = 0b111) {	// output data for 1 ledstrip led
     uint8_t b8;      // preserve original value
@@ -1868,7 +1869,6 @@ SIGNAL(ADC_vect) {
 
         OCR1A = TTTcontrOut;
 
-
         // (2): control system for rotating magnetic field
         // - within 'auto locking' range(close to set rotation time) the system is SELF-controlling and LOCKING to the rotating magnetic field (NO slip)
         // - outside this range, adjust the phase of the rotating magnetic field to the phase (fixed value) appearing during auto-locking (ACTIVE controlling)
@@ -2277,7 +2277,7 @@ SIGNAL(ADC_vect) {
     // *** do some housekeeping ***
 
     // is globe floating at this time ? 
-    isFloating = ((droppedGlobePeriodCount < allowedNonFloatingGlobePeriod) && (stickyGlobePeriodCount < allowedNonFloatingGlobePeriod) && (errorCondition == errNoError)); //	((milliSecond >= allowedNonFloatingGlobePeriod) || (second > 0));						// force initial 'not floating' status
+    isFloating = ((droppedGlobePeriodCount < allowedNonFloatingGlobePeriod) && (stickyGlobePeriodCount < allowedNonFloatingGlobePeriod) && (errorCondition == errNoError)); 		
 
     if (isFloating) {																			// globe is currently floating ?
         liftingMilliSecond++;																	// counts to 1 second
