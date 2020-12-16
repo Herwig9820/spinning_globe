@@ -1327,7 +1327,7 @@ void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullp
 // *** read a character from the hardware buttons buffer or the Serial interface ***
 
 void readKey(char* keyAscii) {								// from Serial interface and Globe keys
-    constexpr char keypressChars[6] = "-+EC ";      		// note that max 5 keys are available (hardware)
+    constexpr char keypressChars[6] = "-+E~~";      		// note that max 5 keys are available (hardware); ~ means no code assigned
 
     *keyAscii = 0;
     int8_t key{ 0 };										// can hold negative key codes
@@ -1339,12 +1339,17 @@ void readKey(char* keyAscii) {								// from Serial interface and Globe keys
             keysAvailable--;
             }
 
-        if (key > 0) { *keyAscii = keypressChars[key - 1]; }// convert to ASCII for common treatment with characters read from Serial
-        else if (key & 0x87 == -4) {*keyAscii = key;}       // 'cancel' key: store hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
- ////       else if (key < 0) { *keyAscii = key; }       // 'cancel' key: store hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
+        if (key > 0) {                                      // convert to ASCII for common treatment with characters read from Serial
+            *keyAscii = keypressChars[key - 1];
+            if (*keyAscii == '~') {*keyAscii = 0;}
         }
+        else if ((key | 0x60) == -4) {                      // 'cancel' key: store 'C' or hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
+            *keyAscii = key;
+            if (*keyAscii = -4) {*keyAscii = 'C';}
+        }    
+    }
 
-    else if (Serial.available() > 0) {						// read one character from serial buffer, if available
+    if ((*keyAscii == 0) &&  (Serial.available() > 0)) {	// no character from board ? read one character from serial buffer, if available
         *keyAscii = Serial.read();
         }
 
