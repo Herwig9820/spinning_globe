@@ -27,8 +27,8 @@
 enum userCmds :int {
     uNoCmd = -1,
     uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp, uLedstripNextCycle, uStepResponseTest,	// cmds without parameters: 0 - 99
-    uLedstripSelectCycle = 100,																							// cmds with 1 parameter: 100-199
-    sampleCmdWith2Params = 200,																							// cmds with 2 parameters: 200-299
+    firstOneParamCmdHere = 100,																							// cmds with 1 parameter: 100-199
+    uLedstripSelectCycle = 200,																							// cmds with 2 parameters: 200-299
     uUnknownCmd = 999																									// unknown command receives code 999
     };
 
@@ -37,6 +37,7 @@ enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMa
 // eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
 enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };				// led strip color cycle 
+enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };   				// led strip color cycle 
 
 
 // *** I/O ***
@@ -137,7 +138,8 @@ const char str_procLoad[] PROGMEM = "proc load";
 
 const char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
 const char str_help1[] PROGMEM = "Type + or - to change parameter shown, E to edit value, S to show or stop live values, ";
-const char str_help2[] PROGMEM = "A to show all values, T for time stamp, C or L0..3 to change lighting, R for step response, ? for help";
+const char str_help2[] PROGMEM = "A to show all values, T for time stamp, LC0..4 to change ledstrip cycle (0 = off), ";
+const char str_help3[] PROGMEM = "LT1..4 to change ledstrip cycle time (1 = fastest), R for step response, ? for help";
 const char str_cmdError[] PROGMEM = "== Not a valid command or parameter";
 const char str_showLive[] PROGMEM = "== Show Live";
 const char str_stopLive[] PROGMEM = "== Stop Live";
@@ -203,7 +205,7 @@ constexpr long spareTimeCount{ 500 };												// milli seconds
 
 bool showLiveValues{ true };
 uint8_t ISRevent{ eNoEvent };														// current ISR event retrieved for processing in main loop
-int userCommand{ uNoCmd }, commandParam1;
+int userCommand{ uNoCmd }, commandParam1, commandParam2;
 float idleLoopMicrosSmooth{ 0 }, magnetOnCyclesSmooth{ 0 }, ISRdurationSmooth{ 0 };	// values smoothed by first order filter
 float errSignalMagnitudeSmooth{ 0 };
 
@@ -681,7 +683,8 @@ void setup()
 
     while (!Serial);
     Serial.print(strcpy_P(s150, str_help1));
-    Serial.println(strcpy_P(s150, str_help2));
+    Serial.print(strcpy_P(s150, str_help2));
+    Serial.println(strcpy_P(s150, str_help3));
 
     lcd.clear();
     lcd.noAutoscroll();
@@ -787,7 +790,7 @@ void getCommand() {
     constexpr bool enterCmdUsingSeparators{ false }; // enter with separators: not useful because Globe keyboard has no keys to type in separators and CR
     char keyAscii{ 0 };
 
-    static int commandBuffer{ 0 }, commandParam1Buffer{ 0 }, commandState{ 0 };
+    static int commandBuffer{ 0 }, commandParam1Buffer{ 0 }, commandParam2Buffer{ 0 }, commandState{ 0 };
 
     userCommand = uNoCmd;																					// init: no assembled command yet
 
@@ -811,10 +814,7 @@ void getCommand() {
                     if (keyAscii == '-') { commandBuffer = uPrevious; }										// previous
                     else if (keyAscii == '+') { commandBuffer = uNext; }									// next
                     else if ((keyAscii == 'e') || (keyAscii == 'E')) { commandBuffer = uEdit; }				// enter edit / end edit
-                    else if ((keyAscii == 'c') || (keyAscii == 'C')) {
-                        commandBuffer =
-                            (paramChangeMode ? uCancel : uLedstripNextCycle);
-                        }									// next ledstrip color cycle type or cancel edit
+                    else if ((keyAscii == 'c') || (keyAscii == 'C')) { commandBuffer = uCancel; }
                     else if ((keyAscii == 'a') || (keyAscii == 'A')) { commandBuffer = uShowAll; }			// show all parameters (Serial output only)
                     else if ((keyAscii == 's') || (keyAscii == 'S')) { commandBuffer = uLive; }				// show / stop live values
                     else if ((keyAscii == 't') || (keyAscii == 'T')) { commandBuffer = uTimeStamp; }		// time stamp (Serial output only) 
@@ -825,7 +825,7 @@ void getCommand() {
                     if ((commandBuffer == uPrevious) || (commandBuffer == uNext) || (commandBuffer == uEdit) || (commandBuffer == uCancel)) { commandBuffer = commandBuffer + (paramChangeMode ? 10 : 0); }
 
                     if ((commandBuffer >= 0) && (commandBuffer <= 99)) { commandState = 9; }				// these command take no parameter: signal 'command complete' if command detected
-                    else if ((commandBuffer >= 100) && (commandBuffer <= 199)) { commandState = 1; }		// 1-parameter commands: signal 'look for parameter'
+                    else if (commandBuffer >= 100) { commandState = 1; }	                            	// command takes at least 1 parameter: signal 'look for parameter 1'
                     else { commandState = 10; }																// unknown command: error
                     break;
 
@@ -836,7 +836,20 @@ void getCommand() {
                     else if (keyAscii == '-') { commandParam1Buffer = 10; }
                     else if (keyAscii == '+') { commandParam1Buffer = 11; }
                     else if (keyAscii == '=') { commandParam1Buffer = 12; }
-                    if (commandParam1Buffer >= 0) { commandState = 9; }										// signal 'command complete'
+                    else if ((keyAscii >= 'A') && (keyAscii <= 'Z') || (keyAscii >= 'a') && (keyAscii <= 'z')) {commandParam1Buffer = keyAscii & ~0x20;}
+
+                    if (commandParam1Buffer >= 0) {
+                        if (commandBuffer <= 199) { commandState = 9; }		                            	// command takes 1 parameter only: signal 'command complete' if command detected
+                        else { commandState = 2; }	                                                        // command takes at least one additional parameter: signal 'look for parameter'
+                    }
+                    else { commandState = 10; }																// illegal parameter value: error
+                    break;
+
+                case 2:
+                    commandParam2Buffer = -1;																// no command parameter 1 yet: read 
+                    if ((keyAscii >= '0') && (keyAscii <= '9')) { commandParam2Buffer = ((uint8_t)keyAscii & B00001111); }
+
+                    if (commandParam2Buffer >= 0) { commandState = 9; }
                     else { commandState = 10; }																// illegal parameter value: error
                     break;
 
@@ -847,6 +860,7 @@ void getCommand() {
             userCommand = commandBuffer;
 
             commandParam1 = commandParam1Buffer;
+            commandParam2 = commandParam2Buffer;
             commandState = 0;
             }
 
@@ -987,10 +1001,10 @@ void processCommand() {
                 }
             break;
 
-            // one-parameter commands
+            // two-parameter commands
         case uLedstripSelectCycle:
-            commandParamError = !(((commandParam1 >= cLedstripOff) && (commandParam1 <= cRedGreenBlue)) || (commandParam1 == 12));	// 12: equal sign
-            if ((commandParam1 >= cLedstripOff) && (commandParam1 <= cRedGreenBlue)) { setColorCycle(commandParam1); }
+            commandParamError = !(commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue);
+             if (!commandParamError) { setColorCycle(commandParam2); }
             break;
 
             // command error
@@ -1083,7 +1097,8 @@ void writeStatus() {
     else if (userCommand == uHelp) {													// print help string
         Serial.println();
         Serial.print(strcpy_P(s150, str_help1));
-        Serial.println(strcpy_P(s150, str_help2));
+        Serial.print(strcpy_P(s150, str_help2));
+        Serial.println(strcpy_P(s150, str_help3));
         Serial.println();
         }
 
@@ -1320,7 +1335,7 @@ void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullp
 // *** read a character from the hardware buttons buffer or the Serial interface ***
 
 void readKey(char* keyAscii) {								// from Serial interface and Globe keys
-    constexpr char keypressChars[6] = "-+E~~";      		// note that max 5 keys are available (hardware); ~ means no code assigned
+    constexpr char keypressChars[6] = "-+EC~";      		// note that max 5 keys are available; ~ means no code assigned
 
     *keyAscii = 0;
     int8_t key{ 0 };										// can hold negative key codes
@@ -1336,9 +1351,8 @@ void readKey(char* keyAscii) {								// from Serial interface and Globe keys
             *keyAscii = keypressChars[key - 1];
             if (*keyAscii == '~') {*keyAscii = 0;}
         }
-        else if ((key | 0x60) == -4) {                      // 'cancel' key: store 'C' or (negative key code as) hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
-            *keyAscii = key;
-            if (*keyAscii == -4) {*keyAscii = 'C';}
+        else if ((key | 0x60) == -4) {                      // 'cancel' key ? long keypress = change led cycle, extra long keypress = change cycle time
+            if (key != -4) {*keyAscii = key;}               // long key press: store (negative) key code as hash code instead of ASCII character (bit 6 = long keypress, bit 5 = extra long keypress)
         }    
     }
 
