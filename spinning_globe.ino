@@ -26,7 +26,7 @@
 
 enum userCmds :int {
     uNoCmd = -1,
-    uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp, uLedstripNextCycle, uStepResponseTest,	// cmds without parameters: 0 - 99
+    uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp, uStepResponseTest,	                    // cmds without parameters: 0 - 99
     firstOneParamCmdHere = 100,																							// cmds with 1 parameter: 100-199
     uLedstripSelectCycle = 200,																							// cmds with 2 parameters: 200-299
     uUnknownCmd = 999																									// unknown command receives code 999
@@ -287,7 +287,7 @@ constexpr uint8_t LSminBrightnessLevel{ 0x00 };										// min: 0 (LS off)
 constexpr uint8_t LSmaxBrightnessLevel{ 0x80 };										// 0x80^2 / 256 = 64 (gamma correction); max: 0xFF     
 
 // interface between ISR and main
-volatile uint8_t LScolorCycle;														// color cycle
+volatile uint8_t LScolorCycle, LScolorTiming;										// color cycle
 volatile uint8_t LSbrightness[LSbrightnessItemCount];								// brightness levels (not yet assigned to specific colors or leds)
 
 volatile uint8_t LStransitionStops;													// MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
@@ -586,7 +586,7 @@ void readKey(char* keyAscii);									// from Serial interface and on board keys
 void saveAndUseParam();
 void fetchParameterValue(char* s, int paramNo, int paramValueNo);
 void setRotationTime(int paramValueNo, bool init = false);
-void setColorCycle(int newColorCycle, bool init = false);
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false);
 
 
 
@@ -660,11 +660,15 @@ void setup()
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    eepromValue = eeprom_read_byte((uint8_t*)2);
-    eepromValue = eepromValue + eeprom_read_byte((uint8_t*)3);							// if running time after previous reset was small: switch to next ledstrip color cycle
-    eepromValue = ((eepromValue < cLedstripOff) || (eepromValue > cRedGreenBlue)) ? cLedstripOff : eepromValue;
+    eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
+    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		    		// if running time after previous reset was small: switch to next ledstrip color cycle
+    uint8_t ledstripCycle = eepromValue & 0x0F;
+    uint8_t ledstripTiming = eepromValue >> 4;
 
-    setColorCycle(eepromValue, true);
+    ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
+    ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
+
+    setColorCycle(ledstripCycle, ledstripTiming, true);
 
     cli();
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);										// flag that reset took place
@@ -992,9 +996,6 @@ void processCommand() {
             paramChangeMode = false;
             paramValueNo = ParamsSelectedValueNos[paramNo];
             break;
-        case uLedstripNextCycle:
-            setColorCycle((LScolorCycle == cRedGreenBlue) ? cLedstripOff : LScolorCycle + 1);
-            break;
         case uStepResponseTest:								// sample one-parameter command
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (printPIDtimeCounter > printPIDperiod) { printPIDtimeCounter = 0; }	// start printing: only when currently stopped
@@ -1004,7 +1005,7 @@ void processCommand() {
             // two-parameter commands
         case uLedstripSelectCycle:
             commandParamError = !(commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue);
-             if (!commandParamError) { setColorCycle(commandParam2); }
+             if (!commandParamError) { setColorCycle((uint8_t)commandParam2, LScolorTiming); }
             break;
 
             // command error
@@ -1084,7 +1085,7 @@ void writeStatus() {
         Serial.println(strcpy_P(s150, showLiveValues ? str_showLive : str_stopLive));
         }
 
-    else if ((userCommand == uLedstripSelectCycle) || (userCommand == uLedstripNextCycle)) {	// change ledstrip cycle
+    else if (userCommand == uLedstripSelectCycle) {	// change ledstrip cycle
         Serial.println();
         sprintf(s30, "%d ", LScolorCycle);
         Serial.println(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
@@ -1552,14 +1553,17 @@ void setRotationTime(int paramValueNo, bool init = false)
 
 // *** set a specific color cycle ***
 
-void setColorCycle(int newColorCycle, bool init = false)
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false)
     {
+    // very slow - number of complete cycles: 48 cycles in 23 hours 45 minutes, or 24 cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
+    long ledstripTimings[2][4] = {{30000L, 150000L, 750000, 1781L * 1000L + 250L}, { 30000L, 150000L, 750000, 3575L * 1000L }};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
-        if (init || (newColorCycle != LScolorCycle)) {
+        if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
+            LScolorTiming = newColorTiming;                                                                 // color cycle timing
             LStransitionStops = (LScolorCycle <= cWhiteBlue) ? 2L : 6L;										// no of 'frozen brightness' stops within a brightness cycle: MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
-            // number of complete cycles: 48 cycles in 23 hours 45 minutes, or 24 cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
-            LSbrightnessTransitionTime = ((LScolorCycle <= cWhiteBlue) ? 1781L * 1000L + 250L : 3575L * 1000L);		// total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times											
+            int8_t cycleType = (LScolorCycle <= cWhiteBlue) ? 0 : 1;
+            LSbrightnessTransitionTime = ledstripTimings[cycleType][newColorTiming];                        // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times											
             LSbrightnessFreezeTime = ((LScolorCycle <= cWhiteBlue) ? 0L : 0L) * 1000L;						// total 'frozen brightness' time (summed up constant brightness time between all transitions), in milli seconds (minimum = 0)
             LSbrightnessCycleTime = LSbrightnessFreezeTime + LSbrightnessTransitionTime;					// COMPLETE color cycle in milli seconds
 
