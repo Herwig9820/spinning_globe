@@ -28,7 +28,7 @@ enum userCmds :int {
     uNoCmd = -1,
     uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp, uStepResponseTest,	                    // cmds without parameters: 0 - 99
     firstOneParamCmdHere = 100,																							// cmds with 1 parameter: 100-199
-    uLedstripSelectCycle = 200,																							// cmds with 2 parameters: 200-299
+    uLedstripSettings = 200,                         																	// cmds with 2 parameters: 200-299
     uUnknownCmd = 999																									// unknown command receives code 999
     };
 
@@ -824,7 +824,7 @@ void getCommand() {
                     else if ((keyAscii == 't') || (keyAscii == 'T')) { commandBuffer = uTimeStamp; }		// time stamp (Serial output only) 
                     else if ((keyAscii == 'r') || (keyAscii == 'R')) { commandBuffer = uStepResponseTest; }	// measure step response
                     else if (keyAscii == '?') { commandBuffer = uHelp; }
-                    else if ((keyAscii == 'l') || (keyAscii == 'L')) { commandBuffer = uLedstripSelectCycle; }	// select ledstrip color cycle type
+                    else if ((keyAscii == 'l') || (keyAscii == 'L')) { commandBuffer = uLedstripSettings; }	// select ledstrip color cycle type or cycle timing
 
                     if ((commandBuffer == uPrevious) || (commandBuffer == uNext) || (commandBuffer == uEdit) || (commandBuffer == uCancel)) { commandBuffer = commandBuffer + (paramChangeMode ? 10 : 0); }
 
@@ -1003,9 +1003,13 @@ void processCommand() {
             break;
 
             // two-parameter commands
-        case uLedstripSelectCycle:
-            commandParamError = !(commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue);
+        case uLedstripSettings:
+            commandParamError = !((commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue));
              if (!commandParamError) { setColorCycle((uint8_t)commandParam2, LScolorTiming); }
+             else {
+                 commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripVeryFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
+                 if (!commandParamError) { setColorCycle((uint8_t)LScolorCycle, commandParam2 - 1); }
+             }
             break;
 
             // command error
@@ -1080,15 +1084,17 @@ void writeStatus() {
         Serial.println();
         }
 
+    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings)) {	// change ledstrip cycle
+        if (userCommand == uLedstripSettings) {Serial.println();}
+        sprintf(s30, "%d", LScolorCycle);
+        Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
+        sprintf(s30, "%d", LScolorTiming + 1);
+        Serial.println(strcat(strcpy(s150, ", timing "), s30));
+        }
+
     else if (userCommand == uLive) {													// show or stop printing live values
         Serial.println();
         Serial.println(strcpy_P(s150, showLiveValues ? str_showLive : str_stopLive));
-        }
-
-    else if (userCommand == uLedstripSelectCycle) {	// change ledstrip cycle
-        Serial.println();
-        sprintf(s30, "%d ", LScolorCycle);
-        Serial.println(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
         }
 
     else if (userCommand == uTimeStamp) {												// write time stamp (actual time)
@@ -1594,7 +1600,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
             LSminReached = 0b000;
             LSmaxReached = 0b000;
 
-            eeprom_update_byte((uint8_t*)2, (uint8_t)LScolorCycle);											// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+            eeprom_update_byte((uint8_t*)2, (uint8_t)(LScolorCycle | (LScolorTiming << 4)));				// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
         }
     }
