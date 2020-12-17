@@ -794,13 +794,6 @@ void getCommand() {
     do {
         readKey(&keyAscii);																					// from HW buttons AND from Serial
 
-
-
-        if (keyAscii < 0) {
-            Serial.print((int8_t)keyAscii);
-            keyAscii = 0;
-        }////
-
         if (keyAscii == 0) {
             return;																							// no character read
             }
@@ -1343,9 +1336,9 @@ void readKey(char* keyAscii) {								// from Serial interface and Globe keys
             *keyAscii = keypressChars[key - 1];
             if (*keyAscii == '~') {*keyAscii = 0;}
         }
-        else if ((key | 0x60) == -4) {                      // 'cancel' key: store 'C' or hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
+        else if ((key | 0x60) == -4) {                      // 'cancel' key: store 'C' or (negative key code as) hash code instead (bit 6 = extra long keypress, bit 5 = long keypress)
             *keyAscii = key;
-            if (*keyAscii = -4) {*keyAscii = 'C';}
+            if (*keyAscii == -4) {*keyAscii = 'C';}
         }    
     }
 
@@ -1661,7 +1654,8 @@ SIGNAL(TIMER1_OVF_vect) {
                 int8_t keyPressed = (buttonsPressed & pinD_firstKeyBit) ? keyNumber : -keyNumber;
                 if (keyPressed == 4) {keyDownTimer = 1;}                                 // cancel key down: enable counting
                 else if (keyPressed == -4) {                                             // cancel key up: actual function depends on keypress duration
-                    keyPressed = keyPressed - (keyDownTimer > 2000 ? 0x40 : (keyDownTimer > 700 ? 0x20 : 0x00));
+                    if (keyDownTimer > 700) {keyPressed -= 0x40;}                        // clear bit 6
+                    if (keyDownTimer > 2000) { keyPressed -= 0x20; }                     // clear bit 5 as well
                     keyDownTimer = 0;                                                    // disable counting
                 }
                 if (keysAvailable < keyBufferLength) {									// key press ignored if buffer full
