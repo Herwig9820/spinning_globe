@@ -37,7 +37,7 @@ enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMa
 // eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
 enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };				// led strip color cycle 
-enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };   				// led strip color cycle 
+enum colorTiming :uint8_t { cLedstripFast = 0, cLedstripSlow, cLedStripVerySlow };   				                    // led strip color cycle 
 
 
 // *** I/O ***
@@ -215,6 +215,7 @@ volatile bool forceStatusEvent{ false };
 volatile bool ISRoccured{ false };													// for idle time counting
 volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
+volatile bool switchesEnabledNoButtons{false};
 volatile int8_t keyBuffer[keyBufferLength]{ 0 };									// can hold negative key codes
 volatile uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
 volatile uint8_t switchStates{ 0 }, prevSwitchStates{ 0 };							// current and previous state of the board switches / buttons
@@ -639,12 +640,13 @@ void setup()
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
     prevSwitchStates = switchStates;
-
+    switchesEnabledNoButtons = (switchStates & pinD_switchStateBits) != pinD_switchStateBits;
 
     // *** retrieve settings from eeprom ***
 
     uint8_t cnt{ 0 };
     uint8_t eepromValue{ 0 };
+    uint8_t ledstripCycle{}, ledstripTiming{};
 
     eepromValue = eeprom_read_byte((uint8_t*)0);
     cnt = sizeof(rotationTimes) / sizeof(rotationTimes[0]);
@@ -660,13 +662,17 @@ void setup()
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
-    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		    		// if running time after previous reset was small: switch to next ledstrip color cycle
-    uint8_t ledstripCycle = eepromValue & 0x0F;
-    uint8_t ledstripTiming = eepromValue >> 4;
+    if (switchesEnabledNoButtons) {}
+        // //// def cycle & timing
+    else {
+        eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
+        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		    		// if running time after previous reset was small: switch to next ledstrip color cycle
+        ledstripCycle = eepromValue & 0x0F;
+        ledstripTiming = eepromValue >> 4;
+    }
 
     ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
-    ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
+    ledstripTiming = ((ledstripTiming < cLedstripFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripFast : ledstripTiming;
 
     setColorCycle(ledstripCycle, ledstripTiming, true);
 
@@ -1007,7 +1013,7 @@ void processCommand() {
             commandParamError = !((commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue));
              if (!commandParamError) { setColorCycle((uint8_t)commandParam2, LScolorTiming); }
              else {
-                 commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripVeryFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
+                 commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
                  if (!commandParamError) { setColorCycle((uint8_t)LScolorCycle, commandParam2 - 1); }
              }
             break;
@@ -1354,20 +1360,17 @@ void readKey(char* keyAscii) {								// from Serial interface and Globe keys
             keysAvailable--;
             }
 
-        if (key > 0) {                                      // convert to ASCII for common treatment with characters read from Serial
+        if (key > 0) {                                      // key press: convert to ASCII for common treatment with characters read from Serial
             *keyAscii = keypressChars[key - 1];
             if (*keyAscii == '~') {*keyAscii = 0;}
         }
-        else if ((key | 0x60) == -4) {                      // 'cancel' key ? long keypress = change led cycle, extra long keypress = change cycle time
-            if (key != -4) {*keyAscii = key;}               // long key press: store (negative) key code as hash code instead of ASCII character (bit 6 = long keypress, bit 5 = extra long keypress)
-        }    
+        else  { }                                           // key release (normal, long or extra long keypress): currently not used (throw away) 
     }
 
     if ((*keyAscii == 0) &&  (Serial.available() > 0)) {	// no character from board ? read one character from serial buffer, if available
         *keyAscii = Serial.read();
-        }
-
     }
+}
 
 
 // *** fetch a parameter value ***
@@ -1668,30 +1671,31 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((millis16bits & B1111) == 0) {													// 16 mS debounce time
         switchStates = pinDbuffer & pinD_switchStateBits;								// debounced
 
-        // produce keycode for last pushbutton pressed (+) or released (-)
-        uint8_t keyNumber = 0;
-        uint8_t buttonsActioned = ((switchStates ^ prevSwitchStates) & pinD_keyBits);	// new button press / release detected ?
-        uint8_t buttonsPressed = ((~switchStates) & prevSwitchStates & pinD_keyBits);	// button press only (no release)
-        while (buttonsActioned != 0) {													// safety (should always break)
-            keyNumber++;
-            if ((buttonsActioned & pinD_firstKeyBit) != 0) {
-                int8_t keyPressed = (buttonsPressed & pinD_firstKeyBit) ? keyNumber : -keyNumber;
-                if (keyPressed == 4) {keyDownTimer = 1;}                                 // cancel key down: enable counting
-                else if (keyPressed == -4) {                                             // cancel key up: actual function depends on keypress duration
-                    if (keyDownTimer > 700) {keyPressed -= 0x40;}                        // clear bit 6
-                    if (keyDownTimer > 2000) { keyPressed -= 0x20; }                     // clear bit 5 as well
-                    keyDownTimer = 0;                                                    // disable counting
-                }
-                if (keysAvailable < keyBufferLength) {									// key press ignored if buffer full
-                    keyBuffer[keysAvailable] = keyPressed;
-                    keysAvailable++;													// available for read
+        if (!switchesEnabledNoButtons) {
+            // produce keycode for last pushbutton pressed (+) or released (-)
+            uint8_t keyNumber = 0;
+            uint8_t buttonsActioned = ((switchStates ^ prevSwitchStates) & pinD_keyBits);	// new button press / release detected ?
+            uint8_t buttonsPressed = ((~switchStates) & prevSwitchStates & pinD_keyBits);	// button press only (no release)
+            while (buttonsActioned) {   													// press or release detected - safety (should always break)
+                keyNumber++;
+                if (buttonsActioned & pinD_firstKeyBit) {
+                    int8_t keyPressed = (buttonsPressed & pinD_firstKeyBit) ? keyNumber : -keyNumber;
+                    if (keyPressed > 0) {keyDownTimer = 1;}                                 // key press: (re-)start counting (even if currently other key down)
+                    else  {                                                                 // key release: determine keypress duration and stop counting (even if currently other key down)
+                        if (keyDownTimer > 700) {keyPressed -= 0x40;}                       // clear bit 6
+                        if (keyDownTimer > 2000) { keyPressed -= 0x20; }                    // clear bit 5 as well
+                        keyDownTimer = 0;                                                   // disable counting
                     }
-                break;
-                }
-            buttonsActioned = buttonsActioned >> 1;										// buttons pressed or released
-            buttonsPressed = buttonsPressed >> 1;										// buttons pressed
+                    if (keysAvailable < keyBufferLength) {									// key press ignored if buffer full
+                        keyBuffer[keysAvailable] = keyPressed;
+                        keysAvailable++;													// available for read
+                        }
+                    break;
+                    }
+                buttonsActioned = buttonsActioned >> 1;										// buttons pressed or released
+                buttonsPressed = buttonsPressed >> 1;										// buttons pressed
             }
-
+        }
         prevSwitchStates = switchStates;
         }
 
