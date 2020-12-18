@@ -640,7 +640,7 @@ void setup()
     PORTB = PORTB | portB_IOchannelSelectBitMask;
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
-    prevSwitchStates = switchStates;
+    prevSwitchStates = switchStates;                                                    // initially identical
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF = 'high' (if not all off, then do not connect buttons)
                                                                                         // signal SW4 is currently not used (can be switch or, if connected, button)
     // *** retrieve settings from eeprom ***
@@ -1035,14 +1035,20 @@ void processCommand() {
 // *** check switch settings ***
 
 void checkSwitches() {                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
-
-if (useButtons) {return;}
+    uint8_t newSwitchStates{};
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {											// interrupts off: interface with ISR and eeprom write
-        if (switchStates != prevSwitchStates) {
-        Serial.print("*");////
-        }
+        newSwitchStates = switchStates;
     }
+    
+    if (newSwitchStates == prevSwitchStates) {return;}
+
+    prevSwitchStates = newSwitchStates;
+    
+    // here comes code for switch SW4, if used (is never interpreted as button)
+
+    if (useButtons) { return; } // SW3 to SW0
+
 }
 
 
@@ -1638,6 +1644,7 @@ SIGNAL(TIMER1_OVF_vect) {
     uint8_t holdPortBduringInt = PORTB;													// hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
     uint8_t holdPortDduringInt = PORTD;													// hold current PORT D value (LCD driver can be updating PORT D in main loop at the time this ISR occurs) 
 
+    static uint8_t prevButtonStates{ pinD_keyBits };
     static uint16_t keyDownTimer{0};                                                    // milliseconds - onboard cancel key only
 
     // if instructed by main loop, reset hardware watchdog
@@ -1691,8 +1698,8 @@ SIGNAL(TIMER1_OVF_vect) {
         if (useButtons) {                                                                  // interpret signals SW0 to SW3 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
             // produce keycode for last pushbutton pressed (+) or released (-)
             uint8_t keyNumber = 0;
-            uint8_t buttonsActioned = ((switchStates ^ prevSwitchStates) & pinD_keyBits);	// new button press / release detected ?
-            uint8_t buttonsPressed = ((~switchStates) & prevSwitchStates & pinD_keyBits);	// button press only (no release)
+            uint8_t buttonsActioned = ((switchStates ^ prevButtonStates) & pinD_keyBits);	// new button press / release detected ?
+            uint8_t buttonsPressed = ((~switchStates) & prevButtonStates & pinD_keyBits);	// button press only (no release)
             while (buttonsActioned) {   													// press or release detected - safety (should always break)
                 keyNumber++;
                 if (buttonsActioned & pinD_firstKeyBit) {
@@ -1713,7 +1720,7 @@ SIGNAL(TIMER1_OVF_vect) {
                 buttonsPressed = buttonsPressed >> 1;										// buttons pressed
             }
         }
-        prevSwitchStates = switchStates;
+        prevButtonStates = switchStates;
         }
 
     if((keyDownTimer > 0) && (keyDownTimer <= 2000)) {keyDownTimer++;}
