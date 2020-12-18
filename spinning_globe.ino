@@ -215,7 +215,7 @@ volatile bool forceStatusEvent{ false };
 volatile bool ISRoccured{ false };													// for idle time counting
 volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
-volatile bool useButtons{false};
+volatile bool useButtons{false};                                                    // signals SW0 to SW3: interpret as switches or as buttons ?
 volatile int8_t keyBuffer[keyBufferLength]{ 0 };									// can hold negative key codes
 volatile uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
 volatile uint8_t switchStates{ 0 }, prevSwitchStates{ 0 };							// current and previous state of the board switches / buttons
@@ -576,6 +576,7 @@ void getISRevent();												// copy one ISR event (greenwich, status change, 
 void getCommand();												// parse one user command - exit if no more characters available or command is complete 
 void processEvent();											// process one event, if available
 void processCommand();											// process one user command, if available
+void checkSwitches();                                           // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
 void writeStatus();												// print on event or on command
 void writeParamLabelAndValue();									// print on event or on command
 void writeLedStrip();											// apply gamma correction and write led strip
@@ -640,8 +641,8 @@ void setup()
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
     prevSwitchStates = switchStates;
-    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // no switches in the ON (= low) position
-
+    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF = 'high' (if not all off, then do not connect buttons)
+                                                                                        // signal SW4 is currently not used (can be switch or, if connected, button)
     // *** retrieve settings from eeprom ***
 
     uint8_t cnt{ 0 };
@@ -723,8 +724,9 @@ void loop()
     getEventOrUserCommand();								// get ONE event or assembled user command, exit anyway if none available
     processEvent();											// process event, if availale
     processCommand();										// process command, if available
-    writeStatus();											// print on event or on command, if available
-    writeParamLabelAndValue();								// print on event or on command, if available
+    checkSwitches();                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+    writeStatus();											// print status to Serial and LCD (if connected)
+    writeParamLabelAndValue();								// print parameter label and value to Serial and LCD (if connected)
     writeLedStrip();										// write ledstrip on event		
     myEvents.removeOldestChunk(ISRevent != eNoEvent);		// has an event been processed now ? remove from message queue
 
@@ -1028,6 +1030,20 @@ void processCommand() {
 
     if (commandParamError) { userCommand = uUnknownCmd; }	// command parameter error
     }
+
+
+// *** check switch settings ***
+
+void checkSwitches() {                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+
+if (useButtons) {return;}
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {											// interrupts off: interface with ISR and eeprom write
+        if (switchStates != prevSwitchStates) {
+        Serial.print("*");////
+        }
+    }
+}
 
 
 // *** write status and other info to lcd and Serial ***
@@ -1672,7 +1688,7 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((millis16bits & B1111) == 0) {													    // 16 mS debounce time
         switchStates = pinDbuffer & pinD_switchStateBits;								    // debounced
 
-        if (useButtons) {                                                                  // use buttons (corresponding switches should remain in the OFF (= high) position)
+        if (useButtons) {                                                                  // interpret signals SW0 to SW3 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
             // produce keycode for last pushbutton pressed (+) or released (-)
             uint8_t keyNumber = 0;
             uint8_t buttonsActioned = ((switchStates ^ prevSwitchStates) & pinD_keyBits);	// new button press / release detected ?
