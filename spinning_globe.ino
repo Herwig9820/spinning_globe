@@ -215,7 +215,7 @@ volatile bool forceStatusEvent{ false };
 volatile bool ISRoccured{ false };													// for idle time counting
 volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
-volatile bool switchesEnabledNoButtons{false};
+volatile bool useButtons{false};
 volatile int8_t keyBuffer[keyBufferLength]{ 0 };									// can hold negative key codes
 volatile uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
 volatile uint8_t switchStates{ 0 }, prevSwitchStates{ 0 };							// current and previous state of the board switches / buttons
@@ -640,7 +640,7 @@ void setup()
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
     prevSwitchStates = switchStates;
-    switchesEnabledNoButtons = (switchStates & pinD_switchStateBits) != pinD_switchStateBits;
+    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // no switches in the ON (= low) position
 
     // *** retrieve settings from eeprom ***
 
@@ -662,13 +662,14 @@ void setup()
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    if (switchesEnabledNoButtons) {}
-        // //// def cycle & timing
-    else {
-        eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
-        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		    		// if running time after previous reset was small: switch to next ledstrip color cycle
+    if (useButtons) {                                                                   // restore ledstrip cycle & timing from eeprom
+        eepromValue = eeprom_read_byte((uint8_t*)2);                                    // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
+        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		// if running time after previous reset was small: switch to next ledstrip color cycle
         ledstripCycle = eepromValue & 0x0F;
         ledstripTiming = eepromValue >> 4;
+    }
+    else {                                                                              // read ledstrip cycle & timing from switches 
+        // //// def cycle & timing
     }
 
     ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
@@ -1225,7 +1226,7 @@ void writeLedStrip() {
             LScolor[i + 1] = brGamma;													// byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by ledstrip hardware)										
             }
 
-        if ((LScolorCycle == cCstBrightWhite) || (LScolorCycle == cCstBrightBlue)) {	// constant blue 
+        if ((LScolorCycle == cCstBrightWhite) || (LScolorCycle == cCstBrightBlue)) {	// constant white or blue 
             LScolor[1] = maxBrightnessGamma;											// green: minimum brightness
             LScolor[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;					// green: minimum brightness
             LScolor[3] = LScolor[2];													// red: minimum brightness
@@ -1644,34 +1645,34 @@ SIGNAL(TIMER1_OVF_vect) {
     // measure vertical position: initiate ADC conversion hall sensor value (always at the same time relative to timer 1 overflow: do it now)
     // NOTE: ISR should start at timer 1 overflow, but can be slightly delayed (< 10 microseconds) because of idle loop ...
     // ... and other places where interrupts are briefly disabled
-    ADMUX = (B01 << REFS0) | (B0000 << MUX0);											// internal Nano 5 Volt reference, port A0
-    ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADIE) | (B111 << ADPS0);				// enable ADC, start conversion, enable interrupt at completion, prescaler factor 128
-    ADCisTemp = false;																	// indicate this is a hall sensor measurement (not a temperature measurment)
+    ADMUX = (B01 << REFS0) | (B0000 << MUX0);											    // internal Nano 5 Volt reference, port A0
+    ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADIE) | (B111 << ADPS0);				    // enable ADC, start conversion, enable interrupt at completion, prescaler factor 128
+    ADCisTemp = false;																	    // indicate this is a hall sensor measurement (not a temperature measurment)
 
 
     // read switches and greenwich position sensor
-    PORTD = PORTD | B11111100;															// PORT D pins 2 to 7: prepare to enable pull ups	
-    DDRD = DDRD & B00000011;															// PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
+    PORTD = PORTD | B11111100;															    // PORT D pins 2 to 7: prepare to enable pull ups	
+    DDRD = DDRD & B00000011;															    // PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
 
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		// PORT B bits 432: select switch buffers
-    PORTC = (PORTC & ~portC_IOdisableBit);												// enable switch buffers
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		    // PORT B bits 432: select switch buffers
+    PORTC = (PORTC & ~portC_IOdisableBit);												    // enable switch buffers
 
-    pinDbuffer = PIND;																	// read switches twice (stall) - allow for setup time (see Atmel data sheet)
+    pinDbuffer = PIND;																	    // read switches twice (stall) - allow for setup time (see Atmel data sheet)
     pinDbuffer = PIND; // (read twice)
 
-    PORTC = (PORTC | portC_IOdisableBit);												// disable switch buffers
+    PORTC = (PORTC | portC_IOdisableBit);											    	// disable switch buffers
 
-    DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
+    DDRD = DDRD | B11111100;														    	// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
-    PORTB = holdPortBduringInt;															// restore port B contents
-    PORTD = holdPortDduringInt;															// restore port D contents
+    PORTB = holdPortBduringInt;														    	// restore port B contents
+    PORTD = holdPortDduringInt;															    // restore port D contents
 
 
     // debounce switches / keys and produce (1) switch states and (2) keycodes for pressed / released keys
-    if ((millis16bits & B1111) == 0) {													// 16 mS debounce time
-        switchStates = pinDbuffer & pinD_switchStateBits;								// debounced
+    if ((millis16bits & B1111) == 0) {													    // 16 mS debounce time
+        switchStates = pinDbuffer & pinD_switchStateBits;								    // debounced
 
-        if (!switchesEnabledNoButtons) {
+        if (useButtons) {                                                                  // use buttons (corresponding switches should remain in the OFF (= high) position)
             // produce keycode for last pushbutton pressed (+) or released (-)
             uint8_t keyNumber = 0;
             uint8_t buttonsActioned = ((switchStates ^ prevSwitchStates) & pinD_keyBits);	// new button press / release detected ?
@@ -1708,7 +1709,7 @@ SIGNAL(TIMER1_OVF_vect) {
         second++;
         }
 
-    millis16bits++;																		// let it overflow
+    millis16bits++;																		    // let it overflow
     }
 
 
