@@ -36,7 +36,7 @@ enum rotStatus :uint8_t { rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocke
 enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMagnetLoad, errTemp };
 // eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
 enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
-enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };				// led strip color cycle 
+enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };				// led strip color cycle 
 enum colorTiming :uint8_t { cLedstripFast = 0, cLedstripSlow, cLedStripVerySlow };   				                    // led strip color cycle 
 
 
@@ -204,6 +204,7 @@ constexpr long oneSecondCount{ 1000L }, blinkTimeCount{ 800 };						// milli sec
 constexpr long spareTimeCount{ 500 };												// milli seconds
 
 bool showLiveValues{ true };
+uint8_t currentSwitchStates{};
 uint8_t ISRevent{ eNoEvent };														// current ISR event retrieved for processing in main loop
 int userCommand{ uNoCmd }, commandParam1, commandParam2;
 float idleLoopMicrosSmooth{ 0 }, magnetOnCyclesSmooth{ 0 }, ISRdurationSmooth{ 0 };	// values smoothed by first order filter
@@ -576,12 +577,13 @@ void getISRevent();												// copy one ISR event (greenwich, status change, 
 void getCommand();												// parse one user command - exit if no more characters available or command is complete 
 void processEvent();											// process one event, if available
 void processCommand();											// process one user command, if available
-void checkSwitches();                                           // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+void checkSwitches(bool init = false);                          // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
 void writeStatus();												// print on event or on command
 void writeParamLabelAndValue();									// print on event or on command
 void writeLedStrip();											// apply gamma correction and write led strip
 void LSout(uint8_t* led, uint8_t* ledstripMasks);				// write led strip
 void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = 0b111);		// write one ledstrip led
+void idleLoop();
 
 void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
 void readKey(char* keyAscii);									// from Serial interface and on board keys
@@ -626,7 +628,7 @@ void setup()
     PORTB = PORTB | portB_IOchannelSelectBitMask;
 
 
-    // *** read initial switch status ***
+    // *** read initial switch status and adapt settings accordingly ***
 
     PORTD = PORTD | B11111100;															// PORT D pins 2 to 7: prepare to enable pull ups	
     DDRD = DDRD & B00000011;															// PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
@@ -640,10 +642,8 @@ void setup()
     PORTB = PORTB | portB_IOchannelSelectBitMask;
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
-    prevSwitchStates = switchStates;                                                    // initially identical
-    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF = 'high' (if not all off, then do not connect buttons)
-                                                                                        // signal SW4 is currently not used (can be switch or, if connected, button)
-    // *** retrieve settings from eeprom ***
+
+    // *** retrieve settings from eeprom and switches ***
 
     uint8_t cnt{ 0 };
     uint8_t eepromValue{ 0 };
@@ -663,20 +663,17 @@ void setup()
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    if (useButtons) {                                                                   // restore ledstrip cycle & timing from eeprom
-        eepromValue = eeprom_read_byte((uint8_t*)2);                                    // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
-        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		// if running time after previous reset was small: switch to next ledstrip color cycle
-        ledstripCycle = eepromValue & 0x0F;
-        ledstripTiming = eepromValue >> 4;
-    }
-    else {                                                                              // read ledstrip cycle & timing from switches 
-        // //// def cycle & timing
-    }
-
+    // restore ledstrip cycle & timing from eeprom: if buttons active but also default in case invalid (spare) ledstrip switch settings 
+    eepromValue = eeprom_read_byte((uint8_t*)2);                                    // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
+    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		// if running time after previous reset was small: switch to next ledstrip color cycle
+    ledstripCycle = eepromValue & 0x0F;
+    ledstripTiming = eepromValue >> 4;
     ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
     ledstripTiming = ((ledstripTiming < cLedstripFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripFast : ledstripTiming;
-
     setColorCycle(ledstripCycle, ledstripTiming, true);
+
+    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
+    checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
 
     cli();
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);										// flag that reset took place
@@ -1034,21 +1031,36 @@ void processCommand() {
 
 // *** check switch settings ***
 
-void checkSwitches() {                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
-    uint8_t newSwitchStates{};
+void checkSwitches(bool init = false) {                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {											// interrupts off: interface with ISR and eeprom write
-        newSwitchStates = switchStates;
+        currentSwitchStates = switchStates;
     }
     
-    if (newSwitchStates == prevSwitchStates) {return;}
-
-    prevSwitchStates = newSwitchStates;
+    if (init || (currentSwitchStates != prevSwitchStates)) {
+        prevSwitchStates = currentSwitchStates;
     
-    // here comes code for switch SW4, if used (is never interpreted as button)
+        // here comes code for switch SW4, if used (is never interpreted as button)
 
-    if (useButtons) { return; } // SW3 to SW0
+        if (useButtons) { return; }         // if signals SW3 to SW0 = 1111 (switches OFF) after reset, signals are interpreted as buttons
+        
+        // SW0 to SW3: set ledstrip cycle and timing (only set if valid (used) switch setting
+        // bit 3210: 
+        // 00cc -> color cycle 0 to 3 (OFF or cst color), do not change ledstrip timing
+        // 01tt -> color cycle 4 (white blue), timing 1 to 4
+        // 10tt -> color cycle 5 (red green blue), timing 1 to 4
+        // 11xx -> do not change ledstrip cycle and timing
 
+        uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
+        if (sw <= 3) {                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
+            setColorCycle(sw, LScolorTiming, init);     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+        }
+        else if (sw <= B00001011) {     // ledstrip sequence white blue or red green blue : set cycle and timing
+            uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
+            uint8_t colorTiming = (sw & B00000011);
+            setColorCycle(colorCycle, colorTiming, init);
+        }
+    }
 }
 
 
@@ -1239,7 +1251,7 @@ void writeLedStrip() {
     if (ISRevent != eLedstripData) { return; }											// no change in brightness values 
 
     uint8_t LScolor[4]{ 0xFF, 0x00, 0x00, 0x00 };										// for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected
-    uint8_t ledstripMasks[3]{ 0b10100101, 0b10100101, 0b10100101 };						// RGB ledstrip mask (8 leds) for red, green, blue colors
+    uint8_t ledstripMasks[3]{ 0b10100101, 0b10100101, 0b10100101 };						// RGB ledstrip mask (8 leds) for red, green, blue colors, in this order 
 
     if (ledstripDataPtr->LSupdate) {													// brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
@@ -1248,10 +1260,10 @@ void writeLedStrip() {
             LScolor[i + 1] = brGamma;													// byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by ledstrip hardware)										
             }
 
-        if ((LScolorCycle == cCstBrightWhite) || (LScolorCycle == cCstBrightBlue)) {	// constant white or blue 
-            LScolor[1] = maxBrightnessGamma;											// green: minimum brightness
-            LScolor[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;					// green: minimum brightness
-            LScolor[3] = LScolor[2];													// red: minimum brightness
+        if ((LScolorCycle >= cCstBrightWhite) && (LScolorCycle <= cCstBrightBlue)) {	// constant color (white, magenta, blue) 
+            LScolor[1] = maxBrightnessGamma;											// blue: minimum brightness
+            LScolor[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;		// green: minimum brightness except if led color is white
+            LScolor[3] = (LScolorCycle != cCstBrightBlue) ? maxBrightnessGamma : minBrightnessGamma;		// red: minimum brightness except if led color is white or magenta
             }
 
         else if (LScolorCycle == cWhiteBlue) {											// white > blue
