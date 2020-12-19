@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 6/12/2020
+    Created:    10/08/2019 - 19/12/2020
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -37,7 +37,7 @@ enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMa
 // eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
 enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };				// led strip color cycle 
-enum colorTiming :uint8_t { cLedstripFast = 0, cLedstripSlow, cLedStripVerySlow };   				                    // led strip color cycle 
+enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };   				                    // led strip color cycle 
 
 
 // *** I/O ***
@@ -164,7 +164,7 @@ const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_
 
 // *** user selectable parameter values ***
 
-long rotationTimes[] = { 750, 900, 1200, 1500, 1800, 2400, 3000, 4500, 6000, 7500, 9000, 12000, 0 };	// must be divisible by 12 (steps), 0 means OFF
+long rotationTimes[] = { 3000, 4500, 6000, 7500, 9000, 12000, 0 };	                                    // must be divisible by 12 (steps), 0 means OFF
 long hallMilliVolts[] = { 1000, 1250, 1500, 1750, 2000 };												// ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
                                                                                                         // 1000 mV minimum, because required margin for 'floating' status detection
 
@@ -664,13 +664,13 @@ void setup()
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
     // restore ledstrip cycle & timing from eeprom: if buttons active but also default in case invalid (spare) ledstrip switch settings 
-    eepromValue = eeprom_read_byte((uint8_t*)2);                                    // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
-    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		// if running time after previous reset was small: switch to next ledstrip color cycle
+    eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
+    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		    // if running time after previous reset was small: switch to next ledstrip color cycle
     ledstripCycle = eepromValue & 0x0F;
     ledstripTiming = eepromValue >> 4;
     ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
-    ledstripTiming = ((ledstripTiming < cLedstripFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripFast : ledstripTiming;
-    setColorCycle(ledstripCycle, ledstripTiming, true);
+    ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
+    setColorCycle(ledstripCycle, ledstripTiming, true);                                 // and store in eeprom
 
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
     checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
@@ -679,7 +679,7 @@ void setup()
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);										// flag that reset took place
     sei();
 
-    paramNo = 0;																		//initial setting to display: rotation time
+    paramNo = 0;																		// initial setting to display: rotation time
     paramValueNo = ParamsSelectedValueNos[paramNo];
 
 
@@ -797,7 +797,7 @@ void getCommand() {
     // commandState: 0 = wait for new command, 1 = wait for command parameter 1, 9 = command complete, 10 = command error
 
 
-    constexpr bool enterCmdUsingSeparators{ false }; // enter with separators: not useful because Globe keyboard has no keys to type in separators and CR
+    constexpr bool enterCmdUsingSeparators{ false };    // enter with separators: not useful because Globe keyboard has no keys to type in separators and CR
     char keyAscii{ 0 };
 
     static int commandBuffer{ 0 }, commandParam1Buffer{ 0 }, commandParam2Buffer{ 0 }, commandState{ 0 };
@@ -813,7 +813,7 @@ void getCommand() {
 
         bool ignoreChar = ((keyAscii == 0x20) || (keyAscii == 0x0D) || (keyAscii == 0x0A)) && !enterCmdUsingSeparators; // space, CR, LF characters
 
-        if (keyAscii == 0x1B) {																				// use ESC as abort character
+        if ((keyAscii == 0x1B) || (keyAscii == '/')) {														// use ESC and '/' as abort characters
             commandState = 0;																				// abort: wait for new command
             }
 
@@ -1013,7 +1013,7 @@ void processCommand() {
             commandParamError = !((commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue));
              if (!commandParamError) { setColorCycle((uint8_t)commandParam2, LScolorTiming); }
              else {
-                 commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
+                 commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripVeryFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
                  if (!commandParamError) { setColorCycle((uint8_t)LScolorCycle, commandParam2 - 1); }
              }
             break;
@@ -1129,8 +1129,11 @@ void writeStatus() {
         if (userCommand == uLedstripSettings) {Serial.println();}
         sprintf(s30, "%d", LScolorCycle);
         Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
-        sprintf(s30, "%d", LScolorTiming + 1);
-        Serial.println(strcat(strcpy(s150, ", timing "), s30));
+        if (LScolorCycle >= cWhiteBlue) {
+            sprintf(s30, "%d", LScolorTiming + 1);
+            Serial.println(strcat(strcpy(s150, ", timing "), s30));
+            }
+        else {Serial.println();}
         }
 
     else if (userCommand == uLive) {													// show or stop printing live values
@@ -1599,8 +1602,10 @@ void setRotationTime(int paramValueNo, bool init = false)
 
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false)
     {
+    // ledstrip timing is only relevant for non-cst ledstrip cycles
+    // very fast: 1 cycle every 30 seconds; fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle)  
     // very slow - number of complete cycles: 48 cycles in 23 hours 45 minutes, or 24 cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
-    long ledstripTimings[2][4] = {{30000L, 150000L, 750000, 1781L * 1000L + 250L}, { 30000L, 150000L, 750000, 3575L * 1000L }};
+    long ledstripTimings[2][4] = {{30 * 1000L, 150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L}, { 30 * 1000L, 180 * 1000L, 900 * 1000L, 3575 * 1000L }};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
         if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
