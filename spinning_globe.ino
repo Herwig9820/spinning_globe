@@ -813,7 +813,7 @@ void getCommand() {
 
         bool ignoreChar = ((keyAscii == 0x20) || (keyAscii == 0x0D) || (keyAscii == 0x0A)) && !enterCmdUsingSeparators; // space, CR, LF characters
 
-        if ((keyAscii == 0x1B) || (keyAscii == '/')) {														// use ESC and '/' as abort characters
+        if ((keyAscii == 0x1B) || (keyAscii == '/')) {														// use ESC or '/' as abort characters
             commandState = 0;																				// abort: wait for new command
             }
 
@@ -1031,9 +1031,9 @@ void processCommand() {
 
 // *** check switch settings ***
 
-void checkSwitches(bool init = false) {                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+void checkSwitches(bool init = false) {                                 // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {											// interrupts off: interface with ISR and eeprom write
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {				        		    // interrupts off: interface with ISR and eeprom write
         currentSwitchStates = switchStates;
     }
     
@@ -1042,7 +1042,7 @@ void checkSwitches(bool init = false) {                                        /
     
         // here comes code for switch SW4, if used (is never interpreted as button)
 
-        if (useButtons) { return; }         // if signals SW3 to SW0 = 1111 (switches OFF) after reset, signals are interpreted as buttons
+        if (useButtons) { return; }                                     // if signals SW3 to SW0 = 1111 (switches OFF) after reset, signals are interpreted as buttons
         
         // SW0 to SW3: set ledstrip cycle and timing (only set if valid (used) switch setting
         // bit 3210: 
@@ -1052,10 +1052,10 @@ void checkSwitches(bool init = false) {                                        /
         // 11xx -> do not change ledstrip cycle and timing
 
         uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
-        if (sw <= 3) {                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
-            setColorCycle(sw, LScolorTiming, init);     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+        if (sw <= 3) {                                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
+            setColorCycle(sw, LScolorTiming, init);                     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
         }
-        else if (sw <= B00001011) {     // ledstrip sequence white blue or red green blue : set cycle and timing
+        else if (sw <= B00001011) {                                     // ledstrip sequence white blue or red green blue : set cycle and timing
             uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
             uint8_t colorTiming = (sw & B00000011);
             setColorCycle(colorCycle, colorTiming, init);
@@ -1125,7 +1125,7 @@ void writeStatus() {
         Serial.println();
         }
 
-    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings)) {	// change ledstrip cycle
+    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings)) {	            // change ledstrip cycle
         if (userCommand == uLedstripSettings) {Serial.println();}
         sprintf(s30, "%d", LScolorCycle);
         Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
@@ -1288,7 +1288,7 @@ void writeLedStrip() {
 
 // *** send ledstrip data to hardware ***
 
-void LSout(uint8_t* led, uint8_t* ledstripMasks) {					// output data to ledstrip 
+void LSout(uint8_t* led, uint8_t* ledstripMasks) {					                    // output data to ledstrip 
     uint8_t startFrame[4]{ 0, 0, 0, 0 }, colorOffAndEndFrame[4]{ 0xFF, 0, 0, 0 };		// brightness, blue, green, red
 
     // NOTE: only Port C 'IO disable' and, if applicable, 'ledstrip data' bits, should be written to (altered) by ledstrip routines
@@ -1339,7 +1339,7 @@ void idleLoop() {
     do {																		// relies on (delta T between two loops << 1000 micro seconds), no need to check for timer 1 overflow (TOV1) as in class MyTime
         uint8_t oldSREG = SREG;
         cli();																	// do not interrupt time counting loop
-        bool workPending = ((myEvents.isEventsWaiting()) || (keysAvailable > 0)		// need to exit idle loop because ... (NOTE: use LIVE eventStats here in order to detect newly occuring events)
+        bool workPending = ((myEvents.isEventsWaiting()) || (keysAvailable > 0)	// need to exit idle loop because ... (NOTE: use LIVE eventStats here in order to detect newly occuring events)
             || (Serial.available() > 0));										// (1) there is something to do (possibly as a result from previous interrupts): 
         stopCountingTime = (workPending || ISRoccured);							// (2) interrupt occured (flag set in ISR) and the ISR duration may not be added to the idle time 
                                                                                 // this only works for 'my' interrupts, other interrupts (e.g. timer 0) are missed as they don't set ISRoccured, resulting in a small error	
@@ -1552,8 +1552,8 @@ void saveAndUseParam()
 
 void setRotationTime(int paramValueNo, bool init = false)
     {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {											// interrupts off: interface with ISR and eeprom write
-        constexpr int paramNo = 0;												// 0: rotation time
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {										// interrupts off: interface with ISR and eeprom write
+        constexpr int paramNo = 0;											// 0: rotation time
         long old = targetGlobeRotationTime;
 
         targetGlobeRotationTime = *(paramValueSets[paramNo] + paramValueNo);
@@ -1658,24 +1658,24 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
 
 SIGNAL(TIMER1_OVF_vect) {
 
-    uint8_t holdPortBduringInt = PORTB;													// hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
-    uint8_t holdPortDduringInt = PORTD;													// hold current PORT D value (LCD driver can be updating PORT D in main loop at the time this ISR occurs) 
+    uint8_t holdPortBduringInt = PORTB;												    	// hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
+    uint8_t holdPortDduringInt = PORTD;												    	// hold current PORT D value (LCD driver can be updating PORT D in main loop at the time this ISR occurs) 
 
     static uint8_t prevButtonStates{ pinD_keyBits };
-    static uint16_t keyDownTimer{0};                                                    // milliseconds - onboard cancel key only
+    static uint16_t keyDownTimer{0};                                                        // milliseconds - onboard cancel key only
 
     // if instructed by main loop, reset hardware watchdog
     // for testing purposes, this indicates the occurence of the timer 1 overflow event as well
 
-    if (resetHWwatchDog) {																// HW watchdog is reset by square wave generated
-        portDbuffer = portDbuffer | portD_interruptInProgressBit;						// this signals occurence of the timer 1 overflow event as well (for testing purposes)
+    if (resetHWwatchDog) {																    // HW watchdog is reset by square wave generated
+        portDbuffer = portDbuffer | portD_interruptInProgressBit;						    // this signals occurence of the timer 1 overflow event as well (for testing purposes)
         }
-    else { portDbuffer = portDbuffer & ~portD_interruptInProgressBit; }					// watchdog not reset (indicates software or hardware issue)
+    else { portDbuffer = portDbuffer & ~portD_interruptInProgressBit; }					    // watchdog not reset (indicates software or hardware issue)
     resetHWwatchDog = false;
     PORTD = portDbuffer;
 
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);		// PORT B bits 432: select aux flip flops
-    PORTC = (PORTC & ~portC_IOdisableBit);												// clock signal for aux flip flops LOW then HIGH
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);		    // PORT B bits 432: select aux flip flops
+    PORTC = (PORTC & ~portC_IOdisableBit);												    // clock signal for aux flip flops LOW then HIGH
     PORTC = (PORTC | portC_IOdisableBit);
 
 
@@ -1712,7 +1712,7 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((millis16bits & B1111) == 0) {													    // 16 mS debounce time
         switchStates = pinDbuffer & pinD_switchStateBits;								    // debounced
 
-        if (useButtons) {                                                                  // interpret signals SW0 to SW3 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
+        if (useButtons) {                                                                   // interpret signals SW0 to SW3 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
             // produce keycode for last pushbutton pressed (+) or released (-)
             uint8_t keyNumber = 0;
             uint8_t buttonsActioned = ((switchStates ^ prevButtonStates) & pinD_keyBits);	// new button press / release detected ?
