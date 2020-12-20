@@ -164,7 +164,7 @@ const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_
 
 // *** user selectable parameter values ***
 
-long rotationTimes[] = { 2400, 3000, 4500, 6000, 7500, 9000, 12000, 0 };	            // must be divisible by 12 (steps), 0 means OFF
+long rotationTimes[] = { 0, 12000, 9000, 7500, 6000, 4500, 3000, 2400 };	            // must be divisible by 12 (steps), 0 means OFF
 long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800, 2000 };						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
                                                                                         // 1000 mV minimum, because required margin for 'floating' status detection
 
