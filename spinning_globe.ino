@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 19/12/2020
+    Created:    10/08/2019 - 20/12/2020
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -164,18 +164,18 @@ const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_
 
 // *** user selectable parameter values ***
 
-long rotationTimes[] = { 3000, 4500, 6000, 7500, 9000, 12000, 0 };	                                    // must be divisible by 12 (steps), 0 means OFF
-long hallMilliVolts[] = { 1000, 1250, 1500, 1750, 2000 };												// ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
-                                                                                                        // 1000 mV minimum, because required margin for 'floating' status detection
+long rotationTimes[] = { 2400, 3000, 4500, 6000, 7500, 9000, 12000, 0 };	            // must be divisible by 12 (steps), 0 means OFF
+long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800, 2000 };						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
+                                                                                        // 1000 mV minimum, because required margin for 'floating' status detection
 
 constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0, sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0 };	// 0 if no value list for parameter
 constexpr long* paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr };	// nullptr if no value list for parameter
-int ParamsSelectedValueNos[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1 };					// -1 if display only (no changeable parameter); otherwise default if eeprom not used to store values 
+int ParamsSelectedValueNos[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1 };    // -1 if display only (no changeable parameter); otherwise default if eeprom not used to store values 
 
 constexpr int paramCount = sizeof(paramLabels) / sizeof(paramLabels[0]);
 
 bool paramChangeMode{ false };
-int paramNo{ 0 }, paramValueNo{ 0 }, valueCount{ 0 };
+int paramNo{ 0 }, paramValueNo{ 0 };
 
 
 // *** strings ***
@@ -204,6 +204,7 @@ constexpr long oneSecondCount{ 1000L }, blinkTimeCount{ 800 };						// milli sec
 constexpr long spareTimeCount{ 500 };												// milli seconds
 
 bool showLiveValues{ true };
+bool writeLedstripSpecs{false};
 uint8_t currentSwitchStates{};
 uint8_t ISRevent{ eNoEvent };														// current ISR event retrieved for processing in main loop
 int userCommand{ uNoCmd }, commandParam1, commandParam2;
@@ -216,7 +217,8 @@ volatile bool forceStatusEvent{ false };
 volatile bool ISRoccured{ false };													// for idle time counting
 volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
-volatile bool useButtons{false};                                                    // signals SW0 to SW3: interpret as switches or as buttons ?
+volatile bool useButtons{false};                                                    // signals SW3 to SW0: interpret as buttons ?
+volatile bool switchesSetRotationTime{false}, switchesSetLedstrip{false};           // signals SW3 to SW0: interpret as switches for specific settings ?
 volatile int8_t keyBuffer[keyBufferLength]{ 0 };									// can hold negative key codes
 volatile uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
 volatile uint8_t switchStates{ 0 }, prevSwitchStates{ 0 };							// current and previous state of the board switches / buttons
@@ -577,12 +579,12 @@ void getISRevent();												// copy one ISR event (greenwich, status change, 
 void getCommand();												// parse one user command - exit if no more characters available or command is complete 
 void processEvent();											// process one event, if available
 void processCommand();											// process one user command, if available
-void checkSwitches(bool init = false);                          // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 void writeStatus();												// print on event or on command
 void writeParamLabelAndValue();									// print on event or on command
 void writeLedStrip();											// apply gamma correction and write led strip
 void LSout(uint8_t* led, uint8_t* ledstripMasks);				// write led strip
-void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = 0b111);		// write one ledstrip led
+void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);		// write one ledstrip led
 void idleLoop();
 
 void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
@@ -642,7 +644,7 @@ void setup()
     PORTB = PORTB | portB_IOchannelSelectBitMask;
     DDRD = DDRD | B11111100;															// PORT D pins 2 to 7: outputs (pins 0 and 1: serial I/O)
 
-
+    
     // *** retrieve settings from eeprom and switches ***
 
     uint8_t cnt{ 0 };
@@ -651,13 +653,13 @@ void setup()
 
     eepromValue = eeprom_read_byte((uint8_t*)0);
     cnt = sizeof(rotationTimes) / sizeof(rotationTimes[0]);
-    eepromValue = ((eepromValue <= 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
+    eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
     ParamsSelectedValueNos[0] = eepromValue;
-    setRotationTime(eepromValue, true);
+    setRotationTime(eepromValue, true);                                                 // set rotation time and store in eeprom
 
     eepromValue = eeprom_read_byte((uint8_t*)1);
     cnt = sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]);
-    eepromValue = ((eepromValue <= 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
+    eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
     ParamsSelectedValueNos[7] = eepromValue;
     long hallmVoltRef = hallMilliVolts[eepromValue];									// globe vertical position ref in mVolt (after analog amplification)
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
@@ -665,14 +667,18 @@ void setup()
 
     // restore ledstrip cycle & timing from eeprom: if buttons active but also default in case invalid (spare) ledstrip switch settings 
     eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
-    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & 0x01);		  		    // if running time after previous reset was small: switch to next ledstrip color cycle
-    ledstripCycle = eepromValue & 0x0F;
+    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);	    // if running time after previous reset was small: switch to next ledstrip color cycle
+    ledstripCycle = eepromValue & (uint8_t)0x0F;
     ledstripTiming = eepromValue >> 4;
     ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
     ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
-    setColorCycle(ledstripCycle, ledstripTiming, true);                                 // and store in eeprom
+    setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set ledstrip cycle and timing and store in eeprom
 
-    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW0 to SW3: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
+    // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches (do not connect buttons then)
+    switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program ledstrip
+    switchesSetRotationTime = ((switchStates & pinD_keyBits)>>2) == (uint8_t)0x01;      // signals SW3 to SW0: interpret as switches and use to program rotation time
+    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
+    
     checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
 
     cli();
@@ -721,7 +727,7 @@ void loop()
     getEventOrUserCommand();								// get ONE event or assembled user command, exit anyway if none available
     processEvent();											// process event, if availale
     processCommand();										// process command, if available
-    checkSwitches();                                        // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+    checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
     writeStatus();											// print status to Serial and LCD (if connected)
     writeParamLabelAndValue();								// print parameter label and value to Serial and LCD (if connected)
     writeLedStrip();										// write ledstrip on event		
@@ -811,9 +817,9 @@ void getCommand() {
             return;																							// no character read
             }
 
-        bool ignoreChar = ((keyAscii == 0x20) || (keyAscii == 0x0D) || (keyAscii == 0x0A)) && !enterCmdUsingSeparators; // space, CR, LF characters
+        bool ignoreChar = ((keyAscii == (char)0x20) || (keyAscii == (char)0x0D) || (keyAscii == (char)0x0A)) && !enterCmdUsingSeparators; // space, CR, LF characters
 
-        if ((keyAscii == 0x1B) || (keyAscii == '/')) {														// use ESC or '/' as abort characters
+        if ((keyAscii == (char)0x1B) || (keyAscii == '/')) {												// use ESC or '/' as abort characters
             commandState = 0;																				// abort: wait for new command
             }
 
@@ -955,6 +961,7 @@ void processCommand() {
 
     bool commandParamError{ false };
     bool doSaveParams{ false };
+    int valueCount;
 
     switch (userCommand) {
         // zero-parameter commands
@@ -1031,34 +1038,45 @@ void processCommand() {
 
 // *** check switch settings ***
 
-void checkSwitches(bool init = false) {                                 // if SW0 to SW3 to be interpreted as switches only (instead of buttons)
+void checkSwitches(bool forceSwitchCheck = false) {                         // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {				        		    // interrupts off: interface with ISR and eeprom write
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {				        		        // interrupts off to read switch setting: interface with ISR and eeprom write
         currentSwitchStates = switchStates;
     }
     
-    if (init || (currentSwitchStates != prevSwitchStates)) {
+    if (forceSwitchCheck || (currentSwitchStates != prevSwitchStates)) {
         prevSwitchStates = currentSwitchStates;
     
-        // here comes code for switch SW4, if used (is never interpreted as button)
+        // here comes code for signal SW4, if used (is never interpreted as button)
+        // ...
 
-        if (useButtons) { return; }                                     // if signals SW3 to SW0 = 1111 (switches OFF) after reset, signals are interpreted as buttons
-        
-        // SW0 to SW3: set ledstrip cycle and timing (only set if valid (used) switch setting
-        // bit 3210: 
-        // 00cc -> color cycle 0 to 3 (OFF or cst color), do not change ledstrip timing
-        // 01tt -> color cycle 4 (white blue), timing 1 to 4
-        // 10tt -> color cycle 5 (red green blue), timing 1 to 4
-        // 11xx -> do not change ledstrip cycle and timing
+        if (switchesSetLedstrip) {                                      
+            // signal SW3 to SW0: set ledstrip cycle and timing
+            // bit 3210: 
+            // 00cc -> color cycle 0 to 3 (OFF or cst color), do not change ledstrip timing
+            // 01tt -> color cycle 4 (white blue), timing 1 to 4
+            // 10tt -> color cycle 5 (red green blue), timing 1 to 4
+            // 11xx -> do not change ledstrip cycle and timing
 
-        uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
-        if (sw <= 3) {                                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
-            setColorCycle(sw, LScolorTiming, init);                     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+            uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
+            if (sw <= 3) {                                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
+                setColorCycle(sw, LScolorTiming, init);                     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+            }
+            else if (sw <= B00001011) {                                     // ledstrip sequence white blue or red green blue : set cycle and timing
+                uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
+                uint8_t colorTiming = (sw & B00000011);
+                setColorCycle(colorCycle, colorTiming);
+            }
+            writeLedstripSpecs = true;
         }
-        else if (sw <= B00001011) {                                     // ledstrip sequence white blue or red green blue : set cycle and timing
-            uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
-            uint8_t colorTiming = (sw & B00000011);
-            setColorCycle(colorCycle, colorTiming, init);
+
+        else if (switchesSetRotationTime) {
+            // signal SW3 to SW0: set rotation time according to values stored
+            uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F;
+            int cnt = paramValueCounts[0];                                  // No of defined rotation times 
+            paramNo = 0;                                                    // rotation time
+            paramValueNo = (sw >= cnt) ? 0 : sw;                            // if not in valid range, take first rotation time in list
+            saveAndUseParam();
         }
     }
 }
@@ -1125,8 +1143,9 @@ void writeStatus() {
         Serial.println();
         }
 
-    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings)) {	            // change ledstrip cycle
-        if (userCommand == uLedstripSettings) {Serial.println();}
+    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings) || writeLedstripSpecs) {    // change ledstrip cycle
+        if ((userCommand == uLedstripSettings) || writeLedstripSpecs) {Serial.println();}
+        writeLedstripSpecs = false;
         sprintf(s30, "%d", LScolorCycle);
         Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
         if (LScolorCycle >= cWhiteBlue) {
@@ -1254,7 +1273,7 @@ void writeLedStrip() {
     if (ISRevent != eLedstripData) { return; }											// no change in brightness values 
 
     uint8_t LScolor[4]{ 0xFF, 0x00, 0x00, 0x00 };										// for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected
-    uint8_t ledstripMasks[3]{ 0b10100101, 0b10100101, 0b10100101 };						// RGB ledstrip mask (8 leds) for red, green, blue colors, in this order 
+    uint8_t ledstripMasks[3]{ B10100101, B10100101, B10100101 };						// RGB ledstrip mask (8 leds) for red, green, blue colors, in this order 
 
     if (ledstripDataPtr->LSupdate) {													// brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
@@ -1297,7 +1316,7 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {					                    // ou
 
     LSoneLedOut(holdPortC, startFrame);													// Start-frame marker
     for (uint8_t ledNo = 0; ledNo <= 7; ledNo++, ledstripMasks[0] >>= 1, ledstripMasks[1] >>= 1, ledstripMasks[2] >>= 1) {		// For each led
-        LSoneLedOut(holdPortC, led, (ledstripMasks[2] & 0b1) | ((ledstripMasks[1] & 0b1) << 1) | ((ledstripMasks[0] & 0b1) << 2));
+        LSoneLedOut(holdPortC, led, (ledstripMasks[2] & B1) | ((ledstripMasks[1] & B1) << 1) | ((ledstripMasks[0] & B1) << 2));
         }
     LSoneLedOut(holdPortC, colorOffAndEndFrame);
     }
@@ -1305,20 +1324,20 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {					                    // ou
 
 // *** send ledstrip data for one led to hardware ***
 
-void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = 0b111) {	// output data for 1 ledstrip led
+void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = B111) {	// output data for 1 ledstrip led
     uint8_t b8;      // preserve original value
-    ledMask = (ledMask << 1) | 0b1;														// add '1' because brightness byte is always sent to led as received
+    ledMask = (ledMask << 1) | B1;														// add '1' because brightness byte is always sent to led as received
 
     for (uint8_t n = 0; n <= 3; n++, ledStrip4Bytes++, ledMask >>= 1) {					// 4 bytes per pointer (brightness byte, blue value, green value, red value)
-        b8 = (ledMask & 0b1) ? *ledStrip4Bytes : 0x00;									// 1 byte
+        b8 = (ledMask & B1) ? *ledStrip4Bytes : (uint8_t)0x00; 						    // 1 byte
         for (int8_t i = 7; i >= 0; i--, b8 <<= 1) {										// shift out 8 bits
 
 #if	(boardVersion == 100)
-            if (b8 & 0x80) { holdPortC |= portC_ledstripDataBit; }
+            if (b8 & (uint8_t)0x80) { holdPortC |= portC_ledstripDataBit; }
             else { holdPortC &= ~portC_ledstripDataBit; }
 #else
             // NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
-            PORTD = (b8 & 0x80) ? portD_ledstripDataBits : 0x00;						// currently, two ledstrips receive same data						
+            PORTD = (b8 & (uint8_t)0x80) ? portD_ledstripDataBits : (uint8_t)0x00;		// currently, two ledstrips receive same data						
 #endif
             cli();																		// do not interrupt clocking ledstrip
             // speed: no port reads, only two port writes
@@ -1588,9 +1607,7 @@ void setRotationTime(int paramValueNo, bool init = false)
             // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
             scaledGreenLedDelay = (ledBrightnessStepsUpDown * targetGlobeRotationTime) >> 1;
 #endif
-
             forceStatusEvent = true;											// 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
-
             eeprom_update_byte((uint8_t*)0, (uint8_t)paramValueNo);				// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
 
             }
@@ -1638,10 +1655,10 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
                 LSbrightnessStepTimer[i] = -LSbrightnessTransitionTime - ((i == 2) ? LSscaledDelay : 0);
                 }
 
-            LSupdate = 0b111;																				// update flags per brightness 
-            LSup = 0b111;																					// initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
-            LSminReached = 0b000;
-            LSmaxReached = 0b000;
+            LSupdate = B111;																				// update flags per brightness 
+            LSup = B111;																					// initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
+            LSminReached = B000;
+            LSmaxReached = B000;
 
             eeprom_update_byte((uint8_t*)2, (uint8_t)(LScolorCycle | (LScolorTiming << 4)));				// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
@@ -1712,7 +1729,7 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((millis16bits & B1111) == 0) {													    // 16 mS debounce time
         switchStates = pinDbuffer & pinD_switchStateBits;								    // debounced
 
-        if (useButtons) {                                                                   // interpret signals SW0 to SW3 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
+        if (useButtons) {                                                                   // interpret signals SW3 to SW0 as buttons ? (corresponding 4 switches should all remain in the OFF (= high) position)
             // produce keycode for last pushbutton pressed (+) or released (-)
             uint8_t keyNumber = 0;
             uint8_t buttonsActioned = ((switchStates ^ prevButtonStates) & pinD_keyBits);	// new button press / release detected ?
@@ -1723,8 +1740,8 @@ SIGNAL(TIMER1_OVF_vect) {
                     int8_t keyPressed = (buttonsPressed & pinD_firstKeyBit) ? keyNumber : -keyNumber;
                     if (keyPressed > 0) {keyDownTimer = 1;}                                 // key press: (re-)start counting (even if currently other key down)
                     else  {                                                                 // key release: determine keypress duration and stop counting (even if currently other key down)
-                        if (keyDownTimer > 700) {keyPressed -= 0x40;}                       // clear bit 6
-                        if (keyDownTimer > 2000) { keyPressed -= 0x20; }                    // clear bit 5 as well
+                        if (keyDownTimer > 700) {keyPressed -= (int8_t)0x40;}               // clear bit 6
+                        if (keyDownTimer > 2000) { keyPressed -= (int8_t)0x20; }            // clear bit 5 as well
                         keyDownTimer = 0;                                                   // disable counting
                     }
                     if (keysAvailable < keyBufferLength) {									// key press ignored if buffer full
@@ -1867,7 +1884,7 @@ SIGNAL(ADC_vect) {
 
     /* led dimming when locked: disabled, because visually conflicting with ledstrip effects
 
-    static uint8_t ledUp{ 0b11 };																// dimming direction: up or down
+    static uint8_t ledUp{ B11 };																// dimming direction: up or down
     static int ledBrightness[brightnessItemCount]{ 0, 0 };										// brightnes level - to be converted in 'led atomic period length' and 'led on time'
     static int ledAtomicTimePeriod[brightnessItemCount]{ 0, 0 }, ledAtomicTimeON[brightnessItemCount]{ 0, 0 };				// period length within which multiple led on / off sequences can occur, total ON time within this period
     static long ledBrightnessChangeCnt[brightnessItemCount]{ 0, 0 }, ledOffOnCycleCnt[brightnessItemCount]{ 0, 0 };			// counters to control led brightness level change and led on / off switching
@@ -2011,7 +2028,7 @@ SIGNAL(ADC_vect) {
 
 #if onboardLedDimming
                             for (uint8_t i = 0; i < brightnessItemCount; i++) {
-                                ledUp = 0b11;													// initial dimming direction for blue (bit 1) and green (bit 0) led
+                                ledUp = B11;													// initial dimming direction for blue (bit 1) and green (bit 0) led
                                 ledBrightness[i] = ledMinBrightnessLevel[ledUpDownCycleType];	// initial brightness level (should be between defined min and max level)
                                 ledAtomicTimeON[i] = 0;											// should be initialized at zero at this time
                                 ledAtomicTimePeriod[i] = 0;
@@ -2121,7 +2138,7 @@ SIGNAL(ADC_vect) {
                 coils = ~coils;																	// negative logic
                 portDbuffer = (portDbuffer & B00000011) | (coils & B11111100);					// prepare coil on / off information
 
-                PORTD = portDbuffer;															// port D bits 765432 = coil wiress 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2)
+                PORTD = portDbuffer;															// port D bits 765432 = coil wiress 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) //// check numbering
 
 
                 PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B bits 432: select coils flip flops
@@ -2140,7 +2157,7 @@ SIGNAL(ADC_vect) {
 
         switch (rotationStatus) {
             case rotNoPosSync:	// not floating: green led flashes, 'rotation OFF': green led OFF after 5 seconds, otherwise ON
-                greenLedOn = isFloating ? (targetGlobeRotationTime != 0) || (liftingSecond <= 5) : (millis16bits & 0B11111111) < 0B111111;	// not floating: green led flashes, period = 256 mS, 1/4 on
+                greenLedOn = isFloating ? (targetGlobeRotationTime != 0) || (liftingSecond <= 5) : (millis16bits & 0b11111111) < 0b111111;	// not floating: green led flashes, period = 256 mS, 1/4 on
                 break;
             case rotFreeRunning:	// no position sync since a while
                 greenLedOn = !stepTick;
@@ -2482,9 +2499,9 @@ SIGNAL(ADC_vect) {
             ((LedstripData*)messagePtr)->LSmaxReached = LSmaxReached;
             for (uint8_t i = 0; i <= 2; i++) { ((LedstripData*)messagePtr)->LSbrightness[i] = LSbrightness[i]; }
 
-            LSupdate = 0b000;							// reset
-            LSminReached = 0b000;
-            LSmaxReached = 0b000;
+            LSupdate = B000;							// reset
+            LSminReached = B000;
+            LSmaxReached = B000;
             }
         }
 
