@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 20/12/2020
+    Created:    10/08/2019 - 21/12/2020
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -148,6 +148,7 @@ const char str_timeStamp[] PROGMEM = "== Time stamp ";
 const char str_stepResponse[] PROGMEM = "== Step response (ms;hall;ctr)";
 const char str_stepResponseEnd[] PROGMEM = "== Step response end";
 const char str_eventsMissed[] PROGMEM = "event(s) missed !";
+const char str_programMode[] PROGMEM = "PROGRAM MODE";
 
 const char str_fmtTime[] PROGMEM = "%ldd %02ld:%02ld:%02ld %03ld";
 const char str_fmt3integer[] PROGMEM = "%d;%d;%d";
@@ -164,6 +165,7 @@ const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_
 
 // *** user selectable parameter values ***
 
+constexpr int paramNo_rotTimes{0}, paramNo_hallmVoltRefs{7};                            // order in sequence of parameters
 long rotationTimes[] = { 0, 12000, 9000, 7500, 6000, 4500, 3000, 2400 };	            // must be divisible by 12 (steps), 0 means OFF
 long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800, 2000 };						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
                                                                                         // 1000 mV minimum, because required margin for 'floating' status detection
@@ -204,7 +206,7 @@ constexpr long oneSecondCount{ 1000L }, blinkTimeCount{ 800 };						// milli sec
 constexpr long spareTimeCount{ 500 };												// milli seconds
 
 bool showLiveValues{ true };
-bool writeLedstripSpecs{false};
+bool forceWriteLedstripSpecs{false};
 uint8_t currentSwitchStates{};
 uint8_t ISRevent{ eNoEvent };														// current ISR event retrieved for processing in main loop
 int userCommand{ uNoCmd }, commandParam1, commandParam2;
@@ -219,6 +221,7 @@ volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
 volatile bool useButtons{false};                                                    // signals SW3 to SW0: interpret as buttons ?
 volatile bool switchesSetRotationTime{false}, switchesSetLedstrip{false};           // signals SW3 to SW0: interpret as switches for specific settings ?
+volatile bool switchesSetHallmVoltRef{false};
 volatile int8_t keyBuffer[keyBufferLength]{ 0 };									// can hold negative key codes
 volatile uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
 volatile uint8_t switchStates{ 0 }, prevSwitchStates{ 0 };							// current and previous state of the board switches / buttons
@@ -652,15 +655,15 @@ void setup()
     uint8_t ledstripCycle{}, ledstripTiming{};
 
     eepromValue = eeprom_read_byte((uint8_t*)0);
-    cnt = sizeof(rotationTimes) / sizeof(rotationTimes[0]);
+    cnt = paramValueCounts[paramNo_rotTimes];                                           // No of defined rotation times 
     eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-    ParamsSelectedValueNos[0] = eepromValue;
+    ParamsSelectedValueNos[paramNo_rotTimes] = eepromValue;
     setRotationTime(eepromValue, true);                                                 // set rotation time and store in eeprom
 
     eepromValue = eeprom_read_byte((uint8_t*)1);
-    cnt = sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]);
+    cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
     eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-    ParamsSelectedValueNos[7] = eepromValue;
+    ParamsSelectedValueNos[paramNo_hallmVoltRefs] = eepromValue;
     long hallmVoltRef = hallMilliVolts[eepromValue];									// globe vertical position ref in mVolt (after analog amplification)
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
@@ -677,6 +680,7 @@ void setup()
     // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches (do not connect buttons then)
     switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program ledstrip
     switchesSetRotationTime = ((switchStates & pinD_keyBits)>>2) == (uint8_t)0x01;      // signals SW3 to SW0: interpret as switches and use to program rotation time
+    switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program rotation time
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
     
     checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
@@ -685,7 +689,7 @@ void setup()
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);										// flag that reset took place
     sei();
 
-    paramNo = 0;																		// initial setting to display: rotation time
+    paramNo = switchesSetHallmVoltRef ? paramNo_hallmVoltRefs : paramNo_rotTimes;	    // initial setting to display: rotation time, except if currently in program mode
     paramValueNo = ParamsSelectedValueNos[paramNo];
 
 
@@ -697,6 +701,12 @@ void setup()
     // *** init serial and lcd ***
 
     while (!Serial);
+    Serial.println();
+
+    if (! useButtons) {
+        Serial.println(strcpy_P(s150, str_programMode));
+        Serial.println();
+    }
     Serial.print(strcpy_P(s150, str_help1));
     Serial.print(strcpy_P(s150, str_help2));
     Serial.println(strcpy_P(s150, str_help3));
@@ -1067,15 +1077,15 @@ void checkSwitches(bool forceSwitchCheck = false) {                         // i
                 uint8_t colorTiming = (sw & B00000011);
                 setColorCycle(colorCycle, colorTiming);
             }
-            writeLedstripSpecs = true;
+            forceWriteLedstripSpecs = true;
         }
 
-        else if (switchesSetRotationTime) {
+        else if (switchesSetRotationTime || switchesSetHallmVoltRef) {
             // signal SW3 to SW0: set rotation time according to values stored
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F;
-            int cnt = paramValueCounts[0];                                  // No of defined rotation times 
-            paramNo = 0;                                                    // rotation time
-            paramValueNo = (sw >= cnt) ? 0 : sw;                            // if not in valid range, take first rotation time in list
+            paramNo = switchesSetRotationTime ? paramNo_rotTimes : paramNo_hallmVoltRefs;   // param = rotation time or hall mV ref ?
+            int cnt = paramValueCounts[paramNo];                                            // No of defined rotation times 
+            paramValueNo = (sw >= cnt) ? 0 : sw;                                            // if not in valid range, take first in list
             saveAndUseParam();
         }
     }
@@ -1130,7 +1140,7 @@ void writeStatus() {
             strcat(strcat(s150, s30), ") ++");
             }
         Serial.println(s150);
-        }
+    }
 
     if (userCommand == uShowAll) {														// Print all parameters to Serial
         for (int paramNo = 0; paramNo < paramCount; paramNo++) {
@@ -1143,9 +1153,9 @@ void writeStatus() {
         Serial.println();
         }
 
-    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings) || writeLedstripSpecs) {    // change ledstrip cycle
-        if ((userCommand == uLedstripSettings) || writeLedstripSpecs) {Serial.println();}
-        writeLedstripSpecs = false;
+    if ((userCommand == uShowAll) || (userCommand == uLedstripSettings) || forceWriteLedstripSpecs) {    // change ledstrip cycle
+        if ((userCommand == uLedstripSettings) || (forceWriteLedstripSpecs && (ISRevent != eStatusChange))) {Serial.println();}
+        forceWriteLedstripSpecs = false;
         sprintf(s30, "%d", LScolorCycle);
         Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
         if (LScolorCycle >= cWhiteBlue) {
@@ -1208,9 +1218,9 @@ void writeParamLabelAndValue() {
     blinkEnabled = paramChangeMode;														// blink if user is changing values
 
     // parameter value type ?
-    bool isSetValue = ((paramNo == 0) || (paramNo == 7));								// setting that can be changed by user	
-    bool isRotationValue = ((paramNo == 1) || (paramNo == 2) || (paramNo == 10));		// value to print is provided by last greenwich event
-    bool isLiveValue = !(isSetValue || isRotationValue);								// all other values
+    bool isSetValue = ((paramNo == paramNo_rotTimes) || (paramNo == paramNo_hallmVoltRefs));	// setting that can be changed by user	
+    bool isRotationValue = ((paramNo == 1) || (paramNo == 2) || (paramNo == 10));		        // value to print is provided by last greenwich event
+    bool isLiveValue = !(isSetValue || isRotationValue);								        // all other values
 
     // refresh LCD ?
     bool LCDeraseValue = ((ISRevent == eBlink) && (!blinkingTextNowOn) && blinkEnabled);
@@ -1225,6 +1235,7 @@ void writeParamLabelAndValue() {
         || (showLiveValues && ((ISRevent == eGreenwich) && isRotationValue))
         || (showLiveValues && ((ISRevent == eSecond) & isLiveValue))
         || ((userCommand >= 0) && (userCommand != uStepResponseTest));
+    
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }  // pointer is only defined if step response event
 
     strcpy_P(s150, (char*)pgm_read_word(&(paramLabels[paramNo])));						// parameter label
@@ -1257,7 +1268,6 @@ void writeParamLabelAndValue() {
         Serial.println(s150);
 #endif
         }
-
     }
 
 
@@ -1550,17 +1560,18 @@ void saveAndUseParam()
     // only items that can be changed need to have an entry here 
     switch (paramNo) {
 
-        case 0: {
+        case paramNo_rotTimes: {
         setRotationTime(paramValueNo);
         break;
         }
 
-        case 7: {
+        case paramNo_hallmVoltRefs: {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {									// interrupts off: interface with ISR and eeprom write
-            long hallmVoltRef = *(paramValueSets[7] + paramValueNo);		// globe vertical position ref in mVolt read by Arduino ADC
+            long hallmVoltRef = *(paramValueSets[paramNo] + paramValueNo);  // globe vertical position ref in mVolt read by Arduino ADC
             targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;
+            forceStatusEvent = true;//// comment
             eeprom_update_byte((uint8_t*)1, (uint8_t)paramValueNo);			// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
-            }
+        }
         break;
         }
         }
@@ -1572,10 +1583,9 @@ void saveAndUseParam()
 void setRotationTime(int paramValueNo, bool init = false)
     {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {										// interrupts off: interface with ISR and eeprom write
-        constexpr int paramNo = 0;											// 0: rotation time
         long old = targetGlobeRotationTime;
 
-        targetGlobeRotationTime = *(paramValueSets[paramNo] + paramValueNo);
+        targetGlobeRotationTime = *(paramValueSets[paramNo_rotTimes] + paramValueNo);
         if (init || (targetGlobeRotationTime != old)) {
             // adapt magnetic field rotation immediately
             stepTime = targetGlobeRotationTime / steps;
