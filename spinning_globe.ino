@@ -1817,7 +1817,7 @@ SIGNAL(ADC_vect) {
     // PID controller
 
     constexpr float gain{ 0.70 };																// PID: gain (depends on analog gain)
-    constexpr float intTimeCst{ 10.0 };															// PID: integrator  time constant (seconds) //1.
+    constexpr float intTimeCst{ 10.0 };															// PID: integrator  time constant (seconds) 
     constexpr float difTimeCst{ 0.0230 };														// PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm{ 800 };													// PID: initial value integrator term (for easier globe handling) --> depends on gain !
