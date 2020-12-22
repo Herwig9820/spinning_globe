@@ -1569,7 +1569,7 @@ void saveAndUseParam()
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {									// interrupts off: interface with ISR and eeprom write
             long hallmVoltRef = *(paramValueSets[paramNo] + paramValueNo);  // globe vertical position ref in mVolt read by Arduino ADC
             targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;
-            forceStatusEvent = true;//// comment
+            forceStatusEvent = true;                                        // will force rewriting serial and lcd
             eeprom_update_byte((uint8_t*)1, (uint8_t)paramValueNo);			// eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
         }
         break;
@@ -2148,7 +2148,7 @@ SIGNAL(ADC_vect) {
                 coils = ~coils;																	// negative logic
                 portDbuffer = (portDbuffer & B00000011) | (coils & B11111100);					// prepare coil on / off information
 
-                PORTD = portDbuffer;															// port D bits 765432 = coil wiress 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) //// check numbering
+                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) 
 
 
                 PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B bits 432: select coils flip flops
