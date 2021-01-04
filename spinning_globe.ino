@@ -2132,7 +2132,7 @@ SIGNAL(ADC_vect) {
                 bool coilOnSouth, coilOnNorth;													// 3 coil pairs can be set individually to N-S, S-N or not engaged
                 uint8_t coils{ 0 };
 
-                for (int coilNo = 0; coilNo < 3; coilNo++) {									// south means attracting / pointing to north pole
+                for (int coilNo = 0; coilNo < 3; coilNo++) {									// south means attracting / pointing to a magnet's north pole
 
                     uint8_t coilStep = (2 * (uint8_t)coilNo + (uint8_t)stepNo);
                     if (coilStep >= 12) { coilStep = coilStep - 12; }							// avoid modulo operator (needing division - speed)
@@ -2148,7 +2148,7 @@ SIGNAL(ADC_vect) {
                 coils = ~coils;																	// negative logic
                 portDbuffer = (portDbuffer & B00000011) | (coils & B11111100);					// prepare coil on / off information
 
-                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) 
+                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) //// linken met fysieke coil positioning
 
 
                 PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B bits 432: select coils flip flops
