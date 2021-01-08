@@ -2166,7 +2166,7 @@ SIGNAL(ADC_vect) {
         bool dimmed = (millis16bits & B111) == B0000;											// dimmed, 1/8 on
 
         switch (rotationStatus) {
-            case rotNoPosSync:	// not floating: green led flashes, 'rotation OFF': green led OFF after 5 seconds, otherwise ON
+            case rotNoPosSync:	// not floating: green led flashes, 'rotation OFF': green led ON, then OFF after 5 seconds, otherwise ON
                 greenLedOn = isFloating ? (targetGlobeRotationTime != 0) || (liftingSecond <= 5) : (millis16bits & 0b11111111) < 0b111111;	// not floating: green led flashes, period = 256 mS, 1/4 on
                 break;
             case rotFreeRunning:	// no position sync since a while
