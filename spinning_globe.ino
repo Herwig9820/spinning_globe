@@ -558,7 +558,7 @@ void MyEvents::snapshot(EventStats* eventSnapshotPtr) {
 
 // *** objects ***
 
-LiquidCrystal lcd(LCDregSelPin, LCDenablePin, 4, 5, 6, 7);		// define I/O pins (LCD RS, LCD enable, data = PORT D bits 4 to 7) 
+LiquidCrystal lcd(LCDregSelPin, LCDenablePin, 4, 5, 6, 7);		// define I/O pins (LCD RS = PORT D bit 3, LCD enable, data = PORT D bits 4 to 7) 
 MyTime myTime;
 MyEvents myEvents;
 
