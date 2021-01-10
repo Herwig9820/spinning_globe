@@ -680,7 +680,7 @@ void setup()
     // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches (do not connect buttons then)
     switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program ledstrip
     switchesSetRotationTime = ((switchStates & pinD_keyBits)>>2) == (uint8_t)0x01;      // signals SW3 to SW0: interpret as switches and use to program rotation time
-    switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program rotation time
+    switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program globe vertical position reference
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
     
     checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
