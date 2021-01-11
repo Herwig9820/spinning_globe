@@ -1512,7 +1512,7 @@ void fetchParameterValue(char* s, int paramNo, int paramValueNo) {
         strcpy(s, " ---mV");
         if (statusData.isFloating) {								// from latest fast rate update event before write
             // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milli Volt
-            dtostrf(errSignalMagnitudeSmooth / fasteDataRateSamplingPeriods * 5000. / 1024., 4, 0, s);
+            dtostrf((errSignalMagnitudeSmooth / fasteDataRateSamplingPeriods) * 5000. / (float)ADCsteps, 4, 0, s);
             strcat(s, "mV");
             }
         break;
@@ -1816,7 +1816,7 @@ SIGNAL(ADC_vect) {
 
     // PID controller
 
-    constexpr float gain{ 0.70 };																// PID: gain (depends on analog gain)
+    constexpr float gain{ 0.70 };																// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst{ 10.0 };															// PID: integrator  time constant (seconds) 
     constexpr float difTimeCst{ 0.0230 };														// PID: differentiator time constant (seconds) 
 
