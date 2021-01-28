@@ -19,7 +19,7 @@
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
 
-#define boardVersion 100									// 100 = v1, 101 = v1 rev A
+#define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A, 102 = v1 rev B
 
 
 // *** enumerations ***
@@ -75,6 +75,7 @@ constexpr uint8_t portC_IOdisableBit{ B00000100 };				// port C bit 2
 // port D
 constexpr uint8_t LCDregSelPin{ 3 };							// port D bit 3 (Nano pin D3): LCD register select
 
+constexpr uint8_t portD_redStatusLedbit{ B00001000};   			// port D bit 3: red status led bit mask
 constexpr uint8_t portD_greenStatusLedBit{ B00010000 };			// port D bit 4: green status led bit mask
 #if (boardVersion == 100)
 constexpr uint8_t portD_interruptInProgressBit{ B00100000 };	// port D bit 5: interrupt in progress bit mask
@@ -637,7 +638,7 @@ void setup()
 
     PORTD = PORTD | B11111100;															// PORT D pins 2 to 7: prepare to enable pull ups	
     DDRD = DDRD & B00000011;															// PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		// PORT B bits 432: select switch buffers
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		// PORT B: select switch buffers
     PORTC = (PORTC & ~portC_IOdisableBit);												// enable switch buffers
 
     switchStates = PIND;																// read switches twice (stall) - allow for setup time (see Atmel data sheet)
@@ -1322,7 +1323,7 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {					                    // ou
 
     // NOTE: only Port C 'IO disable' and, if applicable, 'ledstrip data' bits, should be written to (altered) by ledstrip routines
     uint8_t holdPortC = PORTC;															// read current PORTC bits only once (speed)
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_ledstripSelect);			// PORT B bits 432: select ledstrip
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_ledstripSelect);			// PORT B: select ledstrip
 
     LSoneLedOut(holdPortC, startFrame);													// Start-frame marker
     for (uint8_t ledNo = 0; ledNo <= 7; ledNo++, ledstripMasks[0] >>= 1, ledstripMasks[1] >>= 1, ledstripMasks[2] >>= 1) {		// For each led
@@ -1701,7 +1702,7 @@ SIGNAL(TIMER1_OVF_vect) {
     resetHWwatchDog = false;
     PORTD = portDbuffer;
 
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);		    // PORT B bits 432: select aux flip flops
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);		    // PORT B: select aux flip flops
     PORTC = (PORTC & ~portC_IOdisableBit);												    // clock signal for aux flip flops LOW then HIGH
     PORTC = (PORTC | portC_IOdisableBit);
 
@@ -1721,7 +1722,7 @@ SIGNAL(TIMER1_OVF_vect) {
     PORTD = PORTD | B11111100;															    // PORT D pins 2 to 7: prepare to enable pull ups	
     DDRD = DDRD & B00000011;															    // PORT D pins 2 to 7: inputs (pins 0 and 1: serial I/O)
 
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		    // PORT B bits 432: select switch buffers
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_switchesBufferSelect);		    // PORT B: select switch buffers
     PORTC = (PORTC & ~portC_IOdisableBit);												    // enable switch buffers
 
     pinDbuffer = PIND;																	    // read switches twice (stall) - allow for setup time (see Atmel data sheet)
@@ -2151,7 +2152,7 @@ SIGNAL(ADC_vect) {
                 PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) //// linken met fysieke coil positioning
 
 
-                PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B bits 432: select coils flip flops
+                PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B: select coils flip flops
                 PORTC = (PORTC & ~portC_IOdisableBit);											// clock signal for coil flip flops LOW then HIGH
                 PORTC = (PORTC | portC_IOdisableBit);
                 }
@@ -2543,9 +2544,15 @@ SIGNAL(ADC_vect) {
     if (greenLedOn) { portDbuffer = portDbuffer | portD_greenStatusLedBit; }
     else { portDbuffer = portDbuffer & ~portD_greenStatusLedBit; }
 
+    #if (boardVersion == 101)                                                                   // no red led prior to board version 101
+        portDbuffer = portDbuffer | portD_redStatusLedbit;                                      // switch red led off (negative logic)
+    #elif (boardVersion >= 102)
+        portDbuffer = portDbuffer & ~portD_redStatusLedbit;                                     // switch red led off (positive logic)
+    #endif
+
     PORTD = portDbuffer;
 
-    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);				// PORT B bits 432: select aux flip flops
+    PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_auxFlipFlopSelect);				// PORT B: select aux flip flops
     PORTC = (PORTC & ~portC_IOdisableBit);														// clock signal for aux flip flops LOW then HIGH
     PORTC = (PORTC | portC_IOdisableBit);
 
