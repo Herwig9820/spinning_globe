@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 21/12/2020
+    Created:    10/08/2019 - 29/01/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -1631,9 +1631,10 @@ void setRotationTime(int paramValueNo, bool init = false)
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false)
     {
     // ledstrip timing is only relevant for non-cst ledstrip cycles
-    // very fast: 1 cycle every 30 seconds; fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle)  
-    // very slow - number of complete cycles: 48 cycles in 23 hours 45 minutes, or 24 cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
-    long ledstripTimings[2][4] = {{30 * 1000L, 150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L}, { 30 * 1000L, 180 * 1000L, 900 * 1000L, 3575 * 1000L }};
+    // very fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle);  
+    // slow: number of complete cycles: 48 two-color cycles in 23 hours 45 minutes, or 24 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
+    // very slow: number of complete cycles: 12 two-color cycles in 23 hours 45 minutes, or 6 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
+    long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 7125 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14300 * 1000L }};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
         if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
