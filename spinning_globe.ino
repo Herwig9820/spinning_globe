@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 29/01/2021
+    Created:    10/08/2019 - 30/01/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -295,10 +295,11 @@ constexpr uint8_t LSminBrightnessLevel{ 0x00 };										// min: 0 (LS off)
 constexpr uint8_t LSmaxBrightnessLevel{ 0x80 };										// 0x80^2 / 256 = 64 (gamma correction); max: 0xFF     
 
 // interface between ISR and main
+volatile bool LSlongTimeUnit {false};                                               // 128 ms instead of 1 ms
 volatile uint8_t LScolorCycle, LScolorTiming;										// color cycle
 volatile uint8_t LSbrightness[LSbrightnessItemCount];								// brightness levels (not yet assigned to specific colors or leds)
-
 volatile uint8_t LStransitionStops;													// MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
+
 volatile long LSbrightnessTransitionTime;											// total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times											
 volatile long LSbrightnessFreezeTime;												// total 'frozen brightness' time (summed up constant brightness time between all transitions), in milli seconds (minimum = 0)
 volatile long LSbrightnessCycleTime;												// COMPLETE color cycle in milli seconds
@@ -308,17 +309,17 @@ volatile long LSmaxBrightnessTime;													// min 0: primary stronger than C
 volatile long LSbrightnessDelay;													// delay between brightness cycles (here: between to or three brightness values)
 
 // number of brightness steps, including steps of min / max brightness (but excluding 'frozen brightness' time)
-volatile int LSbrightnessUpDownSteps;
-volatile int LSbrightnessMinLvlSteps;
-volatile int LSbrightnessMaxLvlSteps;
-volatile int LSbrightnessTransitionSteps;
+volatile long LSbrightnessUpDownSteps;
+volatile long LSbrightnessMinLvlSteps;
+volatile long LSbrightnessMaxLvlSteps;
+volatile long LSbrightnessTransitionSteps;
 
 volatile long LSscaledDelay;														// delay between brightness cycles, scaled by total no of brightness steps
 
 // initial values per brightness change counter: step size and delay between brightness cycle, scaled by total no of brightness steps (step size x no of brightness steps = total transition time)
 volatile long LSbrightnessStepTimer[LSbrightnessItemCount];
 volatile long LSbrightnessFreezeTimer;												// optional: skip first 'frozen brightness' step because a brightness is still missing (is starting from 'all brightness values OFF')
-volatile int LSminBrightnessStepNo[LSbrightnessItemCount], LSmaxBrightnessStepNo[LSbrightnessItemCount];	// for counting min / max level steps
+volatile long LSminBrightnessStepNo[LSbrightnessItemCount], LSmaxBrightnessStepNo[LSbrightnessItemCount];	// for counting min / max level steps
 
 volatile uint8_t LSupdate;															// update flag for leds per ledgroup 
 volatile uint8_t LSup;																// initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
@@ -1631,10 +1632,11 @@ void setRotationTime(int paramValueNo, bool init = false)
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false)
     {
     // ledstrip timing is only relevant for non-cst ledstrip cycles
-    // very fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle);  
+    // very fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle); 
+    // slow and very slow cycles: choose cycle times such that cycle will be moved 1/2 cycle (two-color cycles) or 1/6 cycle (three-color cycles) every 24 hours 
     // slow: number of complete cycles: 48 two-color cycles in 23 hours 45 minutes, or 24 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
-    // very slow: number of complete cycles: 12 two-color cycles in 23 hours 45 minutes, or 6 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
-    long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 7125 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14300 * 1000L }};
+    // very slow: number of complete cycles: 12 two-color cycles in 23 hours, or 6 three-color cycles in 23 hours 20 minutes, respectively, giving a time shift of either 30 or 40 minutes per day
+    constexpr long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L }}; // in milliseconds
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
         if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
@@ -1642,6 +1644,9 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
             LStransitionStops = (LScolorCycle <= cWhiteBlue) ? 2L : 6L;										// no of 'frozen brightness' stops within a brightness cycle: MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
             int8_t cycleType = (LScolorCycle <= cWhiteBlue) ? 0 : 1;
             LSbrightnessTransitionTime = ledstripTimings[cycleType][newColorTiming];                        // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times											
+            LSlongTimeUnit = LSbrightnessTransitionTime >= 3600 * 1000L;                                    // prevent overflow LSscaledDelay variable for long cycle times: time unit is now 128 milliseconds instead of 1 ms
+            if (LSlongTimeUnit) {LSbrightnessTransitionTime >>= 7; }                                        // will introduce small cumulative error if led strip cycle time not a multiple of 128 ms
+
             LSbrightnessFreezeTime = ((LScolorCycle <= cWhiteBlue) ? 0L : 0L) * 1000L;						// total 'frozen brightness' time (summed up constant brightness time between all transitions), in milli seconds (minimum = 0)
             LSbrightnessCycleTime = LSbrightnessFreezeTime + LSbrightnessTransitionTime;					// COMPLETE color cycle in milli seconds
 
@@ -1662,7 +1667,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
             for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
                 LSbrightness[i] = ((i == 0) && (LScolorCycle > cLedstripOff)) ? LSmaxBrightnessLevel : LSminBrightnessLevel;	// initial brightness levels (not yet assigned to specific colors or leds)
                 LSminBrightnessStepNo[i] = 0;
-                LSmaxBrightnessStepNo[i] = (i == 0) ? LSbrightnessMaxLvlSteps >> 1 : 0;						// cinit to enter of max brightness period
+                LSmaxBrightnessStepNo[i] = (i == 0) ? LSbrightnessMaxLvlSteps >> 1 : 0;						
                 // initial values per brightness step timer: step size and delay between brightness cycle, scaled by total no of brightness steps (step size x no of brightness steps = total transition time)
                 LSbrightnessStepTimer[i] = -LSbrightnessTransitionTime - ((i == 2) ? LSscaledDelay : 0);
                 }
@@ -2150,7 +2155,7 @@ SIGNAL(ADC_vect) {
                 coils = ~coils;																	// negative logic
                 portDbuffer = (portDbuffer & B00000011) | (coils & B11111100);					// prepare coil on / off information
 
-                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) //// linken met fysieke coil positioning
+                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) - see schematic //// linken met fysieke coil positioning
 
 
                 PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B: select coils flip flops
@@ -2282,59 +2287,59 @@ SIGNAL(ADC_vect) {
     // brightness values are assigned to leds / colors in main loop, and led strip is written to in main loop as well (because time consuming)
 
     if ((LSminBrightnessLevel < LSmaxBrightnessLevel) && (LScolorCycle >= cWhiteBlue)) {		// brightness changing over time ?
+        if ((! LSlongTimeUnit) || ((millis16bits & 0b1111111) == 0)) {
+            // handle 'brightness freeze' time
 
-        // handle 'brightness freeze' time
+            LSbrightnessFreezeTimer += LStransitionStops;											// count brightness freeze time, scaled by no of freeze intervals in a cycle 
+            if (LSbrightnessFreezeTimer >= 0) { LSbrightnessFreezeTimer -= LSbrightnessCycleTime; }	// reset timer (LSbrightnessCycleTime = dim/freeze cycle time scaled by no of freeze intervals in a cycle) 
+            bool LSdimStopped = (LSbrightnessFreezeTimer >= -LSbrightnessFreezeTime);				// dimming currently stopped ? (brightness freeze)
+            if (!LSdimStopped) {
 
-        LSbrightnessFreezeTimer += LStransitionStops;											// count brightness freeze time, scaled by no of freeze intervals in a cycle 
-        if (LSbrightnessFreezeTimer >= 0) { LSbrightnessFreezeTimer -= LSbrightnessCycleTime; }	// reset timer (LSbrightnessCycleTime = dim/freeze cycle time scaled by no of freeze intervals in a cycle) 
-        bool LSdimStopped = (LSbrightnessFreezeTimer >= -LSbrightnessFreezeTime);				// dimming currently stopped ? (brightness freeze)
-        if (!LSdimStopped) {
+                // brightness step timer triggers move to a next brightness step
+                // brightness can increase, decrease or stay constant (min. and max. brightness levels) when moving to a new step
 
-            // brightness step timer triggers move to a next brightness step
-            // brightness can increase, decrease or stay constant (min. and max. brightness levels) when moving to a new step
+                // algorithm prevents divisions by scaling the time counted by the number of brightness steps 
+                // Note - transition time and transiton steps : includes constant brightness time and steps as well
 
-            // algorithm prevents divisions by scaling the time counted by the number of brightness steps 
-            // Note - transition time and transiton steps : includes constant brightness time and steps as well
+                // brightness step no = current time x total number of transition steps / total transition time (linear relation between step and time)
+                // => brightness step x  total transition time = current time x total number of transition steps (up, down, cst brightness)
+                // => we do not count the time, but the time scaled by total number of transition steps
+                // if result > 1 x transition time: brightness step = 1
+                // if result > n x transition time: brightness step = n
+                // each time we move to the next brightness step, we reset the brightness step timer (subtract 1 x transition time, which is the step time x the number of transition steps)
+                // => if result > 0 : move to the next brightness step
 
-            // brightness step no = current time x total number of transition steps / total transition time (linear relation between step and time)
-            // => brightness step x  total transition time = current time x total number of transition steps (up, down, cst brightness)
-            // => we do not count the time, but the time scaled by total number of transition steps
-            // if result > 1 x transition time: brightness step = 1
-            // if result > n x transition time: brightness step = n
-            // each time we move to the next brightness step, we reset the brightness step timer (subtract 1 x transition time, which is the step time x the number of transition steps)
-            // => if result > 0 : move to the next brightness step
+                for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
+                    if ((LScolorCycle == cWhiteBlue) && (i > 0)) { continue; }						// brightness values either fixed or adapted outside this loop ? skip 
 
-            for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
-                if ((LScolorCycle == cWhiteBlue) && (i > 0)) { continue; }						// brightness values either fixed or adapted outside this loop ? skip 
+                    LSbrightnessStepTimer[i] += LSbrightnessTransitionSteps;						// count step time, scaled by no of brightness steps 
+                    if (LSbrightnessStepTimer[i] > 0) {												// time to start next brightness step ?
+                        LSbrightnessStepTimer[i] -= LSbrightnessTransitionTime;						// reset step timer (transition time = brightness step time scaled by total no of brightness steps)
 
-                LSbrightnessStepTimer[i] += LSbrightnessTransitionSteps;						// count step time, scaled by no of brightness steps 
-                if (LSbrightnessStepTimer[i] > 0) {												// time to start next brightness step ?
-                    LSbrightnessStepTimer[i] -= LSbrightnessTransitionTime;						// reset step timer (transition time = brightness step time scaled by total no of brightness steps)
-
-                    if ((LSbrightness[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {		// min. brightness and counting down ?
-                        if (LSminBrightnessStepNo[i]++ == LSbrightnessMinLvlSteps) {			// if specified, keep this brightness cst for a number of brightness steps
-                            LSminBrightnessStepNo[i] = 0;										// min. brightness period reached: reset constant brightness step counter
-                            LSup = LSup | (1 << i);												// now counting up again
-                            LSminReached = LSminReached | (1 >> i);
+                        if ((LSbrightness[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {		// min. brightness and counting down ?
+                            if (LSminBrightnessStepNo[i]++ == LSbrightnessMinLvlSteps) {			// if specified, keep this brightness cst for a number of brightness steps
+                                LSminBrightnessStepNo[i] = 0;										// min. brightness period reached: reset constant brightness step counter
+                                LSup = LSup | (1 << i);												// now counting up again
+                                LSminReached = LSminReached | (1 >> i);
+                                }
                             }
-                        }
-                    else if ((LSbrightness[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {	// max. brightness and counting up ?
-                        if (LSmaxBrightnessStepNo[i]++ == LSbrightnessMaxLvlSteps) {			// if specified, keep this brightness cst for a number of brightness steps
-                            LSmaxBrightnessStepNo[i] = 0;										// max. brightness period reached: reset constant brightness step counter
-                            LSup = LSup & ~(1 << i);											// now counting down again
-                            LSmaxReached = LSmaxReached | (1 >> i);
+                        else if ((LSbrightness[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {	// max. brightness and counting up ?
+                            if (LSmaxBrightnessStepNo[i]++ == LSbrightnessMaxLvlSteps) {			// if specified, keep this brightness cst for a number of brightness steps
+                                LSmaxBrightnessStepNo[i] = 0;										// max. brightness period reached: reset constant brightness step counter
+                                LSup = LSup & ~(1 << i);											// now counting down again
+                                LSmaxReached = LSmaxReached | (1 >> i);
+                                }
                             }
-                        }
 
-                    if ((LSminBrightnessStepNo[i] == 0) && (LSmaxBrightnessStepNo[i] == 0)) {	// not in a period of constant (min or max) brightness
-                        (LSup & (1 << i)) ? LSbrightness[i]++ : LSbrightness[i]--; 				// increase or decrease brightness ?
-                        LSupdate = LSupdate | (1 << i);											// flag that a brightness is changed: leds need to be re-written
+                        if ((LSminBrightnessStepNo[i] == 0) && (LSmaxBrightnessStepNo[i] == 0)) {	// not in a period of constant (min or max) brightness
+                            (LSup & (1 << i)) ? LSbrightness[i]++ : LSbrightness[i]--; 				// increase or decrease brightness ?
+                            LSupdate = LSupdate | (1 << i);											// flag that a brightness is changed: leds need to be re-written
                         }
                     }
                 }
             }
         }
-
+    }
 
     // *** safety checks ***
 
