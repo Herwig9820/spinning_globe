@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 30/01/2021
+    Created:    10/08/2019 - 01/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -20,7 +20,7 @@
 #define test_showEventStats 0								// only for testing (event message mechanism)
 
 #define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A, 102 = v1 rev B
-
+#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 // *** enumerations ***
 
@@ -168,8 +168,11 @@ const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_
 
 constexpr int paramNo_rotTimes{0}, paramNo_hallmVoltRefs{7};                            // order in sequence of parameters
 long rotationTimes[] = { 0, 12000, 9000, 7500, 6000, 4500, 3000, 2400 };	            // must be divisible by 12 (steps), 0 means OFF
+#if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
+long hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };	    					    // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
+#elif
 long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800, 2000 };						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
-                                                                                        // 1000 mV minimum, because required margin for 'floating' status detection
+#endif
 
 constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0, sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0 };	// 0 if no value list for parameter
 constexpr long* paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr };	// nullptr if no value list for parameter
@@ -1504,13 +1507,13 @@ void fetchParameterValue(char* s, int paramNo, int paramValueNo) {
         break;
         }
 
-        case 7: {													// globe lifting: reference for hall detector in milli Volt as read by Arduino (sensor value x 10)
+        case 7: {													// globe lifting: reference for hall detector in milli Volt as read by Arduino (sensor value x analog gain)
         paramValue = *(paramValueSets[paramNo] + paramValueNo);
         sprintf(s, "%5ldmV", paramValue);
         break;
         }
 
-        case 8: {													// error signal variance in milli Volt as read by Arduino (sensor value x 10)
+        case 8: {													// error signal variance in milli Volt as read by Arduino (sensor value x analog gain)
         strcpy(s, " ---mV");
         if (statusData.isFloating) {								// from latest fast rate update event before write
             // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milli Volt
@@ -1823,13 +1826,23 @@ SIGNAL(ADC_vect) {
 
     // PID controller
 
-    constexpr float gain{ 0.70 };																// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+#if highAnalogGain                                                                              // compensate for higher analog gain
+    constexpr float gain{ 0.70 * 10. / 15. };													// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float intTimeCst{ 10.0 };              											// PID: integrator  time constant (seconds) 
+    constexpr float difTimeCst{ 0.0180 };       												// PID: differentiator time constant (seconds) - factor 0.78: determined empirically
+
+    constexpr long initialTTTintTerm{ (800 * 15) / 10 };										// PID: initial value integrator term (for easier globe handling) --> depends on gain !
+    constexpr long hallRange_ADCsteps{ (300 * 15) / 10 };				     					// maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
+    constexpr long floatingGlobeHallRange_ADCsteps{ (100 * 15) / 10 };   						// maximum deviation from hall reference (set point) to check for 'non-floating' condition, in ADC steps
+#elif
+    constexpr float gain{ 0.70 };           													// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst{ 10.0 };															// PID: integrator  time constant (seconds) 
     constexpr float difTimeCst{ 0.0230 };														// PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm{ 800 };													// PID: initial value integrator term (for easier globe handling) --> depends on gain !
     constexpr long hallRange_ADCsteps{ 300 };													// maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
     constexpr long floatingGlobeHallRange_ADCsteps{ 100 };										// maximum deviation from hall reference (set point) to check for 'non-floating' condition, in ADC steps
+#endif
 
     constexpr int contrOutSteps{ timer1Top };													// 16 bit timer1: value for 1 milli second
     constexpr int disabledMagnetOnCycles{ 0 };													// magnet disabled during error condition
