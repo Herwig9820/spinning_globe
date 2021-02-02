@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 01/02/2021
+    Created:    10/08/2019 - 02/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -16,18 +16,18 @@
 #include <Arduino.h>
 #include <stdlib.h>
 
+#define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A and B
+#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
+
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
-
-#define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A, 102 = v1 rev B
-#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 // *** enumerations ***
 
 enum userCmds :int {
     uNoCmd = -1,
-    uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp, uStepResponseTest,	                    // cmds without parameters: 0 - 99
-    firstOneParamCmdHere = 100,																							// cmds with 1 parameter: 100-199
+    uPrevious = 0, uNext, uEdit, uCancel, uShowAll, uLive, uTimeStamp, uHelp,                   	                    // cmds without parameters: 0 - 99
+    uStepResponseTest = 100,                    																		// cmds with 1 parameter: 100-199
     uLedstripSettings = 200,                         																	// cmds with 2 parameters: 200-299
     uUnknownCmd = 999																									// unknown command receives code 999
     };
@@ -245,7 +245,8 @@ constexpr uint16_t printPIDperiod{ 20000 }, PIDstepTime{ 1000 };					// for step
 // interface between ISR and main
 volatile long targetHallRef_ADCsteps{};												// globe vertical position ref (controller reference input) to reach after changing ref, in ADC steps 
 volatile long hallRef_ADCsteps{};													// current globe vertical position ref (controller reference input) in ADC steps 
-volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };						// for step response measurement; printPIDperiod + 1 : 'printing stopped'													
+volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };						// for step response measurement; printPIDperiod + 1 : 'printing stopped'	
+volatile bool applyStep{false};                                                     // apply step when measuring (step) response
 
 
 // *** globe rotation controller ***
@@ -659,13 +660,13 @@ void setup()
     uint8_t eepromValue{ 0 };
     uint8_t ledstripCycle{}, ledstripTiming{};
 
-    eepromValue = eeprom_read_byte((uint8_t*)0);
+    eepromValue = eeprom_read_byte((uint8_t*)0);                                        // restore globe rotation time from eeprom
     cnt = paramValueCounts[paramNo_rotTimes];                                           // No of defined rotation times 
     eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
     ParamsSelectedValueNos[paramNo_rotTimes] = eepromValue;
     setRotationTime(eepromValue, true);                                                 // set rotation time and store in eeprom
 
-    eepromValue = eeprom_read_byte((uint8_t*)1);
+    eepromValue = eeprom_read_byte((uint8_t*)1);                                        // restore globe vertical position setpoint from eeprom
     cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
     eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
     ParamsSelectedValueNos[paramNo_hallmVoltRefs] = eepromValue;
@@ -673,7 +674,7 @@ void setup()
     targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;							// globe vertical position ref in ADC steps
     hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    // restore ledstrip cycle & timing from eeprom: if buttons active but also default in case invalid (spare) ledstrip switch settings 
+    // restore ledstrip cycle & timing from eeprom 
     eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = ledstrip cycle time, b3210 = ledstrip cycle
     eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);	    // if running time after previous reset was small: switch to next ledstrip color cycle
     ledstripCycle = eepromValue & (uint8_t)0x0F;
@@ -682,13 +683,13 @@ void setup()
     ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
     setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set ledstrip cycle and timing and store in eeprom
 
-    // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches (do not connect buttons then)
+    // DIP switches 2 to 5 (signals SW3 to SW0): interpret as buttons if all 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches and enter program mode (do not connect buttons then)
+    // if in program mode, a selected setting restored from eeprom will be overridden 
     switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program ledstrip
     switchesSetRotationTime = ((switchStates & pinD_keyBits)>>2) == (uint8_t)0x01;      // signals SW3 to SW0: interpret as switches and use to program rotation time
     switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program globe vertical position reference
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
-    
-    checkSwitches(true);                                                                // adapt settings according to switch states - signal SW4 is currently not used
+    checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
 
     cli();
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);										// flag that reset took place
@@ -849,8 +850,8 @@ void getCommand() {
                     else if ((keyAscii == 'a') || (keyAscii == 'A')) { commandBuffer = uShowAll; }			// show all parameters (Serial output only)
                     else if ((keyAscii == 's') || (keyAscii == 'S')) { commandBuffer = uLive; }				// show / stop live values
                     else if ((keyAscii == 't') || (keyAscii == 'T')) { commandBuffer = uTimeStamp; }		// time stamp (Serial output only) 
-                    else if ((keyAscii == 'r') || (keyAscii == 'R')) { commandBuffer = uStepResponseTest; }	// measure step response
                     else if (keyAscii == '?') { commandBuffer = uHelp; }
+                    else if ((keyAscii == 'r') || (keyAscii == 'R')) { commandBuffer = uStepResponseTest; }	// measure step response
                     else if ((keyAscii == 'l') || (keyAscii == 'L')) { commandBuffer = uLedstripSettings; }	// select ledstrip color cycle type or cycle timing
 
                     if ((commandBuffer == uPrevious) || (commandBuffer == uNext) || (commandBuffer == uEdit) || (commandBuffer == uCancel)) { commandBuffer = commandBuffer + (paramChangeMode ? 10 : 0); }
@@ -1024,15 +1025,21 @@ void processCommand() {
             paramChangeMode = false;
             paramValueNo = ParamsSelectedValueNos[paramNo];
             break;
-        case uStepResponseTest:								// sample one-parameter command
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                if (printPIDtimeCounter > printPIDperiod) { printPIDtimeCounter = 0; }	// start printing: only when currently stopped
+        
+        // one-parameter commands
+        case uStepResponseTest:	
+            commandParamError = ! ((commandParam1 == 0) || (commandParam1 == 1));
+            if (!commandParamError) {
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+                    applyStep = (commandParam1 == 1);
+                    if (printPIDtimeCounter > printPIDperiod) { printPIDtimeCounter = 0; }	// start printing: only when currently stopped
                 }
+            }
             break;
 
-            // two-parameter commands
+        // two-parameter commands
         case uLedstripSettings:
-            commandParamError = !((commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue));
+            commandParamError = ! ((commandParam1 == 'C') && (commandParam2 >= cLedstripOff) && (commandParam2 <= cRedGreenBlue));
              if (!commandParamError) { setColorCycle((uint8_t)commandParam2, LScolorTiming); }
              else {
                  commandParamError = !((commandParam1 == 'T') && (commandParam2 >= cLedstripVeryFast + 1) && (commandParam2 <= cLedStripVerySlow + 1));
@@ -1639,7 +1646,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
     // slow and very slow cycles: choose cycle times such that cycle will be moved 1/2 cycle (two-color cycles) or 1/6 cycle (three-color cycles) every 24 hours 
     // slow: number of complete cycles: 48 two-color cycles in 23 hours 45 minutes, or 24 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
     // very slow: number of complete cycles: 12 two-color cycles in 23 hours, or 6 three-color cycles in 23 hours 20 minutes, respectively, giving a time shift of either 30 or 40 minutes per day
-    constexpr long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L }}; // in milliseconds
+    constexpr long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L }}; // in seconds
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
         if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
@@ -1648,7 +1655,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
             int8_t cycleType = (LScolorCycle <= cWhiteBlue) ? 0 : 1;
             LSbrightnessTransitionTime = ledstripTimings[cycleType][newColorTiming];                        // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times											
             LSlongTimeUnit = LSbrightnessTransitionTime >= 3600 * 1000L;                                    // prevent overflow LSscaledDelay variable for long cycle times: time unit is now 128 milliseconds instead of 1 ms
-            if (LSlongTimeUnit) {LSbrightnessTransitionTime >>= 7; }                                        // will introduce small cumulative error if led strip cycle time not a multiple of 128 ms
+            if (LSlongTimeUnit) {LSbrightnessTransitionTime >>= 7; }                                        // will introduce small cumulative timing error if led strip cycle time not a multiple of 128 ms
 
             LSbrightnessFreezeTime = ((LScolorCycle <= cWhiteBlue) ? 0L : 0L) * 1000L;						// total 'frozen brightness' time (summed up constant brightness time between all transitions), in milli seconds (minimum = 0)
             LSbrightnessCycleTime = LSbrightnessFreezeTime + LSbrightnessTransitionTime;					// COMPLETE color cycle in milli seconds
@@ -1921,7 +1928,7 @@ SIGNAL(ADC_vect) {
 
     */
 
-    bool blueLedOn{ false }, greenLedOn{ false };
+    bool blueLedOn{ false }, greenLedOn{ false }, redLedOn { false };
 
 
     // *** start execution ***
@@ -1964,7 +1971,7 @@ SIGNAL(ADC_vect) {
             }
         }
     else if (printPIDtimeCounter == PIDstepTime) {												// counted from data logging start 
-        hallRef_ADCsteps = targetHallRef_ADCsteps + 100;
+        if(applyStep) {hallRef_ADCsteps = targetHallRef_ADCsteps + 100;}
         }
 
     if (hallReading_ADCsteps < hallRef_ADCsteps - hallRange_ADCsteps) { hallReading_ADCsteps = hallRef_ADCsteps - hallRange_ADCsteps; }	// bring measured position within range, because integer calc. with limited accuracy
@@ -2168,7 +2175,7 @@ SIGNAL(ADC_vect) {
                 coils = ~coils;																	// negative logic
                 portDbuffer = (portDbuffer & B00000011) | (coils & B11111100);					// prepare coil on / off information
 
-                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) - see schematic //// linken met fysieke coil positioning
+                PORTD = portDbuffer;															// port D bits 765432 = coil wires 2B (bit 7), 2A, 1B, 1A, 0B, 0A (bit 2) - see schematic 
 
 
                 PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_coilFlipFlopSelect);	// PORT B: select coils flip flops
@@ -2564,10 +2571,9 @@ SIGNAL(ADC_vect) {
     else { portDbuffer = portDbuffer & ~portD_greenStatusLedBit; }
 
     #if (boardVersion == 101)                                                                   // no red led prior to board version 101
-        portDbuffer = portDbuffer | portD_redStatusLedbit;                                      // switch red led off (negative logic)
-    #elif (boardVersion >= 102)
-        portDbuffer = portDbuffer & ~portD_redStatusLedbit;                                     // switch red led off (positive logic)
-    #endif
+        if (redLedOn) { portDbuffer = portDbuffer & ~portD_redStatusLedbit; }                   // red led: negative logic
+        else { portDbuffer = portDbuffer | portD_redStatusLedbit; }
+#endif
 
     PORTD = portDbuffer;
 
