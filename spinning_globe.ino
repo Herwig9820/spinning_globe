@@ -233,7 +233,7 @@ volatile uint8_t keysAvailable{ 0 };												// No of keys available in board
 volatile unsigned int idleLoopNanos500{ 0 };										// at least reset every mS = 1000 micro seconds: will not overflow
 volatile unsigned int millis16bits{ 0 };
 volatile long milliSecond{ 0 }, second{ 0 };
-volatile long tempSmooth{ 0. };														// temperature smoothed by first order filter; long for speed, used by ISR
+volatile long tempSmooth{ 0 };														// temperature smoothed by first order filter; long for speed, used by ISR
 
 
 // *** PID controller ***
@@ -527,7 +527,6 @@ bool MyEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messa
 
 bool MyEvents::removeOldestChunk(bool remove) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																								// prevent interference with addChunk() - which may be called from ISR;
-        uint8_t** holdLastStartPtrPtr;
         if ((oldestMessageStartPtr == nullptr) || (!remove)) { return false; }														// nothing to remove: is empty
 
         eventStats.eventsPending--;
@@ -601,7 +600,7 @@ void readKey(char* keyAscii);									// from Serial interface and on board keys
 void saveAndUseParam();
 void fetchParameterValue(char* s, int paramNo, int paramValueNo);
 void setRotationTime(int paramValueNo, bool init = false);
-void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false);
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
 
 
 
@@ -868,7 +867,7 @@ void getCommand() {
                     else if (keyAscii == '-') { commandParam1Buffer = 10; }
                     else if (keyAscii == '+') { commandParam1Buffer = 11; }
                     else if (keyAscii == '=') { commandParam1Buffer = 12; }
-                    else if ((keyAscii >= 'A') && (keyAscii <= 'Z') || (keyAscii >= 'a') && (keyAscii <= 'z')) {commandParam1Buffer = keyAscii & ~0x20;}
+                    else if (((keyAscii >= 'A') && (keyAscii <= 'Z')) || ((keyAscii >= 'a') && (keyAscii <= 'z'))) {commandParam1Buffer = keyAscii & ~0x20;}
 
                     if (commandParam1Buffer >= 0) {
                         if (commandBuffer <= 199) { commandState = 9; }		                            	// command takes 1 parameter only: signal 'command complete' if command detected
@@ -1082,7 +1081,7 @@ void checkSwitches(bool forceSwitchCheck = false) {                         // i
 
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
             if (sw <= 3) {                                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
-                setColorCycle(sw, LScolorTiming, init);                     // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+                setColorCycle(sw, LScolorTiming);                            // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
             }
             else if (sw <= B00001011) {                                     // ledstrip sequence white blue or red green blue : set cycle and timing
                 uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
@@ -1567,8 +1566,6 @@ void fetchParameterValue(char* s, int paramNo, int paramValueNo) {
 void saveAndUseParam()
     {
     ParamsSelectedValueNos[paramNo] = paramValueNo;
-    uint8_t eepromAddr;
-
     // only items that can be changed need to have an entry here 
     switch (paramNo) {
 
@@ -1639,7 +1636,7 @@ void setRotationTime(int paramValueNo, bool init = false)
 
 // *** set a specific color cycle ***
 
-void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = false)
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false)
     {
     // ledstrip timing is only relevant for non-cst ledstrip cycles
     // very fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle); 
@@ -1648,7 +1645,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool init = fa
     // very slow: number of complete cycles: 12 two-color cycles in 23 hours, or 6 three-color cycles in 23 hours 20 minutes, respectively, giving a time shift of either 30 or 40 minutes per day
     constexpr long ledstripTimings[2][4] = {{150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L}, {180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L }}; // in seconds
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {																		// interrupts off: interface with ISR and eeprom write
-        if (init || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
+        if (initColorCycle || (newColorCycle != LScolorCycle) || (newColorTiming != LScolorTiming)) {
             LScolorCycle = newColorCycle;																	// color cycle
             LScolorTiming = newColorTiming;                                                                 // color cycle timing
             LStransitionStops = (LScolorCycle <= cWhiteBlue) ? 2L : 6L;										// no of 'frozen brightness' stops within a brightness cycle: MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
@@ -1862,7 +1859,7 @@ SIGNAL(ADC_vect) {
     constexpr long TTTgain = (long)(gain * (1. + difTimeCst / intTimeCst) * (1L << gain_BinaryFractionDigits));		// TTT gain
     constexpr long TTTintFactor = (long)(samplingPeriod / TTTintTimeCst * (1L << TTTintFactor_BinaryFractionDigits));
     constexpr long TTTdifFactor = (long)(TTTdifTimeCst / samplingPeriod * (1L << TTTdifFactor_BinaryFractionDigits));
-    constexpr long maxTTTintTerm{ initialTTTintTerm * 1.5 };									// PID: max. value integrator term
+    constexpr long maxTTTintTerm{ (long) (initialTTTintTerm * 1.5) };									// PID: max. value integrator term
     constexpr long maxTTTallTerms = LONG_MAX / 2 / TTTgain;										// for check to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
 
     static long hallReading_ADCsteps{};
@@ -1998,7 +1995,7 @@ SIGNAL(ADC_vect) {
 
         if (abs(TTTallTerms) > maxTTTallTerms) {																// prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
             TTTallTerms = TTTallTerms >> PIDcalc_preliminaryDivisionDigits;										// get rid of accuracy in two steps 
-            TTTcontrOut = (int)((TTTgain * TTTallTerms) >> gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits);		// TTT controller output
+            TTTcontrOut = (int)((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));		// TTT controller output
             }
         else {
             TTTcontrOut = (int)((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));	// TTT controller output
