@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 02/02/2021
+    Created:    10/08/2019 - 03/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -140,14 +140,14 @@ const char str_procLoad[] PROGMEM = "proc load";
 const char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
 const char str_help1[] PROGMEM = "Type + or - to change parameter shown, E to edit value, S to show or stop live values, ";
 const char str_help2[] PROGMEM = "A to show all values, T for time stamp, LC0..4 to change ledstrip cycle (0 = off), ";
-const char str_help3[] PROGMEM = "LT1..4 to change ledstrip cycle time (1 = fastest), R for step response, ? for help";
+const char str_help3[] PROGMEM = "LT1..4 to change ledstrip cycle time (1 = fastest), R0..1 for (step) response, ? for help";
 const char str_cmdError[] PROGMEM = "== Not a valid command or parameter";
 const char str_showLive[] PROGMEM = "== Show Live";
 const char str_stopLive[] PROGMEM = "== Stop Live";
 const char str_colorCycle[] PROGMEM = "== ledstrip color cycle ";
 const char str_timeStamp[] PROGMEM = "== Time stamp ";
-const char str_stepResponse[] PROGMEM = "== Step response (ms;hall;ctr)";
-const char str_stepResponseEnd[] PROGMEM = "== Step response end";
+const char str_stepResponse[] PROGMEM = "== (Step) response (ms;hall;ctr)";
+const char str_stepResponseEnd[] PROGMEM = "== (Step) response end";
 const char str_eventsMissed[] PROGMEM = "event(s) missed !";
 const char str_programMode[] PROGMEM = "PROGRAM MODE";
 
@@ -463,6 +463,7 @@ MyEvents::MyEvents() {	// constructor
 // *** reserve space in the event message buffer for a new event message ***
 
 bool MyEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr) {			// prevent interference with another call to addChunk() - which may be called from ISR;
+    bool OK {false};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         uint8_t* newestEndPtr{ nullptr };
         uint8_t** holdLastStartPtrPtr;
@@ -474,7 +475,7 @@ bool MyEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messa
         bool wrappedAround = (!isEmpty) && (oldestMessageStartPtr > newestEndPtr);
 
         uint8_t freeChunkSize = isEmpty ? eventBufferSize : (wrappedAround ? (oldestMessageStartPtr - newestEndPtr) - 1 : eventBuffer + eventBufferSize - newestEndPtr - 1);
-        bool OK = (freeChunkSize >= newChunkSize);
+        OK = (freeChunkSize >= newChunkSize);
         bool wrap{ false };
         if ((!OK) && (!wrappedAround) && (!isEmpty)) {												// append at end not possible: check if wraparound possible
             uint8_t freeChunkSize = oldestMessageStartPtr - eventBuffer;
@@ -517,9 +518,8 @@ bool MyEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messa
             Serial.println(); Serial.println("missed");
 #endif
             }
-
-        return OK;
         }
+    return OK;
     }
 
 
@@ -542,15 +542,18 @@ bool MyEvents::removeOldestChunk(bool remove) {
         eventStats.activeMsgPtr = (oldestMessageStartPtr == nullptr) ? nullptr : oldestMessageStartPtr + 4;							// pointer to optional structure; after pointer update
         eventStats.activeEventType = (oldestMessageStartPtr == nullptr) ? eNoEvent : *oldestMessageStartPtr;
 
-        return true;
         }
+    return true;
     }
 
 
 bool MyEvents::isEventsWaiting() {
+    bool eventsArePending{false};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {							// prevent interference with addChunk() - which may be called from ISR;
-        return (eventStats.eventsPending > 0);
+        ////return (eventStats.eventsPending > 0);
+        eventsArePending = (eventStats.eventsPending > 0);
         }
+    return eventsArePending;
     }
 
 
@@ -929,33 +932,33 @@ void processEvent() {
             break;
 
         case eFastRateData: {																// data provided at a high rate (every 128 milli seconds)
-                // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fasteDataRateSamplingPeriods to smoothing filters
-                // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
-        idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - ISRdurationSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - magnetOnCyclesSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 5.0F));
+            // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fasteDataRateSamplingPeriods to smoothing filters
+            // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
+            idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
+            ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - ISRdurationSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
+            magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - magnetOnCyclesSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
+            errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 5.0F));
 
-        // feed temp. sensor reading to smoothing filter
-        // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
-        long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);			// convert to degrees Celcius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
-        cli();																				// tempSmooth is passed back to ISR for safety check high temperature
-        tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
-        sei();
-
-        partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
-        fastRateDataEventCounter++;															// overflows at 255 idle events = 255 * 128 mS, period = 32768 milli seconds
-        if (fastRateDataEventCounter == 0) {
-            movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];	// spans more than 5 minutes
-            for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
-            sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
-            partialSumMagnetOnCycles = 0;
-            cli();																			// highLoad is passed back to ISR for safety check high magnet load
-            highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
+            // feed temp. sensor reading to smoothing filter
+            // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
+            long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);	    // convert to degrees Celcius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
+            cli();																			// tempSmooth is passed back to ISR for safety check high temperature
+            tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
             sei();
-            }
 
-        break;
+            partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
+            fastRateDataEventCounter++;														// overflows at 255 idle events = 255 * 128 mS, period = 32768 milli seconds
+            if (fastRateDataEventCounter == 0) {
+                movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];	// spans more than 5 minutes
+                for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
+                sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
+                partialSumMagnetOnCycles = 0;
+                cli();																		// highLoad is passed back to ISR for safety check high magnet load
+                highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
+                sei();
+                }
+
+            break;
         }
 
         case eSecond:
@@ -1059,7 +1062,7 @@ void processCommand() {
 
 // *** check switch settings ***
 
-void checkSwitches(bool forceSwitchCheck = false) {                         // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
+void checkSwitches(bool forceSwitchCheck /* = false */) {                   // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {				        		        // interrupts off to read switch setting: interface with ISR and eeprom write
         currentSwitchStates = switchStates;
@@ -1081,7 +1084,7 @@ void checkSwitches(bool forceSwitchCheck = false) {                         // i
 
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F; 
             if (sw <= 3) {                                                  // ledstrip OFF or cst brightness: set cycle only, keep current timing
-                setColorCycle(sw, LScolorTiming);                            // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
+                setColorCycle(sw, LScolorTiming);                           // see enum: cLedstripOff = 0, cCstBrightWhite = 1, cCstBrightMagenta = 2, cCstBrightBlue = 3
             }
             else if (sw <= B00001011) {                                     // ledstrip sequence white blue or red green blue : set cycle and timing
                 uint8_t colorCycle = (sw >> 2) + cWhiteBlue - 1;
@@ -1345,7 +1348,7 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {					                    // ou
 
 // *** send ledstrip data for one led to hardware ***
 
-void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask = B111) {	// output data for 1 ledstrip led
+void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask /* = B111 */) {	// output data for 1 ledstrip led
     uint8_t b8;      // preserve original value
     ledMask = (ledMask << 1) | B1;														// add '1' because brightness byte is always sent to led as received
 
@@ -1402,7 +1405,7 @@ void idleLoop() {
 
 // *** format time, given as a number of seconds and milli seconds within a second as a string and optionally return total days, hours, minutes and seconds ***
 
-void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr) {
+void formatTime(char* s, long totalSeconds, long totalMillis, long* days /* = nullptr */, long* hours /* = nullptr */, long* minutes /* = nullptr */, long* seconds /* = nullptr */) {
 
     long sec, min, hr, d;
 
@@ -1589,7 +1592,7 @@ void saveAndUseParam()
 
 // *** set a specific rotation time ***
 
-void setRotationTime(int paramValueNo, bool init = false)
+void setRotationTime(int paramValueNo, bool init /* = false */)
     {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {										// interrupts off: interface with ISR and eeprom write
         long old = targetGlobeRotationTime;
@@ -1636,7 +1639,7 @@ void setRotationTime(int paramValueNo, bool init = false)
 
 // *** set a specific color cycle ***
 
-void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false)
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle /* = false */)
     {
     // ledstrip timing is only relevant for non-cst ledstrip cycles
     // very fast: every 2.5 minute resp. 3 minutes; slow: every 10 resp. 15 minutes (depends on ledstrip cycle); 
