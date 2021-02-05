@@ -171,7 +171,7 @@ long rotationTimes[] = { 0, 12000, 9000, 7500, 6000, 4500, 3000, 2400 };	       
 #if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 long hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };	    					    // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #elif
-long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800, 2000 };						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
+long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };   						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
 #endif
 
 constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0, sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0 };	// 0 if no value list for parameter
@@ -743,7 +743,7 @@ void setup()
 void loop()
     {
     getEventOrUserCommand();								// get ONE event or assembled user command, exit anyway if none available
-    processEvent();											// process event, if availale
+    processEvent();											// process event, if available
     processCommand();										// process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
     writeStatus();											// print status to Serial and LCD (if connected)
@@ -1074,7 +1074,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {                   // i
         // here comes code for signal SW4, if used (is never interpreted as button)
         // ...
 
-        if (switchesSetLedstrip) {                                      
+        if (switchesSetLedstrip) {                                          // set ledstrip cycle and timing                                
             // signal SW3 to SW0: set ledstrip cycle and timing
             // bit 3210: 
             // 00cc -> color cycle 0 to 3 (OFF or cst color), do not change ledstrip timing
@@ -1094,7 +1094,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {                   // i
             forceWriteLedstripSpecs = true;
         }
 
-        else if (switchesSetRotationTime || switchesSetHallmVoltRef) {
+        else if (switchesSetRotationTime || switchesSetHallmVoltRef) {                      // set rotation time or vertical position setpoint
             // signal SW3 to SW0: set rotation time according to values stored
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F;
             paramNo = switchesSetRotationTime ? paramNo_rotTimes : paramNo_hallmVoltRefs;   // param = rotation time or hall mV ref ?
@@ -1818,7 +1818,7 @@ SIGNAL(TIMER1_OVF_vect) {
 SIGNAL(ADC_vect) {
 
     // for ISR speed, use long variables instead of floats -> add accuracy by adding extra digits as binary fraction
-    // divisions ake much longer than multiplications and need to be avoided (e.g. division by cst 5 equals multiplication with cst (1/5 * 2^8) and then shifting bits right 8 bits   
+    // divisions take much longer than multiplications and need to be avoided (e.g. division by cst 5 equals multiplication with cst (1/5 * 2^8) and then shifting bits right 8 bits   
     // extra digits must be carefully chosen because this decreases most significant bits leading to overflow
     // example: TTTgain is less than 1, which is too small for integer * and /, so we add 8 binary digits, representing binary fraction
 
@@ -1949,12 +1949,12 @@ SIGNAL(ADC_vect) {
 
     long prevHallReading_ADCsteps;
 
-    if (ADCisTemp) {																			// converted ADC value is temerature
+    if (ADCisTemp) {																			// converted ADC value is temperature
         // ISR time is not measured here
         sumADCtemp = ADCfull;
         return;																					// nothing more to do
         }
-    else {																						// converted ADC value is temerature
+    else {																						// converted ADC value is lifting hall-sensor value
         prevHallReading_ADCsteps = hallReading_ADCsteps;
         hallReading_ADCsteps = ADCfull;
         }
