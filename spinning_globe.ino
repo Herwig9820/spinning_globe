@@ -220,7 +220,7 @@ float errSignalMagnitudeSmooth{ 0 };
 // interface between ISR and main
 volatile bool resetHWwatchDog{ false };												// periodic reset of hardware watchdog (disabling magnets)
 volatile bool forceStatusEvent{ false };
-volatile bool ISRoccured{ false };													// for idle time counting
+volatile bool ISRoccurred{ false };													// for idle time counting
 volatile bool highLoad{ false };
 volatile bool ADCisTemp{ false };													// comm. between timer 1 overflow ISR and ADC conversion complete ISR
 volatile bool useButtons{false};                                                    // signals SW3 to SW0: interpret as buttons ?
@@ -1384,9 +1384,9 @@ void idleLoop() {
         cli();																	// do not interrupt time counting loop
         bool workPending = ((myEvents.isEventsWaiting()) || (keysAvailable > 0)	// need to exit idle loop because ... (NOTE: use LIVE eventStats here in order to detect newly occuring events)
             || (Serial.available() > 0));										// (1) there is something to do (possibly as a result from previous interrupts): 
-        stopCountingTime = (workPending || ISRoccured);							// (2) interrupt occured (flag set in ISR) and the ISR duration may not be added to the idle time 
-                                                                                // this only works for 'my' interrupts, other interrupts (e.g. timer 0) are missed as they don't set ISRoccured, resulting in a small error	
-        ISRoccured = false;														// reset flag
+        stopCountingTime = (workPending || ISRoccurred);						// (2) interrupt occurred (flag set in ISR) and the ISR duration may not be added to the idle time 
+                                                                                // this only works for 'my' interrupts, other interrupts (e.g. timer 0) are missed as they don't set ISRoccurred, resulting in a small error	
+        ISRoccurred = false;													// reset flag
         if (!stopCountingTime) {
             unsigned int volatile nanoSecond500{}, nextNanoSecond500{};
             nanoSecond500 = TCNT1;												// one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
@@ -1709,10 +1709,10 @@ SIGNAL(TIMER1_OVF_vect) {
     static uint16_t keyDownTimer{0};                                                        // milliseconds - onboard cancel key only
 
     // if instructed by main loop, reset hardware watchdog
-    // for testing purposes, this indicates the occurence of the timer 1 overflow event as well
+    // for testing purposes, this indicates the occurrence of the timer 1 overflow event as well
 
     if (resetHWwatchDog) {																    // HW watchdog is reset by square wave generated
-        portDbuffer = portDbuffer | portD_interruptInProgressBit;						    // this signals occurence of the timer 1 overflow event as well (for testing purposes)
+        portDbuffer = portDbuffer | portD_interruptInProgressBit;						    // this signals occurrence of the timer 1 overflow event as well (for testing purposes)
         }
     else { portDbuffer = portDbuffer & ~portD_interruptInProgressBit; }					    // watchdog not reset (indicates software or hardware issue)
     resetHWwatchDog = false;
@@ -1724,7 +1724,7 @@ SIGNAL(TIMER1_OVF_vect) {
 
 
     // flag that an ISR has run: only needed for idle time counting (signal that ISR duration must be deducted from idle time)
-    ISRoccured = true;
+    ISRoccurred = true;
 
     // measure vertical position: initiate ADC conversion hall sensor value (always at the same time relative to timer 1 overflow: do it now)
     // NOTE: ISR should start at timer 1 overflow, but can be slightly delayed (< 10 microseconds) because of idle loop ...
@@ -1938,7 +1938,7 @@ SIGNAL(ADC_vect) {
     int ISRstart = TCNT1;																		// safe to assume that timer 1 is counting up																								
 
     // only for idle time counting (signal that ISR duration must be deducted from idle time)
-    ISRoccured = true;
+    ISRoccurred = true;
 
     // read previously converted ADC value (can be vertical position hall sensor or temperature sensor)
     uint8_t ADlow = ADCL;
