@@ -102,7 +102,7 @@ constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): 
 constexpr uint8_t portC_ledstripDataBit{ B00001000 };			// port C bit 3 
 
 #else
-constexpr  uint8_t LCDenablePin{ A3 };							// port C bit 3 (Nano pin A3): LCD enable. Alternatives: port B3 or B2
+constexpr  uint8_t LCDenablePin{ 10 };							// :port B bit 2 (Nano pin 10): LCD enable. Alternatives: port B3 (Nano pin 13) or port C bit 3 (Nano pin A3)
 
 constexpr uint8_t portD_ledstripDataBits{ B11000000 };			// port D bits 7 and 6
 #endif 
