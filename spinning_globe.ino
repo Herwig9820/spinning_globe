@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 03/02/2021
+    Created:    10/08/2019 - 07/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 #define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A and B
-#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
+#define highAnalogGain 0                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
@@ -170,7 +170,7 @@ constexpr int paramNo_rotTimes{0}, paramNo_hallmVoltRefs{7};                    
 long rotationTimes[] = { 0, 12000, 9000, 7500, 6000, 4500, 3000, 2400 };	            // must be divisible by 12 (steps), 0 means OFF
 #if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 long hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };	    					    // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
-#elif
+#else
 long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };   						    // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
 #endif
 
@@ -1841,7 +1841,7 @@ SIGNAL(ADC_vect) {
     constexpr long initialTTTintTerm{ (800 * 15) / 10 };										// PID: initial value integrator term (for easier globe handling) --> depends on gain !
     constexpr long hallRange_ADCsteps{ (300 * 15) / 10 };				     					// maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
     constexpr long floatingGlobeHallRange_ADCsteps{ (100 * 15) / 10 };   						// maximum deviation from hall reference (set point) to check for 'non-floating' condition, in ADC steps
-#elif
+#else
     constexpr float gain{ 0.70 };           													// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst{ 10.0 };															// PID: integrator  time constant (seconds) 
     constexpr float difTimeCst{ 0.0230 };														// PID: differentiator time constant (seconds) 
