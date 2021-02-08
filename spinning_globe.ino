@@ -245,6 +245,7 @@ constexpr uint16_t printPIDperiod{ 20000 }, PIDstepTime{ 1000 };					// for step
 // interface between ISR and main
 volatile long targetHallRef_ADCsteps{};												// globe vertical position ref (controller reference input) to reach after changing ref, in ADC steps 
 volatile long hallRef_ADCsteps{};													// current globe vertical position ref (controller reference input) in ADC steps 
+volatile uint32_t firstFullAccIntTerm{};                                            // for printing step response (allows PC simulations)
 volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };						// for step response measurement; printPIDperiod + 1 : 'printing stopped'	
 volatile bool applyStep{false};                                                     // apply step when measuring (step) response
 
@@ -375,7 +376,6 @@ struct LedstripData {
 
 struct StepResponseData {
     uint16_t count, hallReading_ADCsteps, TTTcontrOut;
-    uint32_t TTTintTerm;
     };
 
 struct EventStats {
@@ -1210,9 +1210,9 @@ void writeStatus() {
     // step response test (note that if printing a lot of data every milli second, and combining with other commands: risk of missing events)
     else if (ISRevent == eStepResponseData) {
         if (stepResponseDataPtr->count <= printPIDperiod) {
-            sprintf_P(s150, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, stepResponseDataPtr->TTTcontrOut);
+            sprintf_P(s150, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, (stepResponseDataPtr->count == 1) ? 0 : stepResponseDataPtr->TTTcontrOut);
             if (stepResponseDataPtr->count == 1) {
-                sprintf(s30, "; int.term %lu", stepResponseDataPtr->TTTintTerm);
+                sprintf(s30, "; int.term %lu", firstFullAccIntTerm);
                 strcat(s150,  s30);
             }
             Serial.println(s150);
@@ -2553,7 +2553,7 @@ SIGNAL(ADC_vect) {
             ((StepResponseData*)messagePtr)->count = (uint16_t)printPIDtimeCounter;
             ((StepResponseData*)messagePtr)->hallReading_ADCsteps = (uint16_t)hallReading_ADCsteps;
             ((StepResponseData*)messagePtr)->TTTcontrOut = (uint16_t)TTTcontrOut;
-            ((StepResponseData*)messagePtr)->TTTintTerm = (uint32_t) TTTintTerm;                // only initial value needed, but always included
+            firstFullAccIntTerm = (uint32_t)TTTintTerm;                                         // only first value needed: do not waste message buffer space
             }
         }
 
