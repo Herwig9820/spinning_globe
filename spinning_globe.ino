@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 #define boardVersion 101    								// board version: 100 = v1, 101 = v1 rev A and B
-#define highAnalogGain 0                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
+#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 #define onboardLedDimming 0									// 1: enable onboard led dimming
 #define test_showEventStats 0								// only for testing (event message mechanism)
@@ -152,7 +152,7 @@ const char str_eventsMissed[] PROGMEM = "event(s) missed !";
 const char str_programMode[] PROGMEM = "PROGRAM MODE";
 
 const char str_fmtTime[] PROGMEM = "%ldd %02ld:%02ld:%02ld %03ld";
-const char str_fmt3integer[] PROGMEM = "%d;%d;%d";
+const char str_fmt3unsignedInteger[] PROGMEM = "%u;%u;%u";
 const char str_fmtDayHour[] PROGMEM = "%3ldd%2ldh";
 const char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
 
@@ -375,6 +375,7 @@ struct LedstripData {
 
 struct StepResponseData {
     uint16_t count, hallReading_ADCsteps, TTTcontrOut;
+    uint32_t TTTintTerm;
     };
 
 struct EventStats {
@@ -1170,10 +1171,10 @@ void writeStatus() {
     if ((userCommand == uShowAll) || (userCommand == uLedstripSettings) || forceWriteLedstripSpecs) {    // change ledstrip cycle
         if ((userCommand == uLedstripSettings) || (forceWriteLedstripSpecs && (ISRevent != eStatusChange))) {Serial.println();}
         forceWriteLedstripSpecs = false;
-        sprintf(s30, "%d", LScolorCycle);
+        sprintf(s30, "%u", LScolorCycle);
         Serial.print(strcat(strcpy_P(s150, str_colorCycle), (LScolorCycle == cLedstripOff) ? "Off" : s30));
         if (LScolorCycle >= cWhiteBlue) {
-            sprintf(s30, "%d", LScolorTiming + 1);
+            sprintf(s30, "%u", LScolorTiming + 1);
             Serial.println(strcat(strcpy(s150, ", timing "), s30));
             }
         else {Serial.println();}
@@ -1199,25 +1200,29 @@ void writeStatus() {
     else if (userCommand == uStepResponseTest) {
         Serial.println();
         Serial.println(strcpy_P(s150, str_stepResponse));
-        }
+    }
 
     else if (userCommand == uUnknownCmd) {												// signal invalid command
         Serial.println();
         Serial.println(strcpy_P(s150, str_cmdError));
-        }
+    }
 
     // step response test (note that if printing a lot of data every milli second, and combining with other commands: risk of missing events)
     else if (ISRevent == eStepResponseData) {
         if (stepResponseDataPtr->count <= printPIDperiod) {
-            sprintf_P(s30, str_fmt3integer, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, stepResponseDataPtr->TTTcontrOut);
-            Serial.println(s30);
+            sprintf_P(s150, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, stepResponseDataPtr->TTTcontrOut);
+            if (stepResponseDataPtr->count == 1) {
+                sprintf(s30, "; int.term %lu", stepResponseDataPtr->TTTintTerm);
+                strcat(s150,  s30);
             }
+            Serial.println(s150);
+        }
         else {
             Serial.println();
-            Serial.println(strcpy_P(s30, str_stepResponseEnd));
-            }
+            Serial.println(strcpy_P(s150, str_stepResponseEnd));
         }
     }
+}
 
 
 // *** write a parameter and its value to lcd and Serial ***
@@ -1862,7 +1867,7 @@ SIGNAL(ADC_vect) {
     constexpr long TTTgain = (long)(gain * (1. + difTimeCst / intTimeCst) * (1L << gain_BinaryFractionDigits));		// TTT gain
     constexpr long TTTintFactor = (long)(samplingPeriod / TTTintTimeCst * (1L << TTTintFactor_BinaryFractionDigits));
     constexpr long TTTdifFactor = (long)(TTTdifTimeCst / samplingPeriod * (1L << TTTdifFactor_BinaryFractionDigits));
-    constexpr long maxTTTintTerm{ (long) (initialTTTintTerm * 1.5) };									// PID: max. value integrator term
+    constexpr long maxTTTintTerm{ (long) (initialTTTintTerm * 1.5) };							// PID: max. value integrator term
     constexpr long maxTTTallTerms = LONG_MAX / 2 / TTTgain;										// for check to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
 
     static long hallReading_ADCsteps{};
@@ -1986,9 +1991,8 @@ SIGNAL(ADC_vect) {
         errorSignalPrev = errorSignal;																			// remember previous value of error signal 
         errorSignal = -((hallRef_ADCsteps - hallReading_ADCsteps) << PIDcalculation_BinaryFractionDigits);		// new error signal in ADC steps
 
-        // true three term PID controller
         TTTintTerm = TTTintTerm + ((TTTintFactor * errorSignal) >> TTTintFactor_BinaryFractionDigits);			// integrator term
-        TTTintTerm = max(TTTintTerm, 0.);																		// limit integrator term to 0 and 0.6 Volt 
+        TTTintTerm = max(TTTintTerm, 0L);                                                                       // limit values: positive
         TTTintTerm = min(TTTintTerm, maxTTTintTerm << PIDcalculation_BinaryFractionDigits);						// (disturbance = weight of object always acts in same direction = downwards)
 
         TTTdifTerm = (TTTdifFactor * (errorSignal - errorSignalPrev)) >> TTTdifFactor_BinaryFractionDigits;		// differentiator term
@@ -2544,11 +2548,12 @@ SIGNAL(ADC_vect) {
 
     // step response testing
     if (printPIDtimeCounter <= printPIDperiod) {
-        printPIDtimeCounter++;																	// last event is for (printPIDtimeCounter == printPIDperiod + 1)
+        printPIDtimeCounter++;																	// events: printPIDtimeCounter from 1 to printPIDperiod + 1 ////
         if (myEvents.addChunk(eStepResponseData, sizeof(StepResponseData), &messagePtr)) {
             ((StepResponseData*)messagePtr)->count = (uint16_t)printPIDtimeCounter;
             ((StepResponseData*)messagePtr)->hallReading_ADCsteps = (uint16_t)hallReading_ADCsteps;
             ((StepResponseData*)messagePtr)->TTTcontrOut = (uint16_t)TTTcontrOut;
+            ((StepResponseData*)messagePtr)->TTTintTerm = (uint32_t) TTTintTerm;                // only initial value needed, but always included
             }
         }
 
