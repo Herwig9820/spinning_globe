@@ -1838,9 +1838,9 @@ SIGNAL(ADC_vect) {
     // PID controller
 
 #if highAnalogGain                                                                              // compensate for higher analog gain
-    constexpr float gain{ 0.70 * 10. / 15. };													// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float gain{ 0.70 * 10. / 15. };////													// PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst{ 10.0 };              											// PID: integrator  time constant (seconds) 
-    constexpr float difTimeCst{ 0.0180 };       												// PID: differentiator time constant (seconds) - factor 0.78: determined empirically
+    constexpr float difTimeCst{ 0.0180 * 1.1 }; ////      												// PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm{ (800 * 15) / 10 };										// PID: initial value integrator term (for easier globe handling) --> depends on gain !
     constexpr long hallRange_ADCsteps{ (300 * 15) / 10 };				     					// maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
