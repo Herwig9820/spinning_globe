@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 07/02/2021
+    Created:    10/08/2019 - 09/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -551,7 +551,6 @@ bool MyEvents::removeOldestChunk(bool remove) {
 bool MyEvents::isEventsWaiting() {
     bool eventsArePending{false};
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {							// prevent interference with addChunk() - which may be called from ISR;
-        ////return (eventStats.eventsPending > 0);
         eventsArePending = (eventStats.eventsPending > 0);
         }
     return eventsArePending;
@@ -1212,7 +1211,7 @@ void writeStatus() {
         if (stepResponseDataPtr->count <= printPIDperiod) {
             sprintf_P(s150, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, (stepResponseDataPtr->count == 1) ? 0 : stepResponseDataPtr->TTTcontrOut);
             if (stepResponseDataPtr->count == 1) {
-                sprintf(s30, "; int.term %lu", firstFullAccIntTerm);
+                sprintf(s30, ";%lu", firstFullAccIntTerm);
                 strcat(s150,  s30);
             }
             Serial.println(s150);
@@ -2548,12 +2547,12 @@ SIGNAL(ADC_vect) {
 
     // step response testing
     if (printPIDtimeCounter <= printPIDperiod) {
-        printPIDtimeCounter++;																	// events: printPIDtimeCounter from 1 to printPIDperiod + 1 ////
+        printPIDtimeCounter++;																	
         if (myEvents.addChunk(eStepResponseData, sizeof(StepResponseData), &messagePtr)) {
             ((StepResponseData*)messagePtr)->count = (uint16_t)printPIDtimeCounter;
             ((StepResponseData*)messagePtr)->hallReading_ADCsteps = (uint16_t)hallReading_ADCsteps;
             ((StepResponseData*)messagePtr)->TTTcontrOut = (uint16_t)TTTcontrOut;
-            firstFullAccIntTerm = (uint32_t)TTTintTerm;                                         // only first value needed: do not waste message buffer space
+            if(printPIDtimeCounter == 1) {firstFullAccIntTerm = (uint32_t)TTTintTerm;}          // only first value needed: do not waste message buffer space
             }
         }
 
