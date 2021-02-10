@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 09/02/2021
+    Created:    10/08/2019 - 10/02/2021
     Author:     Herwig Taveirne
     Version:    1.0
 
@@ -48,9 +48,11 @@ constexpr uint8_t A1_temperaturePin{ A1 };						// port A analog input pin A1: t
 
 
 // port B 
-constexpr uint8_t OC1Apin{ 9 };									// port B bit 1 (Nano pin D9): output pin for 16-bit timer 1 channel A (drives magnet)  
+constexpr uint8_t B1_OC1Apin{ 9 };								// port B bit 1 (Nano pin D9): output pin for 16-bit timer 1 channel A (drives magnet)  
 
-#if (boardVersion == 100) 
+#if (boardVersion == 100)
+constexpr uint8_t B2_LCDenablePin{ 13 };						// port B bit 5 (Nano pin D13): LCD enable	
+
 constexpr uint8_t portB_IOchannelSelectBitMask{ B00011100 };	// port B bits 432: I/O channel select (74HCT138 decoder)
 
 constexpr uint8_t portB_coilFlipFlopSelect{ 0 << 2 };			// decoder select lines: bits 432 = 000, 001, 010, 011				
@@ -58,6 +60,8 @@ constexpr uint8_t portB_auxFlipFlopSelect{ 1 << 2 };
 constexpr uint8_t portB_switchesBufferSelect{ 2 << 2 };
 constexpr uint8_t portB_ledstripSelect{ 3 << 2 };
 #else
+constexpr  uint8_t B2_LCDenablePin{ 10 };			    		// port B bit 2 (Nano pin D10): LCD enable
+
 constexpr uint8_t portB_IOchannelSelectBitMask{ B00110001 };	// port B bits 540: I/O channel select (74HCT138 decoder)
 
 constexpr uint8_t portB_coilFlipFlopSelect  { B00000000 };		// decoder select lines: bits 540 = 000, 001, 010, 011				
@@ -73,7 +77,7 @@ constexpr uint8_t portC_IOdisableBit{ B00000100 };				// port C bit 2
 
 
 // port D
-constexpr uint8_t LCDregSelPin{ 3 };							// port D bit 3 (Nano pin D3): LCD register select
+constexpr uint8_t D3_LCDregSelPin{ 3 }; 						// port D bit 3 (Nano pin D3): LCD register select
 
 constexpr uint8_t portD_redStatusLedbit{ B00001000};   			// port D bit 3: red status led bit mask
 constexpr uint8_t portD_greenStatusLedBit{ B00010000 };			// port D bit 4: green status led bit mask
@@ -96,14 +100,10 @@ uint8_t portDbuffer{ 0 }, pinDbuffer{ 0 };
 
 // port depending on board version
 #if (boardVersion == 100)
-constexpr uint8_t LCDenablePin{ 13 };							// port B bit 5 (Nano pin D13): LCD enable	
-
 constexpr uint8_t A3_ledstripDataPin{ A3 };						// port C bit 3 (Nano pin A3): ledstrip data
 constexpr uint8_t portC_ledstripDataBit{ B00001000 };			// port C bit 3 
 
 #else
-constexpr  uint8_t LCDenablePin{ 10 };							// :port B bit 2 (Nano pin 10): LCD enable. Alternatives: port B3 (Nano pin 13) or port C bit 3 (Nano pin A3)
-
 constexpr uint8_t portD_ledstripDataBits{ B11000000 };			// port D bits 7 and 6
 #endif 
 
@@ -566,7 +566,7 @@ void MyEvents::snapshot(EventStats* eventSnapshotPtr) {
 
 // *** objects ***
 
-LiquidCrystal lcd(LCDregSelPin, LCDenablePin, 4, 5, 6, 7);		// define I/O pins (LCD RS = PORT D bit 3, LCD enable, data = PORT D bits 4 to 7) 
+LiquidCrystal lcd(D3_LCDregSelPin, B2_LCDenablePin, 4, 5, 6, 7);    // define I/O pins (LCD RS, LCD enable, data = PORT D bits 4 to 7) 
 MyTime myTime;
 MyEvents myEvents;
 
@@ -635,9 +635,9 @@ void setup()
     PORTC = (PORTC | portC_IOdisableBit);						// disable I/O hardware
 
     // PORT B 
-    pinMode(OC1Apin, OUTPUT);									// timer 1 channel A to output pin
+    pinMode(B1_OC1Apin, OUTPUT);								// timer 1 channel A to output pin
 
-    DDRB = DDRB | portB_IOchannelSelectBitMask;
+    DDRB = DDRB | portB_IOchannelSelectBitMask;                 // set other port B output pins
     PORTB = PORTB | portB_IOchannelSelectBitMask;
 
 
