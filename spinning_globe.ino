@@ -1264,7 +1264,7 @@ void writeParamLabelAndValue() {
     // refresh Serial ?
     bool SerialWriteValue = ((ISRevent == eStatusChange) && !(isRotationValue && statusData.isGreenwich))   // if linked greenwich event, do not write rotation value now
         || (showLiveValues && ((ISRevent == eGreenwich) && isRotationValue))
-        || (showLiveValues && ((ISRevent == eSecond) & isLiveValue))
+        || (showLiveValues && ((ISRevent == eSecond) && isLiveValue))
         || ((userCommand >= 0) && (userCommand != uStepResponseTest));
     
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }  // pointer is only defined if step response event
