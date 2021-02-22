@@ -1,4 +1,9 @@
 # spinning_globe
 
+File spinning_globe.ino contains the code to control a spinning earth globe.
 
-Arduino nano program controlling globe levitation, globe rotation, led strip color changes, optional 2 x 16 character lcd, communication with PC, reading optional hardware switches and buttons, monitoring error conditions, measuring processor load and a few other metrics
+Please refer to https://www.hackster.io/herwig9820/floating-and-spinning-earth-globe-58713b 
+for a full description of this project, including a tutorial, list of hardware components, schematic etc.
+
+This program is written for the Arduino nano.
+
