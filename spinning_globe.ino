@@ -124,7 +124,7 @@ constexpr uint8_t ledstripDataBits { B11000000 };               // port D bits 7
 
 // *** flash memory constants ***
 
-const char str_build[] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n";
+const char str_build[] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n"; 
 
 const char str_empty16 [] PROGMEM = "                ";
 const char str_rotationOff [] PROGMEM = "rotation off";
