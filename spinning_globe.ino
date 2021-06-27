@@ -35,6 +35,7 @@
 #define onboardLedDimming 0                                 // 1: enable onboard led dimming
 #define test_showEventStats 0                               // only for testing (event message mechanism)
 
+
 // *** enumerations ***
 
 enum userCmds :int {
@@ -122,6 +123,8 @@ constexpr uint8_t ledstripDataBits { B11000000 };               // port D bits 7
 
 
 // *** flash memory constants ***
+
+const char str_build[] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n";
 
 const char str_empty16 [] PROGMEM = "                ";
 const char str_rotationOff [] PROGMEM = "rotation off";
@@ -728,6 +731,7 @@ void setup()
         Serial.println( strcpy_P( s150, str_programMode ) );
         Serial.println();
     }
+    Serial.println( strcpy_P( s150, str_build ) );
     Serial.print( strcpy_P( s150, str_help1 ) );
     Serial.print( strcpy_P( s150, str_help2 ) );
     Serial.println( strcpy_P( s150, str_help3 ) );
