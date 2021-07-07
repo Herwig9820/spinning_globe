@@ -2001,6 +2001,7 @@ SIGNAL( ADC_vect ) {
 
     // *** control globe vertical position and rotation *** 
 
+    OCR1A = 545;////
     if ( liftingMagnetEnabled ) {
         // (1): Control system for lifting magnet (PID)
 
@@ -2026,7 +2027,7 @@ SIGNAL( ADC_vect ) {
         TTTcontrOut = max( TTTcontrOut, minMagnetOnCycles );                                                    // limit duty cycle to values within 0 - 100% 
         TTTcontrOut = min( TTTcontrOut, maxMagnetOnCycles );
 
-        OCR1A = TTTcontrOut;
+        ////OCR1A = TTTcontrOut;
 
         // (2): control system for rotating magnetic field
         // - within 'auto locking' range(close to set rotation time) the system is SELF-controlling and LOCKING to the rotating magnetic field (NO slip)
@@ -2293,7 +2294,7 @@ SIGNAL( ADC_vect ) {
 
     else {                                                                                      // error condition: lifting magnet not enabled                                                              
         TTTcontrOut = disabledMagnetOnCycles;
-        OCR1A = disabledMagnetOnCycles;                                                         // init: set minimum duty cycle for magnet
+        ////OCR1A = disabledMagnetOnCycles;                                                         // init: set minimum duty cycle for magnet
 
         blueLedOn = (milliSecond < 500);
         if ( milliSecond == 0L ) {
