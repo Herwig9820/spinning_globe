@@ -220,7 +220,7 @@ constexpr long timer1PWMfreq { 1000L };                                         
 constexpr long timer1PreScaler { 8 };                                               // as set in setup();
 constexpr long timer1ClockFreq { F_CPU / timer1PreScaler };                         // 2 MHz
 constexpr long timer1Top { timer1ClockFreq / timer1PWMfreq / 2 };                   // timer counts up and down : 2000 steps, TOP =1000
-constexpr long fasteDataRateSamplingPeriods { 1 << 7 };                             // in sampling periods (milli seconds, power of 2)
+constexpr long fastDataRateSamplingPeriods { 1 << 7 };                             // in sampling periods (milli seconds, power of 2)
 constexpr float samplingPeriod { 1. / (float) timer1PWMfreq };                      // 1 milli second sampling period, in seconds
 constexpr long oneSecondCount { 1000L }, blinkTimeCount { 800 };                    // milli seconds
 constexpr long spareTimeCount { 500 };                                              // milli seconds
@@ -928,9 +928,9 @@ void getCommand() {
 
 void processEvent() {
     constexpr int averagingPeriodsMagnetLoad { 10 };
-    constexpr long maxOnCycles = (long) ((averagingPeriodsMagnetLoad * 256 * fasteDataRateSamplingPeriods * timer1Top) * 0.8);              // can normally not occur, but as this concerns safety ...
+    constexpr long maxOnCycles = (long) ((averagingPeriodsMagnetLoad * 256 * fastDataRateSamplingPeriods * timer1Top) * 0.8);              // can normally not occur, but as this concerns safety ...
     constexpr int tempTimeCst_BinaryFractionDigits { 16 };
-    constexpr long tempTimeCst1024 = (long) (samplingPeriod * fasteDataRateSamplingPeriods * (1L << tempTimeCst_BinaryFractionDigits));     // temp time cst * 2^n for added accuracy (long integer)
+    constexpr long tempTimeCst1024 = (long) (samplingPeriod * fastDataRateSamplingPeriods * (1L << tempTimeCst_BinaryFractionDigits));     // temp time cst * 2^n for added accuracy (long integer)
 
     static uint8_t fastRateDataEventCounter { 0 };                                          // overflows at 255
     static long partialSumMagnetOnCycles { 0 };
@@ -940,7 +940,7 @@ void processEvent() {
     if ( ISRevent == eNoEvent ) { return; }
 
     // first order filters below are implemented as integrator with negative feedback: 
-    // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
+    // y(k)   =   y(k-1) + sampling period / time constant * (x(k-1) - y(k-1))
     // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
 
     switch ( ISRevent ) {
@@ -949,12 +949,12 @@ void processEvent() {
         break;
 
     case eFastRateData: {                                                                   // data provided at a high rate (every 128 milli seconds)
-        // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fasteDataRateSamplingPeriods to smoothing filters
-        // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
-        idleLoopMicrosSmooth += ((((float) fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        ISRdurationSmooth += ((((float) fastRateDataPtr->sumISRdurations) - ISRdurationSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        magnetOnCyclesSmooth += ((((float) fastRateDataPtr->sumMagnetOnCycles) - magnetOnCyclesSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 1.0F));
-        errSignalMagnitudeSmooth += ((((float) fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fasteDataRateSamplingPeriods / 5.0F));
+        // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fastDataRateSamplingPeriods to smoothing filters
+        // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS over a period
+        idleLoopMicrosSmooth += ((((float) fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+        ISRdurationSmooth += ((((float) fastRateDataPtr->sumISRdurations) - ISRdurationSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+        magnetOnCyclesSmooth += ((((float) fastRateDataPtr->sumMagnetOnCycles) - magnetOnCyclesSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+        errSignalMagnitudeSmooth += ((((float) fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
 
         // feed temp. sensor reading to smoothing filter
         // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
@@ -1532,7 +1532,7 @@ void fetchParameterValue( char* s, int paramNo, int paramValueNo ) {
 
     case 6: {                                                   // avg duty cycle
         // divide by sampling periods to get average ON cycles, divide by magnet cycles available to get ratio, x 100%
-        dtostrf( (magnetOnCyclesSmooth / fasteDataRateSamplingPeriods) * 100. / ((float) timer1Top), 5, 1, s ); // in tenths of percent
+        dtostrf( (magnetOnCyclesSmooth / fastDataRateSamplingPeriods) * 100. / ((float) timer1Top), 5, 1, s ); // in tenths of percent
         strcat( s, "%" );
         break;
     }
@@ -1547,7 +1547,7 @@ void fetchParameterValue( char* s, int paramNo, int paramValueNo ) {
         strcpy( s, " ---mV" );
         if ( statusData.isFloating ) {                          // from latest fast rate update event before write
             // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milli Volt
-            dtostrf( (errSignalMagnitudeSmooth / fasteDataRateSamplingPeriods) * 5000. / (float) ADCsteps, 4, 0, s );
+            dtostrf( (errSignalMagnitudeSmooth / fastDataRateSamplingPeriods) * 5000. / (float) ADCsteps, 4, 0, s );
             strcat( s, "mV" );
         }
         break;
@@ -1570,15 +1570,15 @@ void fetchParameterValue( char* s, int paramNo, int paramValueNo ) {
     }
 
     case 11: {                                                  // ADC conversion complete ISR routine duration measured
-        dtostrf( ISRdurationSmooth / fasteDataRateSamplingPeriods, 5, 0, s ); // divide by sampling periods to get average
+        dtostrf( ISRdurationSmooth / fastDataRateSamplingPeriods, 5, 0, s ); // divide by sampling periods to get average
         strcat( s, microSecSymbol );
         break;
     }
 
     case 12: {                                                  // processor load
         // idleLoopMicrosSmooth: smoothed total idle micro seconds in 128 sample periods
-        // 1000 * fasteDataRateSamplingPeriods: total microseconds available in 128 sample periods
-        dtostrf( ((1E3F * (float) fasteDataRateSamplingPeriods - idleLoopMicrosSmooth) * 100.F / (1E3F * (float) fasteDataRateSamplingPeriods)), 6, 1, s ); // as a percentage (whole number)
+        // 1000 * fastDataRateSamplingPeriods: total microseconds available in 128 sample periods
+        dtostrf( ((1E3F * (float) fastDataRateSamplingPeriods - idleLoopMicrosSmooth) * 100.F / (1E3F * (float) fastDataRateSamplingPeriods)), 6, 1, s ); // as a percentage (whole number)
         strcat( s, "%" );
     }
     }
@@ -1890,9 +1890,11 @@ SIGNAL( ADC_vect ) {
     static long errorSignal { 0 }, errorSignalPrev { 0 };                                       // error signal, previous error signal 
     static long TTTintTerm { 0 }, TTTdifTerm { 0 };                                             // true three term PID controller integrator and differentiator term
     static long sumErrSignalMagnitude { 0 };                                                    // measure for stability vertical position
+    static long dutyCycleShortTimeCst { 0 }, dutyCycleLongTimeCst{ 0 };                         // for hall sensor reading adjustment based on duty cycle (limit disturbance on hall sensor reading)
+    static long dutyCycleDeviation {0};
 
     bool isGreenwich { false };
-    int TTTcontrOut { 0 };                                                                      // controller out (value between minMagnetOnCycles and minMagnetOnCycles)
+    long TTTcontrOut { 0 };                                                                      // controller out (value between minMagnetOnCycles and minMagnetOnCycles)
 
 
     // globe rotation controller
@@ -2019,15 +2021,15 @@ SIGNAL( ADC_vect ) {
 
         if ( abs( TTTallTerms ) > maxTTTallTerms ) {                                                            // prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
             TTTallTerms = TTTallTerms >> PIDcalc_preliminaryDivisionDigits;                                     // get rid of accuracy in two steps 
-            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));      // TTT controller output
+            TTTcontrOut = ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));      // TTT controller output
         }
         else {
-            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
+            TTTcontrOut = ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
         }
         TTTcontrOut = max( TTTcontrOut, minMagnetOnCycles );                                                    // limit duty cycle to values within 0 - 100% 
         TTTcontrOut = min( TTTcontrOut, maxMagnetOnCycles );
 
-        OCR1A = TTTcontrOut;
+        OCR1A = (uint16_t) TTTcontrOut;
 
         // (2): control system for rotating magnetic field
         // - within 'auto locking' range(close to set rotation time) the system is SELF-controlling and LOCKING to the rotating magnetic field (NO slip)
@@ -2293,8 +2295,8 @@ SIGNAL( ADC_vect ) {
 
 
     else {                                                                                      // error condition: lifting magnet not enabled                                                              
-        TTTcontrOut = disabledMagnetOnCycles;
-        OCR1A = disabledMagnetOnCycles;                                                         // init: set minimum duty cycle for magnet
+        TTTcontrOut = disabledMagnetOnCycles;                                                   // init: set minimum duty cycle for magnet
+        OCR1A = (uint16_t) TTTcontrOut;                                                                    
 
         blueLedOn = (milliSecond < 500);
         if ( milliSecond == 0L ) {
@@ -2470,7 +2472,12 @@ SIGNAL( ADC_vect ) {
     }
 
     // keep track of magnet ON cycles
-    sumMagnetOnCycles += TTTcontrOut;
+    sumMagnetOnCycles += TTTcontrOut;                                                           // for smoothed value (first order with time cst 1s)    
+    
+    //// <summary>
+    dutyCycleShortTimeCst = dutyCycleShortTimeCst + ((((TTTcontrOut << 8) - dutyCycleShortTimeCst) * ((long) ((1024. * samplingPeriod) / 0.010))) >> 10);
+    dutyCycleLongTimeCst = dutyCycleLongTimeCst + ((((TTTcontrOut << 8) - dutyCycleLongTimeCst) * ((long) ((16384. * samplingPeriod) / 0.500))) >> 14);
+    dutyCycleDeviation = dutyCycleShortTimeCst - dutyCycleLongTimeCst;      // positive deviation: duty cycle higher than average (-> reported hall sensor output will be too low)
 
     // measure processor idle time
     sumIdleLoopMicros += (long) (idleLoopNanos500 >> 1);
@@ -2491,7 +2498,7 @@ SIGNAL( ADC_vect ) {
     uint8_t* messagePtr { nullptr };
 
     // events happening at regular intervals at a relatively fast rate (multiple times per second), NOT synchronized with fixed parts of a second  
-    if ( (millis16bits & (fasteDataRateSamplingPeriods - 1)) == 0 ) {
+    if ( (millis16bits & (fastDataRateSamplingPeriods - 1)) == 0 ) {
         if ( myEvents.addChunk( eFastRateData, sizeof( FastRateData ), &messagePtr ) ) {
             ((FastRateData*) messagePtr)->sumIdleLoopMicros = sumIdleLoopMicros;
             ((FastRateData*) messagePtr)->sumISRdurations = sumISRdurations;
@@ -2611,7 +2618,7 @@ SIGNAL( ADC_vect ) {
 
     // one mS before fast rate data event, so that it will be available by then
 
-    if ( (millis16bits & (fasteDataRateSamplingPeriods - 1)) == (fasteDataRateSamplingPeriods - 1) ) {    // initiate ADC conversion temp sensor value
+    if ( (millis16bits & (fastDataRateSamplingPeriods - 1)) == (fastDataRateSamplingPeriods - 1) ) {    // initiate ADC conversion temp sensor value
         ADMUX = (B01 << REFS0) | (B0001 << MUX0);
         ADCSRA |= (1 << ADEN) | (1 << ADSC) | (1 << ADIE) | (B111 << ADPS0);
         ADCisTemp = true;                                                                       // indicate this is a temp. measurement (not a hall sensor measurment)
