@@ -1846,7 +1846,7 @@ SIGNAL( ADC_vect ) {
     constexpr int PIDcalculation_BinaryFractionDigits { 14 };                                   // added accuracy (binary fraction digits) in PID controller calculations
     constexpr int gain_BinaryFractionDigits { 8 };                                              // added TTTgain accuracy (binary fraction digits) because of small TTTgain
     constexpr int TTTintFactor_BinaryFractionDigits { 18 };                                     // added TTTintFactor accuracy (binary fraction digits) because of small TTTintFactor                           
-    constexpr int TTTdifFactor_BinaryFractionDigits { 3 };                                      // added TTTdifFactor accuracy (binary fraction digits) because of small TTTdifFactor
+    constexpr int TTTdifFactor_BinaryFractionDigits { 10 };                                      // added TTTdifFactor accuracy (binary fraction digits) because of small TTTdifFactor
     constexpr int PIDcalc_preliminaryDivisionDigits { 4 };                                      // to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
 
     constexpr int rotationCalculation_BinaryFractionDigits { 14 };
@@ -1855,9 +1855,9 @@ SIGNAL( ADC_vect ) {
     // PID controller
 
 #if highAnalogGain                                                                              // compensate for higher analog gain
-    constexpr float gain { 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float gain {0.39};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst { 10.0 };                                                        // PID: integrator  time constant (seconds) 
-    constexpr float difTimeCst { 0.023 };                                                       // PID: differentiator time constant (seconds) 
+    constexpr float difTimeCst {0.0002};////{ 0.023 };                                                       // PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm { (800 * 15) / 10 };                                       // PID: initial value integrator term (for easier globe handling) --> depends on gain !
     constexpr long hallRange_ADCsteps { (300 * 15) / 10 };                                      // maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
@@ -2018,17 +2018,17 @@ SIGNAL( ADC_vect ) {
 
         // controller output becomes magnet duty cycle (0 = magnet completely OFF)
         long TTTallTerms = errorSignal + TTTintTerm + TTTdifTerm;                                               // after multiplying with TTTgain, result can be > LONG_MAX: 
-        firstOrderComp = TTTallTerms + 23 * (TTTallTerms - prevTTTallTerms);
-        firstOrderComp = 0x80090807;
-        Serial.println(     *( (int8_t *) &firstOrderComp+3)  );
+        firstOrderComp = (TTTallTerms>>8) + 23 * ((TTTallTerms - prevTTTallTerms)>>8);
         prevTTTallTerms = TTTallTerms;
+        ////Serial.println(firstOrderComp, HEX);
+        TTTallTerms = firstOrderComp;
 
         if ( abs( TTTallTerms ) > maxTTTallTerms ) {                                                            // prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
             TTTallTerms = TTTallTerms >> PIDcalc_preliminaryDivisionDigits;                                     // get rid of accuracy in two steps 
-            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));      // TTT controller output
+            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits-8));      // TTT controller output
         }
         else {
-            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
+            TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits-8));  // TTT controller output
         }
 
 
