@@ -2001,7 +2001,10 @@ SIGNAL( ADC_vect ) {
 
     // *** control globe vertical position and rotation *** 
 
-    if ( liftingMagnetEnabled ) {
+   static long prevTTTallTerms {0};
+   long firstOrderComp{0};
+   
+   if ( liftingMagnetEnabled ) {
         // (1): Control system for lifting magnet (PID)
 
         errorSignalPrev = errorSignal;                                                                          // remember previous value of error signal 
@@ -2015,6 +2018,10 @@ SIGNAL( ADC_vect ) {
 
         // controller output becomes magnet duty cycle (0 = magnet completely OFF)
         long TTTallTerms = errorSignal + TTTintTerm + TTTdifTerm;                                               // after multiplying with TTTgain, result can be > LONG_MAX: 
+        firstOrderComp = TTTallTerms + 23 * (TTTallTerms - prevTTTallTerms);
+        firstOrderComp = 0x80090807;
+        Serial.println(     *( (int8_t *) &firstOrderComp+3)  );
+        prevTTTallTerms = TTTallTerms;
 
         if ( abs( TTTallTerms ) > maxTTTallTerms ) {                                                            // prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
             TTTallTerms = TTTallTerms >> PIDcalc_preliminaryDivisionDigits;                                     // get rid of accuracy in two steps 
@@ -2023,6 +2030,10 @@ SIGNAL( ADC_vect ) {
         else {
             TTTcontrOut = (int) ((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
         }
+
+
+
+
         TTTcontrOut = max( TTTcontrOut, minMagnetOnCycles );                                                    // limit duty cycle to values within 0 - 100% 
         TTTcontrOut = min( TTTcontrOut, maxMagnetOnCycles );
 
