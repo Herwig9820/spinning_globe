@@ -216,12 +216,13 @@ char s150 [ 150 ], s30 [ 30 ];                                                  
 // *** time and other measurements *** 
 
 constexpr uint8_t keyBufferLength { 3 };
-constexpr long timer1PWMfreq { 1000L };                                             // 1 KHz
-constexpr long timer1PreScaler { 8 };                                               // as set in setup();
+constexpr long timer1PWMfreq { 8000L };                                             // 1 KHz
+constexpr long timer1PreScaler { 1 };                                               // as set in setup();
 constexpr long timer1ClockFreq { F_CPU / timer1PreScaler };                         // 2 MHz
 constexpr long timer1Top { timer1ClockFreq / timer1PWMfreq / 2 };                   // timer counts up and down : 2000 steps, TOP =1000
 constexpr long fasteDataRateSamplingPeriods { 1 << 7 };                             // in sampling periods (milli seconds, power of 2)
-constexpr float samplingPeriod { 1. / (float) timer1PWMfreq };                      // 1 milli second sampling period, in seconds
+constexpr long T1periodsPerSamplingPeriod{8};
+constexpr float samplingPeriod { 1. / (float) timer1PWMfreq * T1periodsPerSamplingPeriod};                      // 1 milli second sampling period, in seconds
 constexpr long oneSecondCount { 1000L }, blinkTimeCount { 800 };                    // milli seconds
 constexpr long spareTimeCount { 500 };                                              // milli seconds
 
@@ -246,6 +247,7 @@ volatile int8_t keyBuffer [ keyBufferLength ] { 0 };                            
 volatile uint8_t rotationStatus { rotNoPosSync }, errorCondition { errNoError };
 volatile uint8_t switchStates { 0 }, prevSwitchStates { 0 };                        // current and previous state of the board switches / buttons
 volatile uint8_t keysAvailable { 0 };                                               // No of keys available in board key buffer
+volatile uint8_t T1CycleNo{0};                                                      // 0 to periods in 1 sample period - 1
 volatile unsigned int idleLoopNanos500 { 0 };                                       // at least reset every mS = 1000 micro seconds: will not overflow
 volatile unsigned int millis16bits { 0 };
 volatile long milliSecond { 0 }, second { 0 };
@@ -748,9 +750,11 @@ void setup()
     // *** setup timer 1 (16 bit) for phase correct PWM 1 Khz and enable overflow interrupt ***
 
     // timer 1 is used as timebase AND to generate PWM for lifting magnet
-    // Prescaler 8 (16MHz / 8 = 2 MHz clock => T = 500 nanoS), 1 kHz = 2 Mhz / (2 * 1000 = 2 * TOP value) 
+    //// Prescaler divides by 8 (16MHz / 8 = 2 MHz clock => T = 500 nanoS), 1 kHz = 2 Mhz / (2 * 1000 = 2 * TOP value) 
+    // No prescaler (16MHz / 1 = 16 MHz => T = 62.5 nanoS), 8 kHz = 16 Mhz / (2 * 1000 = 2 * TOP value) 
     TCCR1A = _BV( COM1A1 ) | _BV( WGM11 );                  // COM1A1 set: clear OC1A pin on compare match when upcounting, set when downcounting
-    TCCR1B = _BV( WGM13 ) | _BV( CS11 );                    // WGM13 & WGM11 set: PWM, phase correct, TOP = ICR1 register; CS11: prescaler factor 8 
+    ////TCCR1B = _BV( WGM13 ) | _BV( CS11 );                    // WGM13 & WGM11 set: PWM, phase correct, TOP = ICR1 register; CS11: prescaler factor 8 
+    TCCR1B = _BV( WGM13 ) | _BV( CS10 );                    // WGM13 & WGM11 set: PWM, phase correct, TOP = ICR1 register; CS10: prescaler factor 1 (no prescaling) 
     ICR1 = timer1Top;                                       // counter TOP value 
     do {} while ( TCNT1 < 100 );                            // prevent first of two timer interrupts in succession after reset, with ADC re-trigger before ADC interrupt
     TIMSK1 = _BV( TOIE1 );                                  // enable overflow interrupt for this timer 
@@ -1722,6 +1726,8 @@ void setColorCycle( uint8_t newColorCycle, uint8_t newColorTiming, bool initColo
 // count time
 
 SIGNAL( TIMER1_OVF_vect ) {
+    if(++T1CycleNo < T1periodsPerSamplingPeriod) {return;}
+    T1CycleNo = 0;
 
     uint8_t holdPortBduringInt = PORTB;                                                     // hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
     uint8_t holdPortDduringInt = PORTD;                                                     // hold current PORT D value (LCD driver can be updating PORT D in main loop at the time this ISR occurs) 
