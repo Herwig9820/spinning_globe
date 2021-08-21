@@ -773,7 +773,7 @@ void loop()
     myEvents.removeOldestChunk( ISRevent != eNoEvent );     // has an event been processed now ? remove from message queue
 
     wdt_reset();                                            // reset watchdog timer
-    resetHWwatchDog = true;                                 // allow ISR to set ISR-IN-EXEC signal high then low (set low again in ISR). Tmax around 400mS                                                  
+    resetHWwatchDog = true;                                 // allow ISR to set ISR-IN-EXEC signal high then low (set low again in ISR). Tmax around 400mS (1 cycle)                                                  
     idleLoop();                                             // only for idle time measuring. Results in slight jitter on start of ISR (+/- 10 micros)
 }
 
@@ -1861,7 +1861,7 @@ SIGNAL( ADC_vect ) {
     // PID controller
 
 #if highAnalogGain                                                                              // compensate for higher analog gain
-    constexpr float gain {0.42};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float gain {0.41};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst { 10.0 };                                                        // PID: integrator  time constant (seconds) 
     constexpr float difTimeCst { 0.023    }; ////{0.023}                                                      // PID: differentiator time constant (seconds) 
 
