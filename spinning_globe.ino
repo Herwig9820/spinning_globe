@@ -1861,8 +1861,8 @@ SIGNAL( ADC_vect ) {
     // PID controller
 
 #if highAnalogGain                                                                              // compensate for higher analog gain
-    constexpr float gain {0.41};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
-    constexpr float intTimeCst { 10.0 };                                                        // PID: integrator  time constant (seconds) 
+    constexpr float gain {0.42};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float intTimeCst { 1.0 };                                                        // PID: integrator  time constant (seconds) 
     constexpr float difTimeCst { 0.023    }; ////{0.023}                                                      // PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm { (800 * 15) / 10 };                                       // PID: initial value integrator term (for easier globe handling) --> depends on gain !
@@ -1998,7 +1998,7 @@ SIGNAL( ADC_vect ) {
         }
     }
     else if ( printPIDtimeCounter == PIDstepTime ) {                                            // counted from data logging start 
-        if ( applyStep ) { hallRef_ADCsteps = targetHallRef_ADCsteps + 100; }
+        if ( applyStep ) { hallRef_ADCsteps = targetHallRef_ADCsteps + 41; }                    // +200 mV at ADC input
     }
 
     if ( hallReading_ADCsteps < hallRef_ADCsteps - hallRange_ADCsteps ) { hallReading_ADCsteps = hallRef_ADCsteps - hallRange_ADCsteps; } // bring measured position within range, because integer calc. with limited accuracy
