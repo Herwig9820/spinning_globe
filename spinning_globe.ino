@@ -22,6 +22,19 @@
 
 */
 
+/*
+    ******** Working prototype to test 8 kHz PWM ********
+    Note that sampling time is still 1 kHz
+    Issues still to resolve:
+    - idle time calculation is wrong (assumes 1kHz T1 clock)
+    - (less important) idle time calculation considers dummy timer interrupts - 7 of 8) as idle time
+    - ISR: if a dummy ISR is missed (high rate), an extra dummy ISR will occur before next sampling period will start
+      => enable interrupts within ISRs
+    Note that frequency of the audible tone produced by the magnet is a lot higher than for 1 kHz,
+    which can be annoying for some
+    Code changes applied: search for "// 8kHz PWM:" strings within comments
+*/
+
 #include <LiquidCrystal.h>                                  // lcd
 #include <util/atomic.h>                                    // atomic operations
 #include <avr/wdt.h>                                        // watchdog timer
@@ -124,7 +137,7 @@ constexpr uint8_t ledstripDataBits { B11000000 };               // port D bits 7
 
 // *** flash memory constants ***
 
-const char str_build[] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n"; 
+const char str_build [] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n";
 
 const char str_empty16 [] PROGMEM = "                ";
 const char str_rotationOff [] PROGMEM = "rotation off";
@@ -216,15 +229,15 @@ char s150 [ 150 ], s30 [ 30 ];                                                  
 // *** time and other measurements *** 
 
 constexpr uint8_t keyBufferLength { 3 };
-constexpr long timer1PWMfreq { 8000L };                                             // 1 KHz
-constexpr long timer1PreScaler { 1 };                                               // as set in setup();
-constexpr long timer1ClockFreq { F_CPU / timer1PreScaler };                         // 2 MHz
+constexpr long timer1PWMfreq { 8000L };                                             // 8kHz PWM: 8 KHz
+constexpr long timer1PreScaler { 1 };                                               // 8kHz PWM: no prescaling
+constexpr long timer1ClockFreq { F_CPU / timer1PreScaler };                         // 8kHz PWM: timer 1 clock is 16 MHz
 constexpr long timer1Top { timer1ClockFreq / timer1PWMfreq / 2 };                   // timer counts up and down : 2000 steps, TOP =1000
+constexpr long T1periodsPerSamplingPeriod { 8 };                                    // 8kHz PWM
 constexpr long fasteDataRateSamplingPeriods { 1 << 7 };                             // in sampling periods (milli seconds, power of 2)
-constexpr long T1periodsPerSamplingPeriod{8};
-constexpr float samplingPeriod { 1. / (float) timer1PWMfreq * T1periodsPerSamplingPeriod};                      // 1 milli second sampling period, in seconds
 constexpr long oneSecondCount { 1000L }, blinkTimeCount { 800 };                    // milli seconds
 constexpr long spareTimeCount { 500 };                                              // milli seconds
+constexpr float samplingPeriod { 1. / (float) timer1PWMfreq * T1periodsPerSamplingPeriod };      // 8kHz PWM: still 1 milli second sampling period, in seconds
 
 bool showLiveValues { true };
 bool forceWriteLedstripSpecs { false };
@@ -247,7 +260,7 @@ volatile int8_t keyBuffer [ keyBufferLength ] { 0 };                            
 volatile uint8_t rotationStatus { rotNoPosSync }, errorCondition { errNoError };
 volatile uint8_t switchStates { 0 }, prevSwitchStates { 0 };                        // current and previous state of the board switches / buttons
 volatile uint8_t keysAvailable { 0 };                                               // No of keys available in board key buffer
-volatile uint8_t T1CycleNo{0};                                                      // 0 to periods in 1 sample period - 1
+volatile uint8_t T1CycleNo { 0 };                                                   // 8kHz PWM:  0 to periods in 1 sample period - 1
 volatile unsigned int idleLoopNanos500 { 0 };                                       // at least reset every mS = 1000 micro seconds: will not overflow
 volatile unsigned int millis16bits { 0 };
 volatile long milliSecond { 0 }, second { 0 };
@@ -750,10 +763,8 @@ void setup()
     // *** setup timer 1 (16 bit) for phase correct PWM 1 Khz and enable overflow interrupt ***
 
     // timer 1 is used as timebase AND to generate PWM for lifting magnet
-    //// Prescaler divides by 8 (16MHz / 8 = 2 MHz clock => T = 500 nanoS), 1 kHz = 2 Mhz / (2 * 1000 = 2 * TOP value) 
-    // No prescaler (16MHz / 1 = 16 MHz => T = 62.5 nanoS), 8 kHz = 16 Mhz / (2 * 1000 = 2 * TOP value) 
+    // 8kHz PWM: no prescaler (16MHz / 1 = 16 MHz => T = 62.5 nanoS), 8 kHz = 16 Mhz / (2 * 1000 = 2 * TOP value) -> TCCR1B value adapted
     TCCR1A = _BV( COM1A1 ) | _BV( WGM11 );                  // COM1A1 set: clear OC1A pin on compare match when upcounting, set when downcounting
-    ////TCCR1B = _BV( WGM13 ) | _BV( CS11 );                    // WGM13 & WGM11 set: PWM, phase correct, TOP = ICR1 register; CS11: prescaler factor 8 
     TCCR1B = _BV( WGM13 ) | _BV( CS10 );                    // WGM13 & WGM11 set: PWM, phase correct, TOP = ICR1 register; CS10: prescaler factor 1 (no prescaling) 
     ICR1 = timer1Top;                                       // counter TOP value 
     do {} while ( TCNT1 < 100 );                            // prevent first of two timer interrupts in succession after reset, with ADC re-trigger before ADC interrupt
@@ -1300,13 +1311,13 @@ void writeParamLabelAndValue() {
             sprintf( s150, "%ld ", eventSnapshot.eventsMissed );
             strcat_P( s150, str_eventsMissed );
             Serial.println( s150 );
-        }
+    }
 
 #if test_showEventStats
         sprintf_P( s150, str_eventMaxStats, eventSnapshot.largestEventsPending, eventSnapshot.largestEventBufferBytesUsed );
         Serial.println( s150 );
 #endif
-    }
+}
 }
 
 
@@ -1649,7 +1660,7 @@ void setRotationTime( int paramValueNo, bool init /* = false */ )
                 ledBrightnessStepsUpDown = (ledMaxBrightnessLevel [ ledUpDownCycleType ] - ledMinBrightnessLevel [ ledUpDownCycleType ]) * 2;
                 int ledCycleMaxUpDownTime = ledMaxAllowedStepTime * ledBrightnessStepsUpDown;
                 if ( (targetGlobeRotationTime <= ledCycleMaxUpDownTime) || (ledUpDownCycleType == 2) ) break; // no increment to 3
-            }
+        }
 
             // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
             scaledGreenLedDelay = (ledBrightnessStepsUpDown * targetGlobeRotationTime) >> 1;
@@ -1657,8 +1668,8 @@ void setRotationTime( int paramValueNo, bool init /* = false */ )
             forceStatusEvent = true;                                            // 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
             eeprom_update_byte( (uint8_t*) 0, (uint8_t) paramValueNo );         // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
 
-        }
     }
+}
 }
 
 
@@ -1726,7 +1737,7 @@ void setColorCycle( uint8_t newColorCycle, uint8_t newColorTiming, bool initColo
 // count time
 
 SIGNAL( TIMER1_OVF_vect ) {
-    if(++T1CycleNo < T1periodsPerSamplingPeriod) {return;}
+    if ( ++T1CycleNo < T1periodsPerSamplingPeriod ) { return; }                             // 8kHz PWM: ignore 7 of 8 interrupts 
     T1CycleNo = 0;
 
     uint8_t holdPortBduringInt = PORTB;                                                     // hold current PORT B value (ledstrip could have changed PORT B I/O selection bits at the time this ISR occurs) 
@@ -1861,14 +1872,16 @@ SIGNAL( ADC_vect ) {
     // PID controller
 
 #if highAnalogGain                                                                              // compensate for higher analog gain
-    constexpr float gain {0.42};////{ 0.70 * 10. / 15. };                                                  // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
-    constexpr float intTimeCst { 1.0 };                                                        // PID: integrator  time constant (seconds) 
-    constexpr float difTimeCst { 0.023    }; ////{0.023}                                                      // PID: differentiator time constant (seconds) 
+    // 8kHz PWM: gain is a little smaller than for 1kHz PWM
+    constexpr float gain { 0.42 };                                                              // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
+    constexpr float intTimeCst { 1.0 };                                                         // PID: integrator  time constant (seconds) 
+    constexpr float difTimeCst { 0.023 };                                                       // PID: differentiator time constant (seconds) 
 
     constexpr long initialTTTintTerm { (800 * 15) / 10 };                                       // PID: initial value integrator term (for easier globe handling) --> depends on gain !
     constexpr long hallRange_ADCsteps { (300 * 15) / 10 };                                      // maximum deviation from hall reference (set point) used in calculations to prevent integer variable overflow, in ADC steps
     constexpr long floatingGlobeHallRange_ADCsteps { (100 * 15) / 10 };                         // maximum deviation from hall reference (set point) to check for 'non-floating' condition, in ADC steps
 #else
+    // 8kHz PWM: gain setting NOT TESTED for analog gain = 10 ('low analog gain') !
     constexpr float gain { 0.70 };                                                              // PID: gain (total gain: gain x 1023 ADC steps / 5000 millivolt x analog gain)
     constexpr float intTimeCst { 10.0 };                                                        // PID: integrator  time constant (seconds) 
     constexpr float difTimeCst { 0.0230 };                                                      // PID: differentiator time constant (seconds) 
@@ -2098,16 +2111,16 @@ SIGNAL( ADC_vect ) {
                                 ledOffOnCycleCnt [ i ] = 0;
                                 ledBrightnessChangeCnt [ i ] = -targetGlobeRotationTime;
                                 if ( i == 1 ) { ledBrightnessChangeCnt [ i ] -= scaledGreenLedDelay; }   // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
-                            }
+                }
 #endif  
-                        }
+            }
 
                         else {                                                                  // was locked already: adapt sync error
                             rotationOutOfSyncTime = rotationOutOfSyncTime + (targetGlobeRotationTime - globeRotationTime);
                             bool withinTolerance = (4L * abs( rotationOutOfSyncTime ) <= (targetGlobeRotationTime));      // total deviation less than 1/4 rotation (stepTime * steps equals 1 rotation)
                             if ( !withinTolerance ) { rotationStatus = rotUnlocked; }
                         }
-                    }
+        }
 
                     else { rotationStatus = rotUnlocked; }                                      // last globe rotations NOT both in autolock range: set status 'unlocked' again 
 
@@ -2134,8 +2147,8 @@ SIGNAL( ADC_vect ) {
                         summedMagneticFieldPhase = 0;
                         summedMagneticFieldRotations = 0;
                     }
-                }
-            }
+    }
+}
 
             // is NOT a globe position sync (every other timer interrupt)
             else {
@@ -2286,7 +2299,7 @@ SIGNAL( ADC_vect ) {
                             }
 
                             ledOffOnCycleCnt [ i ] = ledAtomicTimeON [ i ] - ledAtomicTimePeriod [ i ];
-                        }
+        }
                     }
                 }
             }
