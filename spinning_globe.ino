@@ -124,7 +124,7 @@ constexpr uint8_t ledstripDataBits { B11000000 };               // port D bits 7
 
 // *** flash memory constants ***
 
-const char str_build[] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n"; 
+const char str_build [] PROGMEM = "***spinning globe v1.0 build June 27, 2021 ***\n";
 
 const char str_empty16 [] PROGMEM = "                ";
 const char str_rotationOff [] PROGMEM = "rotation off";
@@ -1992,7 +1992,7 @@ SIGNAL( ADC_vect ) {
         }
     }
     else if ( printPIDtimeCounter == PIDstepTime ) {                                            // counted from data logging start 
-        if ( applyStep ) { hallRef_ADCsteps = targetHallRef_ADCsteps + 100; }
+        if ( applyStep ) { hallRef_ADCsteps = targetHallRef_ADCsteps + 41; }                    // +200 mV
     }
 
     if ( hallReading_ADCsteps < hallRef_ADCsteps - hallRange_ADCsteps ) { hallReading_ADCsteps = hallRef_ADCsteps - hallRange_ADCsteps; } // bring measured position within range, because integer calc. with limited accuracy
