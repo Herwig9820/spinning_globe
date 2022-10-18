@@ -2,7 +2,7 @@
     Name:       spinning_globe.ino
     Created:    10/08/2019 - 17/10/2022
     Author:     Herwig Taveirne
-    Version:    1.0.1
+    Version:    1.0.2
 
     Program written and tested for Arduino Nano
     Timer 1 reading in class MyTime, in procedure idleLoop and in ISR assumes clock speed is 16Mhz
@@ -275,14 +275,17 @@ constexpr float speedUpRatio{ 1.2 };                                            
 constexpr float autoLock_lowRelGlobeRotTime{ 0.9 };                                 // relative globe rotation time limits to flag a rotation as 'in autolock range')
 constexpr float autoLock_highRelGlobeRotTime{ 1.1 };
 
-constexpr float slowDownPhaseAdjust{ 0.3 };                                         // during slow down, phase adjustment as a fraction of one rotation
-constexpr float speedUpPhaseAdjust{ 0.45 };/*v1.0.1 changed from 0.3 to 0.45*/      // during speed up, phase adjustment as a fraction of one rotation  
+constexpr float slowDownPhaseAdjust_slowSpeeds{ 0.25 };/*v1.0.2 value changed*/     // during slow down, phase adjustment as a fraction of one rotation
+constexpr float speedUpPhaseAdjust_slowSpeeds{ 0.25 };/*v1.0.2 value changed*/      // during speed up, phase adjustment as a fraction of one rotation  
+
+constexpr float slowDownPhaseAdjust_highSpeeds{ 0.30 };/*v1.0.2 value added*/       // during slow down, phase adjustment as a fraction of one rotation
+constexpr float speedUpPhaseAdjust_highSpeeds{ 0.40 };/*v1.0.2 value added*/        // during speed up, phase adjustment as a fraction of one rotation  
 
 constexpr long defaultStepTime{ 750L };                                             // one turn = stepTime * # steps, milli seconds;
 constexpr long steps{ 12L };
 
 // interface between ISR and main
-volatile int slowTimerSamplePeriod{};
+volatile int rotationTimerSamplePeriod{};
 volatile long stepTime{ defaultStepTime }, targetGlobeRotationTime{ stepTime * steps };
 volatile long slowDown_timeLimit{};                                                 // if rotation time lower than limit, then slow down 
 volatile long speedUp_timeLimit{};                                                  // if rotation time higher than limit, then speed up
@@ -1631,7 +1634,7 @@ void setRotationTime(int paramValueNo, bool init /* = false */)
 
 
             stepTimeNewRotation = stepTime;
-            slowTimerSamplePeriod = stepTimeNewRotation;
+            rotationTimerSamplePeriod = stepTimeNewRotation;
 
             // criterium to pick a led up down cycle type: 
             // - step time should be greater than largest atomic period (for high brightness levels)
@@ -1903,11 +1906,15 @@ SIGNAL(ADC_vect) {
     constexpr long slowDown_timeFactor = (long)((1L << rotationCalculation_BinaryFractionDigits) / (steps * slowDownRatio));
     constexpr long speedUp_timeFactor = (long)((1L << rotationCalculation_BinaryFractionDigits) / (steps * speedUpRatio));
 
-    constexpr long slowDown_phaseAdjustStep{ (long)(slowDownPhaseAdjust * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
-    constexpr long speedUp_phaseAdjustStep{ (long)(speedUpPhaseAdjust * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    constexpr long slowDown_phaseAdjustStep_slowSpeeds{ (long)(slowDownPhaseAdjust_slowSpeeds * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    constexpr long speedUp_phaseAdjustStep_slowSpeeds{ (long)(speedUpPhaseAdjust_slowSpeeds * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    constexpr long slowDown_phaseAdjustPosInStep_slowSpeeds{ (long)(((slowDownPhaseAdjust_slowSpeeds * (float)steps) - (float)slowDown_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
+    constexpr long speedUp_phaseAdjustPosInStep_slowSpeeds{ (long)(((speedUpPhaseAdjust_slowSpeeds * (float)steps) - (float)speedUp_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
 
-    constexpr long slowDown_phaseAdjustPosInStep{ (long)(((slowDownPhaseAdjust * (float)steps) - (float)slowDown_phaseAdjustStep) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
-    constexpr long speedUp_phaseAdjustPosInStep{ (long)(((speedUpPhaseAdjust * (float)steps) - (float)speedUp_phaseAdjustStep) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
+    constexpr long slowDown_phaseAdjustStep_highSpeeds{ (long)(slowDownPhaseAdjust_highSpeeds * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    constexpr long speedUp_phaseAdjustStep_highSpeeds{ (long)(speedUpPhaseAdjust_highSpeeds * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    constexpr long slowDown_phaseAdjustPosInStep_highSpeeds{ (long)(((slowDownPhaseAdjust_highSpeeds * (float)steps) - (float)slowDown_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
+    constexpr long speedUp_phaseAdjustPosInStep_highSpeeds{ (long)(((speedUpPhaseAdjust_highSpeeds * (float)steps) - (float)speedUp_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
 
     static bool GreenwichPositionSync{ false };
     static uint8_t lastTurnsInAutoLockRangeCount{ 0 };
@@ -2070,7 +2077,7 @@ SIGNAL(ADC_vect) {
                     }
 
                     // make sure that current slow timer value is not higher than current stepNo time
-                    if (slowTimerSamplePeriod > stepTimeNewRotation) { slowTimerSamplePeriod = stepTimeNewRotation; }
+                    if (rotationTimerSamplePeriod > stepTimeNewRotation) { rotationTimerSamplePeriod = stepTimeNewRotation; }
 
                     // if globe rotation time is inside a calculated 'band' (narrower than the band used to change magnetic field rotation time), flag this rotation as 'in autolock range' (but not yet locked)
                     bool thisTurnInAutoLockRange = (globeRotationTime > autoLock_lowGlobeRotTime) && (globeRotationTime < autoLock_highGlobeRotTime); // check if in auto locking range
@@ -2107,7 +2114,7 @@ SIGNAL(ADC_vect) {
                     if (rotationStatus == rotLocked) {
                         lockedRotations++;
                         // for measuring and testing only, for calcualting average magnetic field phase measured while locked
-                        long magneticFieldPhase = slowTimerSamplePeriod + (stepNo * stepTime);  // actual rotating field phase at each position sync 
+                        long magneticFieldPhase = rotationTimerSamplePeriod + (stepNo * stepTime);  // actual rotating field phase at each position sync 
                         summedMagneticFieldPhase = summedMagneticFieldPhase + magneticFieldPhase;
                         // avoid overflow: split summed up phase in rotations and phase
                         if (summedMagneticFieldPhase >= targetGlobeRotationTime) {
@@ -2117,9 +2124,15 @@ SIGNAL(ADC_vect) {
                     }
                     else {                                                                      // is currently unloced
                         if (controlRotation) {
-                            // adjust magnetic field phase (depends on placement position sensor)
-                            slowTimerSamplePeriod = ((fasterThanSet ? slowDown_phaseAdjustPosInStep : speedUp_phaseAdjustPosInStep) * stepTimeNewRotation) >> rotationCalculation_BinaryFractionDigits;
-                            stepNo = fasterThanSet ? slowDown_phaseAdjustStep : speedUp_phaseAdjustStep;
+                            // adjust magnetic field phase (depends on placement position sensor) and width of Schmitt trigger pulse (pulse shapng for Greenwich event)
+                            if (globeRotationTime > 6000L) {
+                                rotationTimerSamplePeriod = ((fasterThanSet ? slowDown_phaseAdjustPosInStep_slowSpeeds : speedUp_phaseAdjustPosInStep_slowSpeeds) * stepTimeNewRotation) >> rotationCalculation_BinaryFractionDigits;
+                                stepNo = fasterThanSet ? slowDown_phaseAdjustStep_slowSpeeds : speedUp_phaseAdjustStep_slowSpeeds;
+                            }
+                            else {
+                                rotationTimerSamplePeriod = ((fasterThanSet ? slowDown_phaseAdjustPosInStep_highSpeeds : speedUp_phaseAdjustPosInStep_highSpeeds) * stepTimeNewRotation) >> rotationCalculation_BinaryFractionDigits;
+                                stepNo = fasterThanSet ? slowDown_phaseAdjustStep_highSpeeds : speedUp_phaseAdjustStep_highSpeeds;
+                            }
                         }
 
                         lockedRotations = 0;
@@ -2162,15 +2175,15 @@ SIGNAL(ADC_vect) {
 
                         stepTimeNewRotation = stepTime;                                         // set standard magnetic field rotation time                
                         // make sure that current slow timer value is not higher than current stepNo time
-                        if (slowTimerSamplePeriod > stepTimeNewRotation) { slowTimerSamplePeriod = stepTimeNewRotation; }
+                        if (rotationTimerSamplePeriod > stepTimeNewRotation) { rotationTimerSamplePeriod = stepTimeNewRotation; }
                     }
                 }
             }
 
 
             // set coil pair magnetic field states
-            if (slowTimerSamplePeriod >= stepTimeNewRotation) {                                 // >= : safety (timer should never be greater than step time)
-                slowTimerSamplePeriod = 0;
+            if (rotationTimerSamplePeriod >= stepTimeNewRotation) {                                 // >= : safety (timer should never be greater than step time)
+                rotationTimerSamplePeriod = 0;
 
                 stepNo++;
                 if (stepNo >= steps) { stepNo = 0; }                                            // >= : safety (step no should never be greater than step steps)
@@ -2202,12 +2215,12 @@ SIGNAL(ADC_vect) {
                 PORTC = (PORTC | portC_IOdisableBit);
             }
 
-            slowTimerSamplePeriod++;
+            rotationTimerSamplePeriod++;
         }
 
         // status leds while not in error mode
 
-        bool stepTick = ((slowTimerSamplePeriod < 20) && !(stepNo & B1));                       // signals new step (rotating magnetic field)
+        bool stepTick = ((rotationTimerSamplePeriod < 20) && !(stepNo & B1));                       // signals new step (rotating magnetic field)
         bool greenwichTick = (globeRotationTimeCount < 60L);                                    // magnet passes sensor
         bool dimmed = (millis16bits & B111) == B0000;                                           // dimmed, 1/8 on
 
