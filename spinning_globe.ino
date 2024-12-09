@@ -1,8 +1,8 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 17/10/2022
+    Created:    10/08/2019 - 9/12/2024
     Author:     Herwig Taveirne
-    Version:    1.0.2
+    Version:    1.0.3
 
     Program written and tested for Arduino Nano
     Timer 1 reading in class MyTime, in procedure idleLoop and in ISR assumes clock speed is 16Mhz
@@ -152,11 +152,11 @@ const char str_intTerm[] PROGMEM = "integ term";
 const char str_avgPhase[] PROGMEM = "avg phase";
 const char str_isrTime[] PROGMEM = "adc isr t";
 const char str_procLoad[] PROGMEM = "proc load";
+const char str_phaseAdj[] PROGMEM = "phas.adj!";
 
 const char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
-const char str_help1[] PROGMEM = "Type + or - to change parameter shown, E to edit value, S to show or stop live values, ";
-const char str_help2[] PROGMEM = "A to show all values, T for time stamp, LC0..5 to change ledstrip cycle (0 = off), ";
-const char str_help3[] PROGMEM = "LT1..4 to change ledstrip cycle time (1 = fastest), R0..1 for (step) response, ? for help";
+const char str_help1[] PROGMEM = "Type + or - to change parameter shown, E to edit value, S to show or stop live values, A to show all values, T for time stamp";
+const char str_help2[] PROGMEM = "LC0..5 to change ledstrip cycle (0 = off), LT1..4 to change ledstrip cycle time (1 = fastest), R0..1 for (step) response, ? for help";
 const char str_cmdError[] PROGMEM = "== Not a valid command or parameter";
 const char str_showLive[] PROGMEM = "== Show Live";
 const char str_stopLive[] PROGMEM = "== Stop Live";
@@ -177,7 +177,7 @@ const char str_eventMaxStats[] PROGMEM = "event max stats: events pending %d, me
 #endif
 
 const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
-str_vertPos, str_errSigVar, str_intTerm, str_avgPhase, str_isrTime, str_procLoad };
+str_vertPos, str_errSigVar, str_intTerm, str_avgPhase, str_isrTime, str_procLoad, str_phaseAdj };
 
 
 // *** user selectable parameter values ***
@@ -191,9 +191,9 @@ long hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       
 long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                               // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
 #endif
 
-constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0, sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0 };   // 0 if no value list for parameter
-constexpr long* paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr };    // nullptr if no value list for parameter
-int ParamsSelectedValueNos[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1 };    // -1 if display only (no changeable parameter); otherwise default if eeprom not used to store values 
+constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0, sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0 };   // 0 if no value list for parameter
+constexpr long* paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };    // nullptr if no value list for parameter
+int ParamsSelectedValueNos[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0 };    // -1 if display only (no changeable parameter); otherwise default value in case the eeprom is not used to store spinning globe presets 
 
 constexpr int paramCount = sizeof(paramLabels) / sizeof(paramLabels[0]);
 
@@ -272,7 +272,7 @@ volatile bool applyStep{ false };                                               
 constexpr float slowDownRatio{ 0.8 };                                               // during slow down, set magnetic field rotation time to current globe rotation times this factor 
 constexpr float speedUpRatio{ 1.2 };                                                // during speed up, set magnetic field rotation time to current globe rotation times this factor 
 
-constexpr float autoLock_lowRelGlobeRotTime{ 0.9 };                                 // relative globe rotation time limits to flag a rotation as 'in autolock range')
+constexpr float autoLock_lowRelGlobeRotTime{ 0.9 };                                 // relative globe rotation time limits to flag a rotation (as 'in autolock range')
 constexpr float autoLock_highRelGlobeRotTime{ 1.1 };
 
 constexpr float slowDownPhaseAdjust_slowSpeeds{ 0.25 };/*v1.0.2 value changed*/     // during slow down, phase adjustment as a fraction of one rotation
@@ -292,7 +292,7 @@ volatile long speedUp_timeLimit{};                                              
 volatile long autoLock_lowGlobeRotTime{};                                           // if rotation time lower than limit, then set phase 
 volatile long autoLock_highGlobeRotTime{};                                          // if rotation time lower than limit, then set phase 
 volatile long stepTimeNewRotation{ stepTime };
-
+volatile float phaseAdjust{ 0.F };                                                  // adjustment to cater for hall detector position changes (part of full circle)
 
 #if onboardLedDimming
 // *** on board led dimming - check out documentation (excel) for values ***
@@ -309,7 +309,6 @@ volatile uint8_t ledUpDownCycleType{ 0 };                                       
 volatile int ledBrightnessStepsUpDown{ 0 };                                         // min level -> max level -> min level + 1 = 2 * (max level - min level)
 volatile long scaledGreenLedDelay{ 0 };                                             // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
 #endif // onboardLedDimming
-
 
 // *** led strip dimming ***
 
@@ -675,6 +674,7 @@ void setup()
 
 
     // *** retrieve settings from eeprom and switches ***
+    eeprom_update_byte((uint8_t*)4, (uint8_t)0);                                // time after reset is longer than 3 seconds//// temp
 
     uint8_t cnt{ 0 };
     uint8_t eepromValue{ 0 };
@@ -711,6 +711,10 @@ void setup()
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
     checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
 
+    // NEW version 1.0.3: store phase adjustment for coils rotation start delay (non-locked rotation)     
+    eepromValue = eeprom_read_byte((uint8_t*)4);                                        // in degrees; from -90 to 90
+    phaseAdjust = (int8_t)(eepromValue) / 360.;                                         // in parts of a circle (-0.25 to 0.25)                                 
+    
     cli();
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
     sei();
@@ -734,9 +738,8 @@ void setup()
         Serial.println();
     }
     Serial.println(strcpy_P(s150, str_build));
-    Serial.print(strcpy_P(s150, str_help1));
-    Serial.print(strcpy_P(s150, str_help2));
-    Serial.println(strcpy_P(s150, str_help3));
+    Serial.println(strcpy_P(s150, str_help1));
+    Serial.println(strcpy_P(s150, str_help2));
 
     lcd.clear();
     lcd.noAutoscroll();
@@ -1209,9 +1212,8 @@ void writeStatus() {
 
     else if (userCommand == uHelp) {                                                        // print help string
         Serial.println();
-        Serial.print(strcpy_P(s150, str_help1));
-        Serial.print(strcpy_P(s150, str_help2));
-        Serial.println(strcpy_P(s150, str_help3));
+        Serial.println(strcpy_P(s150, str_help1));
+        Serial.println(strcpy_P(s150, str_help2));
         Serial.println();
     }
 
@@ -1906,15 +1908,15 @@ SIGNAL(ADC_vect) {
     constexpr long slowDown_timeFactor = (long)((1L << rotationCalculation_BinaryFractionDigits) / (steps * slowDownRatio));
     constexpr long speedUp_timeFactor = (long)((1L << rotationCalculation_BinaryFractionDigits) / (steps * speedUpRatio));
 
-    constexpr long slowDown_phaseAdjustStep_slowSpeeds{ (long)(slowDownPhaseAdjust_slowSpeeds * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
-    constexpr long speedUp_phaseAdjustStep_slowSpeeds{ (long)(speedUpPhaseAdjust_slowSpeeds * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
-    constexpr long slowDown_phaseAdjustPosInStep_slowSpeeds{ (long)(((slowDownPhaseAdjust_slowSpeeds * (float)steps) - (float)slowDown_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
-    constexpr long speedUp_phaseAdjustPosInStep_slowSpeeds{ (long)(((speedUpPhaseAdjust_slowSpeeds * (float)steps) - (float)speedUp_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
+    static long slowDown_phaseAdjustStep_slowSpeeds{ (long)((slowDownPhaseAdjust_slowSpeeds + phaseAdjust) * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    static long speedUp_phaseAdjustStep_slowSpeeds{ (long)((speedUpPhaseAdjust_slowSpeeds + phaseAdjust) * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    static long slowDown_phaseAdjustPosInStep_slowSpeeds{ (long)((((slowDownPhaseAdjust_slowSpeeds + phaseAdjust) * (float)steps) - (float)slowDown_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
+    static long speedUp_phaseAdjustPosInStep_slowSpeeds{ (long)((((speedUpPhaseAdjust_slowSpeeds + phaseAdjust) * (float)steps) - (float)speedUp_phaseAdjustStep_slowSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
 
-    constexpr long slowDown_phaseAdjustStep_highSpeeds{ (long)(slowDownPhaseAdjust_highSpeeds * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
-    constexpr long speedUp_phaseAdjustStep_highSpeeds{ (long)(speedUpPhaseAdjust_highSpeeds * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
-    constexpr long slowDown_phaseAdjustPosInStep_highSpeeds{ (long)(((slowDownPhaseAdjust_highSpeeds * (float)steps) - (float)slowDown_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
-    constexpr long speedUp_phaseAdjustPosInStep_highSpeeds{ (long)(((speedUpPhaseAdjust_highSpeeds * (float)steps) - (float)speedUp_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
+    static long slowDown_phaseAdjustStep_highSpeeds{ (long)((slowDownPhaseAdjust_highSpeeds + phaseAdjust) * steps) };             // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    static long speedUp_phaseAdjustStep_highSpeeds{ (long)((speedUpPhaseAdjust_highSpeeds + phaseAdjust) * steps) };               // stepNo to set for phase adjustment (from 0 to steps - 1)                   
+    static long slowDown_phaseAdjustPosInStep_highSpeeds{ (long)((((slowDownPhaseAdjust_highSpeeds + phaseAdjust) * (float)steps) - (float)slowDown_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };    // rel. position in step to set for phase adjustment
+    static long speedUp_phaseAdjustPosInStep_highSpeeds{ (long)((((speedUpPhaseAdjust_highSpeeds + phaseAdjust) * (float)steps) - (float)speedUp_phaseAdjustStep_highSpeeds) * (1L << rotationCalculation_BinaryFractionDigits)) };       // rel. position in step to set for phase adjustment
 
     static bool GreenwichPositionSync{ false };
     static uint8_t lastTurnsInAutoLockRangeCount{ 0 };
@@ -2220,7 +2222,7 @@ SIGNAL(ADC_vect) {
 
         // status leds while not in error mode
 
-        bool stepTick = ((rotationTimerSamplePeriod < 20) && !(stepNo & B1));                       // signals new step (rotating magnetic field)
+        bool stepTick = ((rotationTimerSamplePeriod < 20) && !(stepNo & B1));                   // signals new step (rotating magnetic field)
         bool greenwichTick = (globeRotationTimeCount < 60L);                                    // magnet passes sensor
         bool dimmed = (millis16bits & B111) == B0000;                                           // dimmed, 1/8 on
 

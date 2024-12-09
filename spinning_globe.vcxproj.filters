@@ -15,11 +15,11 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="spinning_globe.ino" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="__vm\.spinning_globe.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="spinning_globe.ino" />
   </ItemGroup>
 </Project>
