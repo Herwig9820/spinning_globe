@@ -330,19 +330,13 @@ constexpr float speedUpRatio{ 1.2 };                                            
 constexpr float autoLock_lowRelGlobeRotTime{ 0.9 };                                 // relative globe rotation time limits to flag a rotation (as 'in autolock range')
 constexpr float autoLock_highRelGlobeRotTime{ 1.1 };
 
-constexpr long slowDownPhaseAdjust_slowSpeeds{ 105 };   /*v1.0.3 in degrees*/       // during slow down, phase adjustment in degrees
-constexpr long speedUpPhaseAdjust_slowSpeeds{ 120 };    /*v1.0.3 in degrees*/       // during speed up, phase adjustment in degrees  
-
-constexpr long slowDownPhaseAdjust_highSpeeds{ 105 };   /*v1.0.3 in degrees*/       // during slow down, phase adjustment in degrees
-constexpr long speedUpPhaseAdjust_highSpeeds{ 150 };    /*v1.0.3 in degrees*/       // during speed up, phase adjustment in degrees  
-
 constexpr long defaultStepTime{ 750L };                                             // one turn = stepTime * # steps, milliseconds;
-constexpr long steps{ 12L };                                                        // #steps must be equivalent to 360 degrees AND 1 step must be equivalent to WHOLE number of degrees
+constexpr long stepCount{ 12L };                                                    // #steps must be equivalent to 360 degrees AND 1 step must be equivalent to WHOLE number of degrees
 
 // interface between ISR and main
 volatile int rotationTimerSamplePeriod{};
 volatile int phaseAdjustSteps{ 0 };                                                 // adjustment to cater for hall detector position changes (stored in eeprom, 0 to 179 2-degree steps)
-volatile long stepTime{ defaultStepTime }, targetGlobeRotationTime{ stepTime * steps };
+volatile long stepTime{ defaultStepTime }, targetGlobeRotationTime{ stepTime * stepCount };
 volatile long slowDown_timeLimit{};                                                 // if rotation time lower than limit, then slow down 
 volatile long speedUp_timeLimit{};                                                  // if rotation time higher than limit, then speed up
 volatile long autoLock_lowGlobeRotTime{};                                           // if rotation time lower than limit, then set phase 
@@ -1847,7 +1841,7 @@ void setRotationTime(int paramValueOrIndex, bool init /* = false */)
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                             // interrupts off: interface with ISR and eeprom write
         targetGlobeRotationTime = *(paramValueSets[paramNo_rotTimes] + paramValueOrIndex);
             // adapt magnetic field rotation immediately
-        stepTime = targetGlobeRotationTime / steps;
+        stepTime = targetGlobeRotationTime / stepCount;
         slowDown_timeLimit = targetGlobeRotationTime * slowDownRatio;
         speedUp_timeLimit = targetGlobeRotationTime * speedUpRatio;
         autoLock_lowGlobeRotTime = targetGlobeRotationTime * autoLock_lowRelGlobeRotTime;
@@ -2081,19 +2075,6 @@ SIGNAL(ADC_vect) {
     constexpr long floatingGlobeHallRange_ADCsteps{ 100 };                                      // maximum deviation from hall reference (set point) to check for 'non-floating' condition, in ADC steps
 #endif
 
-    /*
-    constexpr float TTTintTimeCst = (intTimeCst * (1 + difTimeCst / intTimeCst));               // TTT integrator time constant
-    constexpr float TTTdifTimeCst = (difTimeCst / (1 + difTimeCst / intTimeCst));               // TTT differentiator time constant
-
-    constexpr long TTTgain = (long)(gain * (1. + difTimeCst / intTimeCst) * (1L << gain_BinaryFractionDigits));     // TTT gain
-    constexpr long TTTintFactor = (long)(samplingPeriod / TTTintTimeCst * (1L << TTTintFactor_BinaryFractionDigits));
-    constexpr long TTTdifFactor = (long)(TTTdifTimeCst / samplingPeriod * (1L << TTTdifFactor_BinaryFractionDigits));
-
-    constexpr long maxTTTintTerm{ (long)(initialTTTintTerm * 1.5) };                            // PID: max. value integrator term
-
-    constexpr long maxTTTallTerms = LONG_MAX / 2 / TTTgain;                                     // for check to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
-    */
-
     constexpr int contrOutSteps{ timer1Top };                                                   // 16 bit timer1: value for 1 millisecond
     constexpr int disabledMagnetOnCycles{ 0 };                                                  // magnet disabled during error condition
     constexpr int minMagnetOnCycles{ 7 };                                                       // ensure electromagnet is always on (stable) during hall sensor reading
@@ -2111,35 +2092,12 @@ SIGNAL(ADC_vect) {
     // globe rotation controller
     // -------------------------
 
-    constexpr uint8_t requiredTurnsInAutoLockRange{ 3 };
     constexpr long defaultGreenwichDebounceTime{ 800L };                                        // debounce time for globe rotation position sensor, milliseconds
     constexpr long maxGlobeRotationTime{ 20000 };                                               // in milliseconds
 
     // avoid floating point calculations
-    constexpr long slowDown_timeFactor = (long)((1L << rotationCalc_BinaryFracDigits) / (steps * slowDownRatio));
-    constexpr long speedUp_timeFactor = (long)((1L << rotationCalc_BinaryFracDigits) / (steps * speedUpRatio));
-
-    // phaseAdjustSteps: 0 to 179: angle in 2-degree units (1: 2 degrees, ... 179: 358 degrees = -2 degrees)
-
-    // convert 'phase adjust' angles to steps and fractions (maintain fractions * 2^rotationCalc_BinaryFracDigits and use integer arithmetic in ISR for speed)
-    const int& digits = rotationCalc_BinaryFracDigits;
-
-    long phaseAdjustTimesSteps{ ((slowDownPhaseAdjust_slowSpeeds + (phaseAdjustSteps << 1)) % 360) * steps };
-    long slowDown_phaseAdjustStep_slowSpeeds{ phaseAdjustTimesSteps / 360 };                                          // integer division: 0 to steps - 1
-    long slowDown_phaseAdjustPosInStep_slowSpeeds{ (phaseAdjustTimesSteps << digits) / 360 - (slowDown_phaseAdjustStep_slowSpeeds << digits) };
-
-    phaseAdjustTimesSteps = ((speedUpPhaseAdjust_slowSpeeds + (phaseAdjustSteps << 1)) % 360) * steps;
-    long speedUp_phaseAdjustStep_slowSpeeds{ phaseAdjustTimesSteps / 360 };                                          // integer division: 0 to steps - 1
-    long speedUp_phaseAdjustPosInStep_slowSpeeds{ (phaseAdjustTimesSteps << digits) / 360 - (speedUp_phaseAdjustStep_slowSpeeds << digits) };
-
-    phaseAdjustTimesSteps = ((slowDownPhaseAdjust_highSpeeds + (phaseAdjustSteps << 1)) % 360) * steps;
-    long slowDown_phaseAdjustStep_highSpeeds{ phaseAdjustTimesSteps / 360 };                                          // integer division: 0 to steps - 1
-    long slowDown_phaseAdjustPosInStep_highSpeeds{ (phaseAdjustTimesSteps << digits) / 360 - (slowDown_phaseAdjustStep_highSpeeds << digits) };
-
-    phaseAdjustTimesSteps = ((speedUpPhaseAdjust_highSpeeds + (phaseAdjustSteps << 1)) % 360) * steps;
-    long speedUp_phaseAdjustStep_highSpeeds{ phaseAdjustTimesSteps / 360 };                                          // integer division: 0 to steps - 1
-    long speedUp_phaseAdjustPosInStep_highSpeeds{ (phaseAdjustTimesSteps << digits) / 360 - (speedUp_phaseAdjustStep_highSpeeds << digits) };
-
+    constexpr long slowDown_timeFactor = (long)((1L << rotationCalc_BinaryFracDigits) / (stepCount * slowDownRatio));
+    constexpr long speedUp_timeFactor = (long)((1L << rotationCalc_BinaryFracDigits) / (stepCount * speedUpRatio));
 
     static bool GreenwichPositionSync{ false };
     static uint8_t lastTurnsInAutoLockRangeCount{ 0 };
@@ -2294,12 +2252,12 @@ SIGNAL(ADC_vect) {
                     globeRotationTime = globeRotationTimeCount + 1;                             // time of last full globe rotation, in sampling periods 
                     globeRotationTimeCount = 0;                                                 // start counting time of current globe rotation
 
-                    bool fasterThanSet = (globeRotationTime < targetGlobeRotationTime);
-                    bool tooFast = (globeRotationTime <= slowDown_timeLimit);                   // set a target rotation time slightly higher than measured
-                    bool tooSlow = (globeRotationTime >= speedUp_timeLimit);                    // set a target rotation time slightly lower than measured
+                    const bool slowDown = (globeRotationTime < targetGlobeRotationTime);
+                    const bool tooFast = (globeRotationTime <= slowDown_timeLimit);             // set a target rotation time slightly higher than measured
+                    const bool tooSlow = (globeRotationTime >= speedUp_timeLimit);              // set a target rotation time slightly lower than measured
                     stepTimeNewRotation = stepTime;                                             // init stepNo time
                     if (controlRotation) {
-                        // if globe rotation time is outside a calculated 'band', adapt magnetic field rotation time
+                        // if globe rotation time is outside a calculated 'band', adapt magnetic field rotation time:
                         // if globe rotation time is much too slow ( time >  threshold > target rotation time), than set a higher magnetic field rotation time
                         // if globe rotation time is much too fast ( time <  threshold < target rotation time), than set a lower magnetic field rotation time
                         if (tooFast) { stepTimeNewRotation = (globeRotationTime * slowDown_timeFactor) >> rotationCalc_BinaryFracDigits; }
@@ -2311,10 +2269,11 @@ SIGNAL(ADC_vect) {
 
                     // if globe rotation time is inside a calculated 'band' (narrower than the band used to change magnetic field rotation time), flag this rotation as 'in autolock range' (but not yet locked)
                     bool thisTurnInAutoLockRange = (globeRotationTime > autoLock_lowGlobeRotTime) && (globeRotationTime < autoLock_highGlobeRotTime); // check if in auto locking range
+                    uint8_t requiredTurnsInAutoLockRange{ (targetGlobeRotationTime >= 3000) ? 3 : 8 };
                     lastTurnsInAutoLockRangeCount = thisTurnInAutoLockRange ? min(lastTurnsInAutoLockRangeCount + 1, requiredTurnsInAutoLockRange) : 0;
 
                     // determine lock status and calculate sync error (when locked)
-                    if (lastTurnsInAutoLockRangeCount == requiredTurnsInAutoLockRange) {        // minimum number of globe rotations in autolock range ?
+                    if (lastTurnsInAutoLockRangeCount >= requiredTurnsInAutoLockRange) {        // minimum number of globe rotations in autolock range ?
                         if (rotationStatus != rotLocked) {                                      // if not yet locked, set locked status
                             rotationOutOfSyncTime = 0;                                          // initial sync error = 0
                             rotationStatus = rotLocked;
@@ -2335,14 +2294,13 @@ SIGNAL(ADC_vect) {
                         else {                                                                  // was locked already: adapt sync error
                             rotationOutOfSyncTime = rotationOutOfSyncTime + (targetGlobeRotationTime - globeRotationTime);
                             bool withinTolerance = (4L * abs(rotationOutOfSyncTime) <= (targetGlobeRotationTime));      // total deviation less than 1/4 rotation (stepTime * steps equals 1 rotation)
-                            if (!withinTolerance) { rotationStatus = rotUnlocked; }
+                            if (!withinTolerance) { rotationStatus = rotUnlocked; lastTurnsInAutoLockRangeCount = 0; }
                         }
                     }
 
                     else { rotationStatus = rotUnlocked; }                                      // last globe rotations NOT both in autolock range: set status 'unlocked' again 
 
                     if (rotationStatus == rotLocked) {
-                        lockedRotations++;
                         // when rotation is locked, the magnetic field generated by the 6 coils rotates at a fixed pace. This is the reference. 
                         // The rotation time of each successive 360-degrees turn of the globe (displayed as 'actual rotation time') will slowly converge to this (coils) magnetic field rotation time,...
                         //... oscillating around it with a decreasing amplitude. 
@@ -2357,17 +2315,23 @@ SIGNAL(ADC_vect) {
                         // The globe rotation angle is set to zero when the 'Greenwich' magnet passes the detector.
                         // We define the magnetic field rotation as 'leading' be a certain angle if the magnetic field angle is less than 180 degrees when the glob's angle is zero. 
                         // The globe rotation is then lagging behind. 
-                        // Fast rotation times will increase (decrease) the globe rotation lag (lead), because of increased air resistance when the globe is turning faster.
+                        // Fast (slow) rotation times will increase (decrease) the globe rotation lag (lead), because of increased (decreased) air resistance when the globe is turning faster (slower).
+
+                        // Empirically the relationship between speed and globe rotation lag is found to be linear:
+                        // globe rotation lag (degrees) = 51.167 x rotation speed (full rotations / second) + 93.078 degrees
 
                         // Just like the actual globe rotation time, the globe rotation lag is measured at each passing of the globe's 'Greenwich' magnet.
-                        // rotation lag (degrees) = ((stepNo * stepTime) + rotationTimerSamplePeriod) / steps * 360       => when the Greenwich magnet passes the detector 
+                        // rotation lag (degrees) = ((stepNo * stepTime) + rotationTimerSamplePeriod) * 360 / step count       => when the Greenwich magnet passes the detector 
 
                         // There is a linear relationship between the globe rotation sync error (the result of adding up individual GLOBE rotation times) and the globe rotation lag.
                         // But in contrast to the globe rotation lag (degrees), which will always converge to the same angle (in similar circumstances, for a specific rotation speed), ...
-                        // ...the sync error (time) is unrelated to the rotating magnetic field.
+                        // ...the sync error (time) is not, because it is set to zero without taking into account the starting globe rotation lag angle with respect to the magnetic field rotation...
+                        // ...when the status switches to 'locked'.
 
-                        // Globe rotation lag (in degrees) can be very useful when defining the 'speed up' and 'slow down' phase adjust constants.
+                        // Globe rotation lag (in degrees) can be very useful when defining the 'speed up' and 'slow down' phase adjust constants (see below).
+                        // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+                        lockedRotations++;
                         greenwichLag = (stepNo * stepTime) + rotationTimerSamplePeriod;     // converted to, and displayed in degrees in main loop
                     }
 
@@ -2375,29 +2339,31 @@ SIGNAL(ADC_vect) {
                     else {
                         if (controlRotation) {
                             // in case rotation is currently unlocked, adjust the phase angle between the rotating globe and the rotating magnetic field generated by the six coils on each rotation.
-                            // the phase angle sets the starting angle of the rotating magnetic field (0 to 359 degrees), each time the reference meridian (the meridian where the 'Greenwich' magnet is located..
-                            // ..on the rotating globe) is detected by the hall sensor - WHICH IS NOW.  
+                            // the phase angle sets the starting angle of the rotating magnetic field (0 to 359 degrees), each time the reference meridian (the meridian where the 'Greenwich' magnet is located...
+                            // ...on the rotating globe) is detected by the hall sensor - WHICH IS NOW.  
 
                             // the phase angle is defined (in code, user adjustable) separately for lower and higher rotation speeds, and for speeding up / slowing down (4 defined values, in degrees).
                             // note: the phase angle to be set depends on the position of the hall sensor detecting the reference ('Greenwich') meridian.
                             //       if the hall sensor is moved in the direction of the rotation, the phase angle will decrease, and vice versa.  
-
+                            //       a phase adjustment setting is available for the user to correct for the position of the hall sensor.
+                            // 
                             // the set phase angle is converted to stepNo (0 to 11) and rotationTimerSamplePeriod (fraction of a step) and counting starts again from there. 
                             // rotationTimerSamplePeriod value equals the required number of milliseconds (timer interrupts)  
                             // the actual orientation of the coil pairs magnetic fields is only changed when a full 'next' step is reached, per implementation (at the latest after 1/12 of one rotation, or 30 degrees).
 
-                            // example: the defined phase is 140 degrees, which gives 4.67 steps (one rotation corresponds to 12 steps).
-                            //          when the 'Greenwich' meridian passes the hall detector, the magnetic field is set to 4.77 steps and counting continues from there.
-                            //          when step 5 is reached, the orientation of the magnetic field is set.  
+                            // example: a phase angle lag of 140 degrees is calculated. This is translated to 4.67 steps (140 * 12 / 360: one rotation corresponds to 12 steps).
+                            //          when the 'Greenwich' meridian passes the hall detector, the magnetic field should be set to 4.77 steps and counting up should be continue from there.
+                            //          in reality, the orientation of the magnetic field is set at the next full step, as per implementation (step 5 in this example).  
+                            // -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                            
 
-                            if (globeRotationTime > 6000L) {
-                                rotationTimerSamplePeriod = ((fasterThanSet ? slowDown_phaseAdjustPosInStep_slowSpeeds : speedUp_phaseAdjustPosInStep_slowSpeeds) * stepTimeNewRotation) >> rotationCalc_BinaryFracDigits;
-                                stepNo = fasterThanSet ? slowDown_phaseAdjustStep_slowSpeeds : speedUp_phaseAdjustStep_slowSpeeds;
-                            }
-                            else {
-                                rotationTimerSamplePeriod = ((fasterThanSet ? slowDown_phaseAdjustPosInStep_highSpeeds : speedUp_phaseAdjustPosInStep_highSpeeds) * stepTimeNewRotation) >> rotationCalc_BinaryFracDigits;
-                                stepNo = fasterThanSet ? slowDown_phaseAdjustStep_highSpeeds : speedUp_phaseAdjustStep_highSpeeds;
-                            }
+                            // calculated phase to set (degrees) = first degree term * rotation speed (rotations / second) + constant term (degrees)
+                            const long firstDegreeTerm = (slowDown ? 30L : 55L);    // slope    
+                            const long constantTerm = (slowDown ? 90L : 105L);      // offset    
+
+                            // phaseAdjustSteps: 0 to 179: angle in 2-degree units (1: 2 degrees, ... 179: 358 degrees = -2 degrees)
+                            long phaseToSet = (firstDegreeTerm * 1000) / globeRotationTime + constantTerm + (((phaseAdjustSteps << 1)) % 360);      // degrees 
+                            stepNo = phaseToSet * stepCount / 360;                                                                                  // integer division: 0 to step count - 1
+                            rotationTimerSamplePeriod = (phaseToSet * stepTimeNewRotation * stepCount) / 360 - stepNo * stepTimeNewRotation;        // integer division: accuracy !
                         }
 
                         lockedRotations = 0;
@@ -2449,7 +2415,7 @@ SIGNAL(ADC_vect) {
                 rotationTimerSamplePeriod = 0;
 
                 stepNo++;
-                if (stepNo >= steps) { stepNo = 0; }                                            // >= : safety (step no should never be greater than step steps)
+                if (stepNo >= stepCount) { stepNo = 0; }                                        // >= : safety (step no should never be greater than stepCount)
 
                 bool coilOnSouth, coilOnNorth;                                                  // 3 coil pairs can be set individually to N-S, S-N or not engaged
                 uint8_t coils{ 0 };
@@ -2457,7 +2423,7 @@ SIGNAL(ADC_vect) {
                 for (int coilNo = 0; coilNo < 3; coilNo++) {                                    // south means attracting / pointing to a magnet's north pole
 
                     uint8_t coilStep = (2 * (uint8_t)coilNo + (uint8_t)stepNo);
-                    if (coilStep >= steps) { coilStep = coilStep - steps; }                     // avoid modulo operator (needing division - speed)
+                    if (coilStep >= stepCount) { coilStep = coilStep - stepCount; }             // avoid modulo operator (needing division - speed)
 
                     // NNNSSS, rotating field, smooth transition for coils switching poles
                     coilOnNorth = (coilStep >= 6) && (coilStep <= 11);                          // last parameter 10 if intermediate stepNo with 2 coils off  
