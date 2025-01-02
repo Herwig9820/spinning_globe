@@ -215,9 +215,9 @@ int paramValueOrIndex{ 0 };
 
 // *** strings ***
 
-constexpr char degreesSymbol[] = { ' ', 'C', 0 };                                   // character '°' not in LCD character set
-constexpr char milliSecSymbol[] = { 'm', 's', 0 };                                  // character 'µ' not in LCD character set: use 'u'
-constexpr char microSecSymbol[] = { 'u', 's', 0 };                                  // character 'µ' not in LCD character set: use 'u'
+constexpr char degreesSymbol[] = { ' ', 'C', 0 };                                   // character 'Â°' not in LCD character set
+constexpr char milliSecSymbol[] = { 'm', 's', 0 };                                  // character 'Âµ' not in LCD character set: use 'u'
+constexpr char microSecSymbol[] = { 'u', 's', 0 };                                  // character 'Âµ' not in LCD character set: use 'u'
 
 char s150[150], s30[30];                                                            // general purpose long and short character strings
 
@@ -1079,7 +1079,7 @@ void processEvent() {
             errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
 
             // feed temp. sensor reading to smoothing filter
-            // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
+            // TMP36 sensor: 10 mV per Â°C, 750 mV at 25 Â°C : 1 ADC step * 5000 mV / 1024 steps *  1 Â°C / 10 mV = 0.488 Â°C which gives sufficient accuracy for safety purposes
             long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
             cli();                                                                          // tempSmooth is passed back to ISR for safety check high temperature
             tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
@@ -2367,17 +2367,7 @@ SIGNAL(ADC_vect) {
                         // rotationTimerSamplePeriod value equals the required number of milliseconds (timer interrupts)
                         // the actual orientation of the coil pairs magnetic fields is only changed when a full 'next' step is reached, per implementation (at the latest after 1/12 of one rotation, or 30 degrees).
 
-                        // NOTE: when unlocked, the phase lag is ALWAYS calculated and set at every turn of the globe, irrespective of the current globe rotation time.
 
-                        // example: a phase angle lag of 140 degrees is calculated. This is translated to 4.67 steps (140 * 12 / 360: one rotation corresponds to 12 steps).
-                        //          when the 'Greenwich' meridian passes the hall detector, the magnetic field should be set to 4.77 steps and counting up should be continue from there.
-                        //          in reality, the orientation of the magnetic field is set at the next full step, as per implementation (step 5 in this example).
-                        // -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-                        // calculated phase to set (degrees) = first degree term * rotation speed (rotations / second) + constant term (degrees)
-                        const int index = (globeRotationTime < targetGlobeRotationTime) ? 0 : 1;
-                        const long firstDegreeTerm = globeRotationLag_slope[index];      // slope    
-                        const long constantTerm = globeRotationLag_1s[index];      // offset    
 
                         // phaseAdjustSteps: 0 to 179: angle in 2-degree units (1: 2 degrees, ... 179: 358 degrees = -2 degrees)
                         long phaseToSet = (firstDegreeTerm * 1000) / globeRotationTime + constantTerm + (((phaseAdjustSteps << 1)) % 360);      // degrees 
