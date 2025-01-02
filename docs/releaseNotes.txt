@@ -1,0 +1,21 @@
+Justina interpreter v1.2.1 - release notes
+------------------------------------------
+
+v1.0.1
+------
+initial version
+
+v1.2.1		
+------
+new functionality: 
+- PID controller: gain, integration & diff. time constants are now user changeable (new setting added)
+- rotation controller: new setting 'phase adjustment', user changeable
+- keys U and D: move setting up or down (via USB only; not with hardware buttons)
+- R key: reset setting to default value (not for rotation time and setpoint)
+- (step) response: key changed to 'M' ('R' is now 'reset setting')
+- display new value, rotation lag, calculates how much each individual globe rotation is lagging behind with respect to magnetic field rotation (coils).
+- value 'avg phase' was not calculated correctly and consequently the value displayed was not correct. It has been removed
+- all 8 leds are now used in the ledstrips
+ 
+bugs solved:
+- (none)
