@@ -328,10 +328,10 @@ volatile bool applyStep{ false };                                               
 // unlocked globe rotation: rotation time / target rotation time ratio ranges
 // --------------------------------------------------------------------------
 
-// 1. slow down/speed up ranges. If measured globe rotation time / target rotation time ratio:
-//    - is less than lower limit: adjust magnetic field rotation time with a calculated ratio (slow down)
-//    - is greater than upper limit: adjust magnetic field rotation time with a calculated ratio (speed up)
-//    - is within limits: adjustment magnetic field rotation time to target rotation time
+// 1. slow down/speed up ranges. If measured globe rotation time / target rotation time ratio is...:
+//    - less than lower limit: adjust magnetic field rotation time with a calculated ratio (slow down)
+//    - greater than upper limit: adjust magnetic field rotation time with a calculated ratio (speed up)
+//    - within limits: adjustment magnetic field rotation time to target rotation time
 
 // array values are specified for high (T<3s) and low (T>=3s) target rotation speeds, respectively 
 constexpr float speedAdjustCenterRange_low[2]{ 0.95, 0.8 };
@@ -339,8 +339,9 @@ constexpr float speedAdjustCenterRange_high[2]{ 1.05, 1.2 };
 
 // 2. autolock ranges
 //    when measured globe rotation time / target rotation time ratio is INSIDE the limits specified here during a number of successive rotations, then change rotation status to 'locked'
-// array values are specified for high (T<3s) and low (T>=3s) target rotation speeds, respectively 
+//    these limits must be set NARROWER than the slow down/speed up ranges !
 
+// array values are specified for high (T<3s) and low (T>=3s) target rotation speeds, respectively 
 constexpr float autoLockRange_low[2]{ 0.98, 0.9 };
 constexpr float autoLockRange_high[2]{ 1.02, 1.1 };
 
@@ -1515,8 +1516,8 @@ void writeLedStrip() {
 
     uint8_t LScolor[4]{ 0xFF, 0x00, 0x00, 0x00 };                                               // for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected
 
-    // only 4 leds (above and underneath) used
     /*
+    // only 4 leds (above and underneath) used
     uint8_t ledstripMasks[3]{ B10100101, B10100101, B10100101 };                                // RGB led strip mask (8 leds) for red, green, blue colors, in this order
     */
     uint8_t ledstripMasks[3]{ B11111111, B11111111, B11111111 };                                // RGB led strip mask (8 leds) for red, green, blue colors, in this order 
@@ -1524,12 +1525,12 @@ void writeLedStrip() {
     if (ledstripDataPtr->LSupdate) {                                                            // brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
             // assign calculated brightness values to Blue, Green and Red, respectively (order defined by led strip hardware)
-            uint8_t brGamma = (((uint16_t)ledstripDataPtr->LSbrightness[i]) * ((uint16_t)ledstripDataPtr->LSbrightness[i])) >> 8;   // gamma correction: quadratic function (^2.6 is not needed)
+            uint8_t brGamma = (((uint16_t)ledstripDataPtr->LSbrightness[i]) * ((uint16_t)ledstripDataPtr->LSbrightness[i])) >> 8;   // gamma correction: use quadratic function (^2.6 is not needed)
             LScolor[i + 1] = brGamma;                                                           // byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by led strip hardware)                                        
         }
 
         if ((LScolorCycle >= cCstBrightWhite) && (LScolorCycle <= cCstBrightBlue)) {            // constant color (white, magenta, blue) 
-            LScolor[1] = maxBrightnessGamma;                                                    // blue: minimum brightness
+            LScolor[1] = maxBrightnessGamma;                                                    // blue: maximum brightness
             LScolor[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;       // green: minimum brightness except if led color is white
             LScolor[3] = (LScolorCycle != cCstBrightBlue) ? maxBrightnessGamma : minBrightnessGamma;        // red: minimum brightness except if led color is white or magenta
         }
@@ -1891,8 +1892,7 @@ void setRotationTime(int paramValueOrIndex, bool init /* = false */)
         autoLock_minGlobeRotationTime = targetGlobeRotationTime * autoLockRange_low[speedIndex];        // if globe rotation time is within this range, rotation will try to lock on to rotating magnetic field
         autoLock_maxGlobeRotationTime = targetGlobeRotationTime * autoLockRange_high[speedIndex];
 
-        if (targetGlobeRotationTime == 0) { rotationStatus = rotNoPosSync; }
-        else if (rotationStatus != rotNoPosSync) { rotationStatus = rotFreeRunning; }
+        rotationStatus = rotNoPosSync;                                              // change of rotation speed: no position sync yet; waiting to start measuring
 
         stepTimeNewRotation = targetStepTime;
         rotationTimerSamplePeriod = stepTimeNewRotation;
@@ -2097,7 +2097,7 @@ SIGNAL(TIMER1_OVF_vect) {
 
 SIGNAL(ADC_vect) {
 
-    // for ISR speed, use long variables instead of floats -> add accuracy by adding extra digits as binary fraction
+    // for ISR speed, use long variables instead of floats where possible -> add accuracy by adding extra digits as binary fraction
     // divisions take much longer than multiplications and need to be avoided (e.g. division by cst 5 equals multiplication with cst (1/5 * 2^8) and then shifting bits right 8 bits   
     // extra digits must be carefully chosen because this decreases most significant bits leading to overflow
     // example: TTTgain is less than 1, which is too small for integer * and /, so we add 8 binary digits, representing binary fraction
@@ -2168,14 +2168,12 @@ SIGNAL(ADC_vect) {
     // on board led and dimming 
     // ------------------------
 
-    /* led dimming when locked: disabled, because visually conflicting with led strip effects
-
-    static uint8_t ledUp{ B11 };                                                                // dimming direction: up or down
-    static int ledBrightness[brightnessItemCount]{ 0, 0 };                                      // brightness level - to be converted in 'led atomic period length' and 'led on time'
+#if onboardLedDimming
+    static uint8_t ledUp{ B11 };                                                                                        // dimming direction: up or down
+    static int ledBrightness[brightnessItemCount]{ 0, 0 };                                                              // brightness level - to be converted in 'led atomic period length' and 'led on time'
     static int ledAtomicTimePeriod[brightnessItemCount]{ 0, 0 }, ledAtomicTimeON[brightnessItemCount]{ 0, 0 };          // period length within which multiple led on / off sequences can occur, total ON time within this period
     static long ledBrightnessChangeCnt[brightnessItemCount]{ 0, 0 }, ledOffOnCycleCnt[brightnessItemCount]{ 0, 0 };     // counters to control led brightness level change and led on / off switching
-
-    */
+#endif
 
     bool blueLedOn{ false }, greenLedOn{ false }, redLedOn{ false };
 
@@ -2184,7 +2182,7 @@ SIGNAL(ADC_vect) {
     // =======================
 
     // measure time between T1 clock overflow and ISR start 
-    // only relevant if ISR in response to hall sensor conversion complete
+    // only relevant if ISR in response to 'hall sensor conversion complete'
     int ISRstart = TCNT1;                                                                       // safe to assume that timer 1 is counting up and not yet counting down (just started counting)                                                                                              
 
     // only for idle time counting (signal that ISR duration must be deducted from idle time)
@@ -2233,7 +2231,6 @@ SIGNAL(ADC_vect) {
     // ====================================================
 
     // lifting magnet status is enabled ? control globe levitation and rotation
-
     if (liftingMagnetEnabled) {
 
         // (1): Control system for lifting magnet (PID)
@@ -2284,18 +2281,16 @@ SIGNAL(ADC_vect) {
             GreenwichPositionSync = g;                                                          // remember
 
 
-            // is a globe position sync ?
-            // --------------------------
+            // is this a globe position sync ?
+            // -------------------------------
             if (isGreenwich) {                                                                  // is a globe position sync (magnet just STARTED passing sensor)
 
-                stepTimeNewRotation = targetStepTime;                                           // init stepNo time
-
-                // switch: test status of completed turn and set status for next turn
+                // switch: test status of completed turn and, if condition is met, set status for next turn
                 switch (rotationStatus) {
 
-                    // no position sync since a while
-                    case rotNoPosSync:
-                    case rotFreeRunning: {
+
+                    case rotNoPosSync:                                                          // no position sync since a while
+                    case rotFreeRunning: {                                                      // NOT USED                        
                         lastTurnsInAutoLockRangeCount = 0;                                      // reset counter
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
                         rotationStatus = rotMeasuring;                                          // measure time of first rotation
@@ -2304,13 +2299,15 @@ SIGNAL(ADC_vect) {
                     // last turn was only measuring time
                     case rotMeasuring: {
                         rotationStatus = rotUnlocked;                                           // unlock
-                        // no break here
+                        // no break here: continue
 
                     // last turn was unlocked 
                     case rotUnlocked: {
                         globeRotationTime = globeRotationTimeCount + 1;                         // time of last full globe rotation, in sampling periods
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
 
+                        // set magnetic field rotation time (coils)
+                        // ----------------------------------------
                         // if globe rotation time is outside a calculated 'band', adapt magnetic field rotation time:
                         // if globe rotation time is much too slow ( time >  threshold > target rotation time), than set a higher magnetic field rotation time
                         // if globe rotation time is much too fast ( time <  threshold < target rotation time), than set a lower magnetic field rotation time
@@ -2320,6 +2317,7 @@ SIGNAL(ADC_vect) {
                         const bool forceSlowDown = (globeRotationTime <= slowDown_maxGlobeRotationTime);        // set a target rotation time slightly higher than measured (slowing down)
                         const bool forceSpeedUp = (globeRotationTime >= speedUp_minGlobeRotationTime);          // set a target rotation time slightly lower than measured (speeding up)
 
+                        stepTimeNewRotation = targetStepTime;                                                   // init
                         if (forceSlowDown || forceSpeedUp) {
                             const int index{ forceSlowDown ? 0 : 1 };
                             float slope = (speedRatioSlowTurns[index] - speedRatioFastTurns[index]) / (12000. - 1000.);
@@ -2327,35 +2325,32 @@ SIGNAL(ADC_vect) {
                             stepTimeNewRotation = stepTimeCurrentRotation / speedRatio;
                         }
 
-                        // make sure that current slow timer value is not higher than current stepNo time
-                        if (rotationTimerSamplePeriod > stepTimeNewRotation) { rotationTimerSamplePeriod = stepTimeNewRotation; }
-
                         // if globe rotation time is inside a calculated 'band' (narrower than the band used to change magnetic field rotation time), flag this rotation as 'in autolock range' (but not yet locked)
-                        bool thisTurnInAutoLockRange = (globeRotationTime > autoLock_minGlobeRotationTime) && (globeRotationTime < autoLock_maxGlobeRotationTime); // check if in auto locking range
-                        uint8_t requiredTurnsInAutoLockRange{ (targetGlobeRotationTime >= 3000) ? 4 : 10 };
-                        lastTurnsInAutoLockRangeCount = thisTurnInAutoLockRange ? min(lastTurnsInAutoLockRangeCount + 1, requiredTurnsInAutoLockRange) : 0;
+                        else {
+                            bool thisTurnInAutoLockRange = (globeRotationTime > autoLock_minGlobeRotationTime) && (globeRotationTime < autoLock_maxGlobeRotationTime); // check if in auto locking range
+                            uint8_t requiredTurnsInAutoLockRange{ (targetGlobeRotationTime >= 3000) ? 4 : 10 };
+                            lastTurnsInAutoLockRangeCount = thisTurnInAutoLockRange ? min(lastTurnsInAutoLockRangeCount + 1, requiredTurnsInAutoLockRange) : 0;
 
-                        // determine lock status and calculate sync error (when locked)
-                        if (lastTurnsInAutoLockRangeCount >= requiredTurnsInAutoLockRange) {    // minimum number of globe rotations in autolock range ?
-                            stepTimeNewRotation = targetStepTime;                               // just to be sure
-                            lockedRotations = 0;
-                            rotationOutOfSyncTime = 0;
-                            greenwichLag = 0;
-                            rotationStatus = rotLocked;
-                            break;
+                            // determine lock status and calculate sync error (when locked)
+                            if (lastTurnsInAutoLockRangeCount >= requiredTurnsInAutoLockRange) {    // minimum number of globe rotations in autolock range ?
+                                lockedRotations = 0;
+                                rotationOutOfSyncTime = 0;
+                                greenwichLag = 0;
+                                rotationStatus = rotLocked;
+                                break;
 
-                        #if onboardLedDimming
-                            for (uint8_t i = 0; i < brightnessItemCount; i++) {
-                                ledUp = B11;                                                    // initial dimming direction for blue (bit 1) and green (bit 0) led
-                                ledBrightness[i] = ledMinBrightnessLevel[ledUpDownCycleType];   // initial brightness level (should be between defined min and max level)
-                                ledAtomicTimeON[i] = 0;                                         // should be initialized at zero at this time
-                                ledAtomicTimePeriod[i] = 0;
-                                ledOffOnCycleCnt[i] = 0;
-                                ledBrightnessChangeCnt[i] = -targetGlobeRotationTime;
-                                if (i == 1) { ledBrightnessChangeCnt[i] -= scaledGreenLedDelay; }   // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
+                            #if onboardLedDimming
+                                for (uint8_t i = 0; i < brightnessItemCount; i++) {
+                                    ledUp = B11;                                                    // initial dimming direction for blue (bit 1) and green (bit 0) led
+                                    ledBrightness[i] = ledMinBrightnessLevel[ledUpDownCycleType];   // initial brightness level (should be between defined min and max level)
+                                    ledAtomicTimeON[i] = 0;                                         // should be initialized at zero at this time
+                                    ledAtomicTimePeriod[i] = 0;
+                                    ledOffOnCycleCnt[i] = 0;
+                                    ledBrightnessChangeCnt[i] = -targetGlobeRotationTime;
+                                    if (i == 1) { ledBrightnessChangeCnt[i] -= scaledGreenLedDelay; }   // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
+                                }
+                            #endif  
                             }
-                        #endif  
-
                         }
 
                         // -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2457,7 +2452,7 @@ SIGNAL(ADC_vect) {
                     }
 
                     // no globe position sync since quite some time (time out) ? set free-running mode
-                    else { rotationStatus = rotFreeRunning; }
+                    else { rotationStatus = rotNoPosSync; }
                 }
             }
 
@@ -2508,20 +2503,23 @@ SIGNAL(ADC_vect) {
         bool dimmed = (millis16bits & B111) == B0000;                                           // dimmed, 1/8 on
 
         switch (rotationStatus) {
-            case rotNoPosSync:  // not floating: green led flashes, 'rotation OFF': green led ON, then OFF after 5 seconds, otherwise ON
+            case rotNoPosSync:                                                                  // no position sync since a while
+                // green led is either ON or flashing (period = 256 mS, 1/4 on), depending floating status
                 greenLedOn = isFloating ? (targetGlobeRotationTime != 0) || (liftingSecond <= 5) : (millis16bits & 0b11111111) < 0b111111;  // not floating: green led flashes, period = 256 mS, 1/4 on
                 break;
-            case rotFreeRunning:    // no position sync since a while
+            case rotFreeRunning:                                                                // NOT USED
                 greenLedOn = !stepTick;
                 break;
-            case rotMeasuring:  // measuring
-                greenLedOn = (millis16bits & B111111) >= B010000;                               // measuring: green led flickers, period = 64 mS, 3/4 on
+            case rotMeasuring:                                                                  // measuring
+                // measuring: green led flickers, period = 64 mS, 3/4 on
+                greenLedOn = (millis16bits & B111111) >= B010000;
                 break;
-            case rotUnlocked:       // not locked
+            case rotUnlocked:                                                                   // not locked
+                // blue led signals step ticks; green led signals magnet passing sensor ('Greenwich' event)
                 blueLedOn = (dimmed || stepTick) && !greenwichTick;
                 greenLedOn = greenwichTick;
                 break;
-            case rotLocked:     // locked
+            case rotLocked:                                                                     // locked
                 /* led cues: disabled, because visually conflicting with led strip effects
                 blueLedOn = (!stepTick) && (!greenwichTick);
                 greenLedOn = greenwichTick;
