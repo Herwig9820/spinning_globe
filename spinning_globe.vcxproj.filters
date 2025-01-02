@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="spinning_globe.ino" />
+    <ClCompile Include="spinning_globe.ino" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.spinning_globe.vsarduino.h">

@@ -2113,7 +2113,7 @@ SIGNAL(ADC_vect) {
 
                     if (rotationStatus == rotLocked) {
                         lockedRotations++;
-                        // for measuring and testing only, for calcualting average magnetic field phase measured while locked
+                        // for measuring and testing only, for calculating average magnetic field phase measured while locked
                         long magneticFieldPhase = rotationTimerSamplePeriod + (stepNo * stepTime);  // actual rotating field phase at each position sync 
                         summedMagneticFieldPhase = summedMagneticFieldPhase + magneticFieldPhase;
                         // avoid overflow: split summed up phase in rotations and phase
