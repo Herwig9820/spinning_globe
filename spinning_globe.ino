@@ -1,6 +1,6 @@
 /*
     Name:       spinning_globe.ino
-    Created:    10/08/2019 - 31/12/2024
+    Created:    10/08/2019 - 11/02/2025
     Author:     Herwig Taveirne
     Version:    1.2.2
 
@@ -32,7 +32,6 @@
 #define boardVersion 101                                    // board version: 100 = hardware v1, 101 = v1 rev A and B
 #define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
-#define onboardLedDimming 0                                 // 1: enable on-board led dimming
 #define test_showEventStats 0                               // only for testing (event message mechanism)
 
 
@@ -40,7 +39,7 @@
 
 enum userCmds :int {
     uNoCmd = -1,
-    uPrevious, uNext, uLess, uMore, uEdit, uReset, uCancel, uShowAll, uLive, uTimeStamp, uHelp,                         // cmds without parameters: 0 - 99
+    uPrevious, uNext, uDown, uUp, uEdit, uReset, uCancel, uShowAll, uLive, uTimeStamp, uHelp,                           // cmds without parameters: 0 - 99
     uMeasure = 100,                                                                                                     // cmds with 1 parameter: 100-199
     uLedstripSettings = 200,                                                                                            // cmds with 2 parameters: 200-299
     uUnknownCmd = 999                                                                                                   // unknown command receives code 999
@@ -383,32 +382,18 @@ volatile long autoLock_minGlobeRotationTime{};                                  
 volatile long autoLock_maxGlobeRotationTime{};                                      // if rotation time lower than limit, then set phase 
 volatile long stepTimeNewRotation{ targetStepTime };
 
-#if onboardLedDimming
-// *** on board led dimming - check out documentation (excel) for values ***
-
-constexpr uint8_t brightnessItemCount{ 2 };
-
-constexpr uint8_t ledMinBrightnessLevel[3] = { 1, 1, 1 };                           // can be set for each led up down cycle type; 0 (led off) or >= 1
-constexpr uint8_t ledMaxBrightnessLevel[3] = { 23, 45, 64 };                        // can be set for each led up down cycle type; <= (low + high) brightness levels
-
-constexpr int ledMaxAllowedStepTime{ 100 };                                         // ms
-
-// interface between ISR and main
-volatile uint8_t ledUpDownCycleType{ 0 };                                           // led up down cycle type determines brightness change approach, and depends on rotation time
-volatile int ledBrightnessStepsUpDown{ 0 };                                         // min level -> max level -> min level + 1 = 2 * (max level - min level)
-volatile long scaledGreenLedDelay{ 0 };                                             // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
-#endif // onboardLedDimming
-
 // *** led strip dimming ***
 
 constexpr uint8_t LSbrightnessItemCount{ 3 };                                       // max no of brightness values available for color led dimming 
 constexpr uint8_t LSminBrightnessLevel{ 0x00 };                                     // min: 0 (LS off) 
-constexpr uint8_t LSmaxBrightnessLevel{ 0x80 };                                     // 0x80^2 / 256 = 64 (gamma correction); max: 0xFF     
+constexpr uint8_t LSmaxBrightnessLevel{ 0xff };                                     // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
 
 // interface between ISR and main
 volatile bool LSlongTimeUnit{ false };                                              // 128 ms instead of 1 ms
 volatile uint8_t LScolorCycle, LScolorTiming;                                       // color cycle
-volatile uint8_t LSbrightness[LSbrightnessItemCount];                               // brightness levels (not yet assigned to specific colors or leds)
+volatile uint8_t LScolor[LSbrightnessItemCount];                                    // brightness levels (not yet assigned to specific colors or leds)
+volatile uint8_t colorGammaCorrected[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0x00 };    // ledstrip: for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected. Main led: first byte is not used 
+
 volatile uint8_t LStransitionStops;                                                 // MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
 
 volatile long LSbrightnessTransitionTime;                                           // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times                                           
@@ -475,7 +460,7 @@ struct FastRateData {
 
 struct LedstripData {
     uint8_t LSupdate, LSmaxReached, LSminReached;
-    uint8_t LSbrightness[LSbrightnessItemCount];
+    uint8_t LScolor[LSbrightnessItemCount];
 };
 
 struct StepResponseData {
@@ -810,7 +795,10 @@ void setup()
 
     // read led strip cycle & timing from eeprom and set 
     eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = led strip cycle time, b3210 = led strip cycle
+
+    /* not used but could be used for a 3-second cue
     eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);        // if running time after previous reset was small: switch to next led strip color cycle
+    */
 
     ledstripCycle = eepromValue & (uint8_t)0x0F;
     ledstripTiming = eepromValue >> 4;
@@ -826,7 +814,9 @@ void setup()
     useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
     checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
 
+    /* not used but could be used for a 3-second cue
     eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
+    */
     sei();
 
     // initial setting to display: rotation time, except if currently in program mode
@@ -982,8 +972,8 @@ void getCommand() {
                     else if (keyAscii == '+') { commandBuffer = uNext; }                                    // next
                     else if ((keyAscii == 'e') || (keyAscii == 'E')) { commandBuffer = uEdit; }             // enter edit / end edit
                     else if ((keyAscii == 'c') || (keyAscii == 'C')) { commandBuffer = uCancel; }
-                    else if ((keyAscii == 'u') || (keyAscii == 'U')) { commandBuffer = uMore; }
-                    else if ((keyAscii == 'd') || (keyAscii == 'D')) { commandBuffer = uLess; }
+                    else if ((keyAscii == 'u') || (keyAscii == 'U')) { commandBuffer = uUp; }
+                    else if ((keyAscii == 'd') || (keyAscii == 'D')) { commandBuffer = uDown; }
                     else if ((keyAscii == 'r') || (keyAscii == 'R')) { commandBuffer = uReset; }
                     else if ((keyAscii == 'a') || (keyAscii == 'A')) { commandBuffer = uShowAll; }          // show all parameters (Serial output only)
                     else if ((keyAscii == 's') || (keyAscii == 'S')) { commandBuffer = uLive; }             // show / stop live values
@@ -992,7 +982,7 @@ void getCommand() {
                     else if ((keyAscii == 'm') || (keyAscii == 'M')) { commandBuffer = uMeasure; }          // measure (with or w/o step response)
                     else if ((keyAscii == 'l') || (keyAscii == 'L')) { commandBuffer = uLedstripSettings; } // select led strip color cycle or cycle timing
 
-                    if ((commandBuffer == uPrevious) || (commandBuffer == uNext) || (commandBuffer == uLess) || (commandBuffer == uMore)
+                    if ((commandBuffer == uPrevious) || (commandBuffer == uNext) || (commandBuffer == uDown) || (commandBuffer == uUp)
                         || (commandBuffer == uReset) || (commandBuffer == uEdit) || (commandBuffer == uCancel)) {
                         commandBuffer = commandBuffer + (paramChangeMode ? 20 : 0);
                     }
@@ -1102,9 +1092,11 @@ void processEvent() {
 
         case eSecond:
             if (secondData.eventSecond == 3) {
+                /* not used but could be used for a 3-second cue
                 cli();                                                                      // interrupts off: interface with ISR and eeprom write
                 eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
                 sei();
+                */
             }
             break;
     }
@@ -1170,17 +1162,17 @@ void processCommand() {
         }
         break;
 
-        case uLess:
-        case uMore:
+        case uDown:
+        case uUp:
 
-        case uLess + 20:
+        case uDown + 20:
         case uPrevious + 20:                                // previous item value
 
         case uNext + 20:                                    // next item value
-        case uMore + 20:
+        case uUp + 20:
         {
-            bool down = (userCommand == uLess) || (userCommand == (uLess + 20)) || (userCommand == (uPrevious + 20));
-            bool immediateSave = ((userCommand == uLess) || (userCommand == uMore));
+            bool down = (userCommand == uDown) || (userCommand == (uDown + 20)) || (userCommand == (uPrevious + 20));
+            bool immediateSave = ((userCommand == uDown) || (userCommand == uUp));
 
             if (!(parameterEditable & (1L << paramNo))) { break; }; // if item is not editable, break
 
@@ -1314,7 +1306,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F;
             paramNo = switchesSetRotationTime ? paramNo_rotTimes : paramNo_hallmVoltRefs;   // parameter = rotation time or hall mV ref ?
             int cnt = paramValueCounts[paramNo];                                            // No of defined rotation times 
-            paramValueOrIndex = (sw >= cnt) ? 0 : sw;                                            // if not in valid range, take first in list
+            paramValueOrIndex = (sw >= cnt) ? 0 : sw;                                       // if not in valid range, take first in list
             saveAndUseParam();
         }
     }
@@ -1506,15 +1498,13 @@ void writeParamLabelAndValue() {
 // *** write to led strip ***
 
 void writeLedStrip() {
-    const uint8_t minBrightnessGamma = (((uint16_t)LSminBrightnessLevel) * ((uint16_t)LSminBrightnessLevel)) >> 8;
-    const uint8_t maxBrightnessGamma = (((uint16_t)LSmaxBrightnessLevel) * ((uint16_t)LSmaxBrightnessLevel)) >> 8;
+    const uint8_t minBrightnessGamma = (((((uint32_t)LSminBrightnessLevel) + 1UL) * (((uint32_t)LSminBrightnessLevel) + 1UL)) - 1UL) >> 8;
+    const uint8_t maxBrightnessGamma = (((((uint32_t)LSmaxBrightnessLevel) + 1UL) * (((uint32_t)LSmaxBrightnessLevel) + 1UL)) - 1UL) >> 8;
 
     // include the line below to alternate between blue with another color if LScolorCycle == cWhiteBlue
     // static uint8_t LSColorSequence{ 1 }; 
 
     if (ISRevent != eLedstripData) { return; }                                                  // no change in brightness values 
-
-    uint8_t LScolor[4]{ 0xFF, 0x00, 0x00, 0x00 };                                               // for each led color 4 bytes: 0xFF and 3 8-bit RGB values, gamma corrected
 
     /*
     // only 4 leds (above and underneath) used
@@ -1525,29 +1515,30 @@ void writeLedStrip() {
     if (ledstripDataPtr->LSupdate) {                                                            // brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
             // assign calculated brightness values to Blue, Green and Red, respectively (order defined by led strip hardware)
-            uint8_t brGamma = (((uint16_t)ledstripDataPtr->LSbrightness[i]) * ((uint16_t)ledstripDataPtr->LSbrightness[i])) >> 8;   // gamma correction: use quadratic function (^2.6 is not needed)
-            LScolor[i + 1] = brGamma;                                                           // byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by led strip hardware)                                        
+            uint32_t temp = ((uint32_t)ledstripDataPtr->LScolor[i]) + 1UL;
+            uint32_t brGamma = ((temp * temp) - 1UL) >> 8;                                      // gamma correction: use quadratic function (approximation for ^2.2)
+            colorGammaCorrected[i + 1] = (uint8_t)brGamma;                                      // byte 0 = led brightness (fixed), bytes 123 = blue-green-red, in this order (defined by led strip hardware)                                        
         }
 
         if ((LScolorCycle >= cCstBrightWhite) && (LScolorCycle <= cCstBrightBlue)) {            // constant color (white, magenta, blue) 
-            LScolor[1] = maxBrightnessGamma;                                                    // blue: maximum brightness
-            LScolor[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;       // green: minimum brightness except if led color is white
-            LScolor[3] = (LScolorCycle != cCstBrightBlue) ? maxBrightnessGamma : minBrightnessGamma;        // red: minimum brightness except if led color is white or magenta
+            colorGammaCorrected[1] = maxBrightnessGamma;                                                    // blue: maximum brightness
+            colorGammaCorrected[2] = (LScolorCycle == cCstBrightWhite) ? maxBrightnessGamma : minBrightnessGamma;       // green: minimum brightness except if led color is white
+            colorGammaCorrected[3] = (LScolorCycle != cCstBrightBlue) ? maxBrightnessGamma : minBrightnessGamma;        // red: minimum brightness except if led color is white or magenta
         }
 
         else if (LScolorCycle == cWhiteBlue) {                                                  // white > blue
-            LScolor[2] = LScolor[1];                                                            // set green equal to blue
-            LScolor[3] = LScolor[1];                                                            // set red equal to blue
-            LScolor[1] = maxBrightnessGamma;                                                    // set blue to max brightness
+            colorGammaCorrected[2] = colorGammaCorrected[1];                                    // set green equal to blue
+            colorGammaCorrected[3] = colorGammaCorrected[1];                                    // set red equal to blue
+            colorGammaCorrected[1] = maxBrightnessGamma;                                        // set blue to max brightness
             /* include this code to alternate blue with (in this sample code) magenta: white > blue > white > magenta
-            if (LSColorSequence == 2) { LScolor[3] = maxBrightnessGamma; }                      // every two cycles, set red to max brightness
+            if (LSColorSequence == 2) { colorGammaCorrected[3] = maxBrightnessGamma; }          // every two cycles, set red to max brightness
             if (ledstripDataPtr->LSmaxReached) {
                 if (++LSColorSequence == 3) { LSColorSequence = 1; }
             }
             */
         }
 
-        LSout(LScolor, ledstripMasks);
+        LSout((uint8_t*)colorGammaCorrected, ledstripMasks);
     }
 }
 
@@ -1896,23 +1887,6 @@ void setRotationTime(int paramValueOrIndex, bool init /* = false */)
 
         stepTimeNewRotation = targetStepTime;
         rotationTimerSamplePeriod = stepTimeNewRotation;
-
-        // criterium to pick a led up down cycle type: 
-        // - step time should be greater than largest atomic period (for high brightness levels)
-        // - step time should be smaller than a pre-defined (fixed) value, like 100 ms
-        // always use up down cycle type with fewest steps (to prevent step time becoming shorter than one led atomic period time)
-
-    #if onboardLedDimming
-    // determine up down cycle type (0, 1 or 2) : depends on rotation time
-        for (ledUpDownCycleType = 0; ledUpDownCycleType <= 2; ledUpDownCycleType++) {
-            ledBrightnessStepsUpDown = (ledMaxBrightnessLevel[ledUpDownCycleType] - ledMinBrightnessLevel[ledUpDownCycleType]) * 2;
-            int ledCycleMaxUpDownTime = ledMaxAllowedStepTime * ledBrightnessStepsUpDown;
-            if ((targetGlobeRotationTime <= ledCycleMaxUpDownTime) || (ledUpDownCycleType == 2)) break; // no increment to 3
-        }
-
-        // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
-        scaledGreenLedDelay = (ledBrightnessStepsUpDown * targetGlobeRotationTime) >> 1;
-    #endif
     }
 }
 
@@ -1955,7 +1929,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
             LSbrightnessFreezeTimer = -LSbrightnessCycleTime - 0 * LSbrightnessTransitionTime;              // optional: skip first 'frozen brightness' step if a brightness is still missing (if starting from 'all brightness values OFF')
 
             for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
-                LSbrightness[i] = ((i == 0) && (LScolorCycle > cLedstripOff)) ? LSmaxBrightnessLevel : LSminBrightnessLevel;    // initial brightness levels (not yet assigned to specific colors or leds)
+                LScolor[i] = ((i == 0) && (LScolorCycle > cLedstripOff)) ? LSmaxBrightnessLevel : LSminBrightnessLevel;    // initial brightness levels (not yet assigned to specific colors or leds)
                 LSminBrightnessStepNo[i] = 0;
                 LSmaxBrightnessStepNo[i] = (i == 0) ? LSbrightnessMaxLvlSteps >> 1 : 0;
                 // initial values per brightness step timer: step size and delay between brightness cycle, scaled by total no of brightness steps (step size x no of brightness steps = total transition time)
@@ -2168,13 +2142,6 @@ SIGNAL(ADC_vect) {
     // on board led and dimming 
     // ------------------------
 
-#if onboardLedDimming
-    static uint8_t ledUp{ B11 };                                                                                        // dimming direction: up or down
-    static int ledBrightness[brightnessItemCount]{ 0, 0 };                                                              // brightness level - to be converted in 'led atomic period length' and 'led on time'
-    static int ledAtomicTimePeriod[brightnessItemCount]{ 0, 0 }, ledAtomicTimeON[brightnessItemCount]{ 0, 0 };          // period length within which multiple led on / off sequences can occur, total ON time within this period
-    static long ledBrightnessChangeCnt[brightnessItemCount]{ 0, 0 }, ledOffOnCycleCnt[brightnessItemCount]{ 0, 0 };     // counters to control led brightness level change and led on / off switching
-#endif
-
     bool blueLedOn{ false }, greenLedOn{ false }, redLedOn{ false };
 
 
@@ -2338,18 +2305,6 @@ SIGNAL(ADC_vect) {
                                 greenwichLag = 0;
                                 rotationStatus = rotLocked;
                                 break;
-
-                            #if onboardLedDimming
-                                for (uint8_t i = 0; i < brightnessItemCount; i++) {
-                                    ledUp = B11;                                                    // initial dimming direction for blue (bit 1) and green (bit 0) led
-                                    ledBrightness[i] = ledMinBrightnessLevel[ledUpDownCycleType];   // initial brightness level (should be between defined min and max level)
-                                    ledAtomicTimeON[i] = 0;                                         // should be initialized at zero at this time
-                                    ledAtomicTimePeriod[i] = 0;
-                                    ledOffOnCycleCnt[i] = 0;
-                                    ledBrightnessChangeCnt[i] = -targetGlobeRotationTime;
-                                    if (i == 1) { ledBrightnessChangeCnt[i] -= scaledGreenLedDelay; }   // optional delay between blue and green led, scaled by factor 'ledBrightnessStepsUpDown' (because time counter increments by this factor)
-                                }
-                            #endif  
                             }
                         }
 
@@ -2520,68 +2475,11 @@ SIGNAL(ADC_vect) {
                 greenLedOn = greenwichTick;
                 break;
             case rotLocked:                                                                     // locked
-                /* led cues: disabled, because visually conflicting with led strip effects
-                blueLedOn = (!stepTick) && (!greenwichTick);
-                greenLedOn = greenwichTick;
-                */
-
-            #if onboardLedDimming                                                               // disable led dimming when locked if you find it's visually conflicting with led strip effects
-
-                // algorithm for smooth led dimming with little flicker
-                // see led strip dimming for an explanation of the algorithm to determine brightness
-                // below, this algorithm is used twice: (1) to determine the led brightness, as for the led strip
-                // ... (2): to determine the distribution of led on and led off times for the current brightness step, within a 'led atomic period'
-                // led atomic period: basic number of milliseconds, where the led is switched on and off using a specific pattern (e.g.  
-                // lower brightness levels: led ON time = 1 ms, variable led atomic period length, small brightness steps (prevent flicker), ON times spaced as evenly as possible
-                // higher brightness levels: variable led ON time, fixed led atomic period length, can be >> 20 ms because at higher levels, less sensitivity to flicker 
-                // lower and higher brightness levels depend on target rotation time: (rotation time / total up-down brightness steps) should not be (much) smaller than maximum led atomic period length  
-                // check out documentation (excel) for values
-
-                constexpr uint8_t ledLowBrightnessLevels[3]{ 8, 15, 19 };                       // low brightness levels: fixed led ON time, variable led atomic period length - not including level 0 (led off)
-
-                for (uint8_t i = 0; i < brightnessItemCount; i++) {
-                    ledBrightnessChangeCnt[i] += ledBrightnessStepsUpDown;                      // add total brightness steps (up and down) to brightness change counter
-                    ledOffOnCycleCnt[i] += ledAtomicTimeON[i];                                  // add total (non-consecutive) led ON time within one led atomic period to led state change counter 
-                    bool ledOn = (ledOffOnCycleCnt[i] > 0);                                     // led on when counter > 0
-                    if (i == 0) { blueLedOn = ledOn; }
-                    else { greenLedOn = ledOn; }
-
-                    if ((ledOn) || (ledAtomicTimeON[i] == 0)) {                                 // 1 led Off On cycle passed within a led atomic period, or (ledAtomicTimeON = 0:) brightness is zero or init 
-                        ledOffOnCycleCnt[i] -= ledAtomicTimePeriod[i];                          // prepare for a new led OFF ON cycle
-
-                        if (ledOffOnCycleCnt[i] == ledAtomicTimeON[i] - ledAtomicTimePeriod[i]) {       // 1 atomic period passed: check whether brightness needs to change
-
-                            if (ledBrightnessChangeCnt[i] > 0) {                                // time to change brightness ?
-                                ledBrightnessChangeCnt[i] -= (targetGlobeRotationTime);         // prepare for a new brightness period
-
-                                (ledUp & (1 << i)) ? ledBrightness[i]++ : ledBrightness[i]--;
-                                if ((ledBrightness[i] == ledMinBrightnessLevel[ledUpDownCycleType]) || (ledBrightness[i] == ledMaxBrightnessLevel[ledUpDownCycleType])) { ledUp = ledUp ^ (1 << i); }
-
-                                // determine length of led atomic period and ON time, as a function of rotation time and led brightness
-                                // check out documentation (excel) for values
-                                if (ledBrightness[i] == 0) {
-                                    ledAtomicTimeON[i] = 0;
-                                    ledAtomicTimePeriod[i] = 0;
-                                }
-                                else if (ledBrightness[i] <= ledLowBrightnessLevels[ledUpDownCycleType]) {
-                                    ledAtomicTimeON[i] = (ledUpDownCycleType == 0) ? 3 : (ledUpDownCycleType == 1) ? 3 : 4;
-                                    ledAtomicTimePeriod[i] = (ledUpDownCycleType == 0) ? 66 - 6 * ledBrightness[i] : (ledUpDownCycleType == 1) ? 63 - 3 * ledBrightness[i] : 62 - 2 * ledBrightness[i];
-                                }
-                                else {
-                                    ledAtomicTimeON[i] = (ledUpDownCycleType == 0) ? ledBrightness[i] - 5 : (ledUpDownCycleType == 1) ? ledBrightness[i] - 9 : ledBrightness[i] - 10;
-                                    ledAtomicTimePeriod[i] = (ledUpDownCycleType == 0) ? 18 : (ledUpDownCycleType == 1) ? 36 : 54;
-                                }
-
-                                ledOffOnCycleCnt[i] = ledAtomicTimeON[i] - ledAtomicTimePeriod[i];
-                            }
-                        }
-                    }
-                }
-
-            #endif
+                // LED OFF
                 break;
         }
     }
+
 
     // lifting magnet status is disabled: process error condition
 
@@ -2596,7 +2494,7 @@ SIGNAL(ADC_vect) {
         }
 
         if (errorLedSequence == 0) { blueLedOn = false; }
-        greenLedOn = false;
+        redLedOn = greenLedOn = false;
 
         // enable lifting magnet again, after a short delay, when hall detector has sensed main globe magnet (globe upward movement passing specific point, then downward movement passing other point further down)
         switch (minMagnetEnablingDelay) {
@@ -2652,14 +2550,14 @@ SIGNAL(ADC_vect) {
                     if (LSbrightnessStepTimer[i] > 0) {                                                 // time to start next brightness step ?
                         LSbrightnessStepTimer[i] -= LSbrightnessTransitionTime;                         // reset step timer (transition time = brightness step time scaled by total no of brightness steps)
 
-                        if ((LSbrightness[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {          // min. brightness and counting down ?
+                        if ((LScolor[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {          // min. brightness and counting down ?
                             if (LSminBrightnessStepNo[i]++ == LSbrightnessMinLvlSteps) {                // if specified, keep this brightness cst for a number of brightness steps
                                 LSminBrightnessStepNo[i] = 0;                                           // min. brightness period reached: reset constant brightness step counter
                                 LSup = LSup | (1 << i);                                                 // now counting up again
                                 LSminReached = LSminReached | (1 >> i);
                             }
                         }
-                        else if ((LSbrightness[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {      // max. brightness and counting up ?
+                        else if ((LScolor[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {      // max. brightness and counting up ?
                             if (LSmaxBrightnessStepNo[i]++ == LSbrightnessMaxLvlSteps) {                // if specified, keep this brightness cst for a number of brightness steps
                                 LSmaxBrightnessStepNo[i] = 0;                                           // max. brightness period reached: reset constant brightness step counter
                                 LSup = LSup & ~(1 << i);                                                // now counting down again
@@ -2668,7 +2566,7 @@ SIGNAL(ADC_vect) {
                         }
 
                         if ((LSminBrightnessStepNo[i] == 0) && (LSmaxBrightnessStepNo[i] == 0)) {       // not in a period of constant (min or max) brightness
-                            (LSup & (1 << i)) ? LSbrightness[i]++ : LSbrightness[i]--;                  // increase or decrease brightness ?
+                            (LSup & (1 << i)) ? LScolor[i]++ : LScolor[i]--;                  // increase or decrease brightness ?
                             LSupdate = LSupdate | (1 << i);                                             // flag that a brightness is changed: leds need to be re-written
                         }
                     }
@@ -2852,7 +2750,7 @@ SIGNAL(ADC_vect) {
             ((LedstripData*)messagePtr)->LSupdate = LSupdate;
             ((LedstripData*)messagePtr)->LSminReached = LSminReached;
             ((LedstripData*)messagePtr)->LSmaxReached = LSmaxReached;
-            for (uint8_t i = 0; i <= 2; i++) { ((LedstripData*)messagePtr)->LSbrightness[i] = LSbrightness[i]; }
+            for (uint8_t i = 0; i <= 2; i++) { ((LedstripData*)messagePtr)->LScolor[i] = LScolor[i]; }
 
             LSupdate = B000;                            // reset
             LSminReached = B000;
