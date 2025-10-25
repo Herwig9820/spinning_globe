@@ -2533,7 +2533,7 @@ SIGNAL(ADC_vect) {
                 // brightness can increase, decrease or stay constant (min. and max. brightness levels) when moving to a new step
 
                 // algorithm prevents divisions by scaling the time counted by the number of brightness steps 
-                // Note - transition time and transiton steps : includes constant brightness time and steps as well
+                // Note - transition time and transition steps : includes constant brightness time and steps as well
 
                 // brightness step no = current time x total number of transition steps / total transition time (linear relation between step and time)
                 // => brightness step x  total transition time = current time x total number of transition steps (up, down, cst brightness)
@@ -2550,14 +2550,14 @@ SIGNAL(ADC_vect) {
                     if (LSbrightnessStepTimer[i] > 0) {                                                 // time to start next brightness step ?
                         LSbrightnessStepTimer[i] -= LSbrightnessTransitionTime;                         // reset step timer (transition time = brightness step time scaled by total no of brightness steps)
 
-                        if ((LScolor[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {          // min. brightness and counting down ?
+                        if ((LScolor[i] == LSminBrightnessLevel) && !(LSup & (1 << i))) {               // min. brightness and counting down ?
                             if (LSminBrightnessStepNo[i]++ == LSbrightnessMinLvlSteps) {                // if specified, keep this brightness cst for a number of brightness steps
                                 LSminBrightnessStepNo[i] = 0;                                           // min. brightness period reached: reset constant brightness step counter
                                 LSup = LSup | (1 << i);                                                 // now counting up again
                                 LSminReached = LSminReached | (1 >> i);
                             }
                         }
-                        else if ((LScolor[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {      // max. brightness and counting up ?
+                        else if ((LScolor[i] == LSmaxBrightnessLevel) && (LSup & (1 << i))) {           // max. brightness and counting up ?
                             if (LSmaxBrightnessStepNo[i]++ == LSbrightnessMaxLvlSteps) {                // if specified, keep this brightness cst for a number of brightness steps
                                 LSmaxBrightnessStepNo[i] = 0;                                           // max. brightness period reached: reset constant brightness step counter
                                 LSup = LSup & ~(1 << i);                                                // now counting down again
@@ -2566,7 +2566,7 @@ SIGNAL(ADC_vect) {
                         }
 
                         if ((LSminBrightnessStepNo[i] == 0) && (LSmaxBrightnessStepNo[i] == 0)) {       // not in a period of constant (min or max) brightness
-                            (LSup & (1 << i)) ? LScolor[i]++ : LScolor[i]--;                  // increase or decrease brightness ?
+                            (LSup & (1 << i)) ? LScolor[i]++ : LScolor[i]--;                            // increase or decrease brightness ?
                             LSupdate = LSupdate | (1 << i);                                             // flag that a brightness is changed: leds need to be re-written
                         }
                     }
