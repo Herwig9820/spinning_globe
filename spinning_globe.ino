@@ -22,6 +22,7 @@
 
 */
 
+#include "wire.h"
 #include <LiquidCrystal.h>                                  // LCD
 #include <util/atomic.h>                                    // atomic operations
 #include <avr/wdt.h>                                        // watchdog timer
@@ -33,6 +34,14 @@
 #define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 #define test_showEventStats 0                               // only for testing (event message mechanism)
+
+#define test_checkStack 1
+
+#if test_checkStack
+extern unsigned int __bss_end;
+extern unsigned int __heap_start;
+extern void* __brkval;
+#endif
 
 
 // *** enumerations ***
@@ -284,9 +293,12 @@ constexpr long initialTTTintTerm{ 800 };                                        
 #endif
 
 // step sizes for user adjustments
-constexpr float gainStepSize{ 0.02 };                                               // PID: gain step size
-constexpr float intTimeCstStepSize{ 0.5 };                                          // PID: integrator time constant step size
-constexpr float difTimeStepSize{ 0.0001 };                                          // PID: differentiator time constant step size
+// !!! connection to Arduino cloud via dedicated MCU, communicating via I2C:
+// !!! step size that can be stored in float variables without rounding (1/2, 1/4, 1/8)
+// !!! gain: Arduino widget displays/changes 'gain x 10' value because of widget limitations
+constexpr float gainStepSize{ 0.0125 };                                             // PID: gain step size
+constexpr float intTimeCstStepSize{ 0.5 };                                          // PID: integrator time constant step size (seconds)
+constexpr float difTimeStepSize{ 0.000125 };                                        // PID: differentiator time constant step size (seconds)
 
 constexpr long maxTTTintTerm{ (long)(initialTTTintTerm * 1.5) };                    // PID: max. value integrator term
 
@@ -682,6 +694,9 @@ void processCommand();                                          // process one u
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 void writeStatus();                                             // print on event or on command
 void writeParamLabelAndValue();                                 // print on event or on command
+
+void writeToslaveMCU();
+
 void writeLedStrip();                                           // apply gamma correction and write led strip
 void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
 void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);      // write one led strip led
@@ -702,9 +717,12 @@ void setup()
     // *** disable watchdog, open serial port and LCD ***
 
     wdt_disable();
-    Serial.begin(1000000);                                      // baud rate as entered
+    Serial.begin(115200);                                      // baud rate as entered
     lcd.begin(16, 2);                                           // 16 characters, 2 rows
 
+#if test_checkStack
+    fillStackGuard();
+#endif
 
     // *** hardware: initialize ports ***
 
@@ -777,11 +795,11 @@ void setup()
     ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
 
     eepromValue = eeprom_read_byte((uint8_t*)5);
-    intTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to gainAdjustSteps mid value (16)
+    intTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value (16)
     ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
 
     eepromValue = eeprom_read_byte((uint8_t*)6);
-    difTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to gainAdjustSteps mid value (16)
+    difTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value (16)
     ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
 
     setPIDcontroller();
@@ -845,6 +863,7 @@ void setup()
     lcd.clear();
     lcd.noAutoscroll();
 
+    Wire.begin(); // join I2C bus (address optional for master)
 
     // *** enable watchdog timer (2 seconds) ***
 
@@ -865,6 +884,14 @@ void setup()
 
 void loop()
 {
+#if test_checkStack
+    int used = getStackUsage();
+
+    if (used > 1600) {  // example threshold
+        Serial.println("WARNING: Stack usage critical!");
+    }
+#endif
+
     getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
     processEvent();                                         // process event, if available
     processCommand();                                       // process command, if available
@@ -878,6 +905,40 @@ void loop()
     resetHWwatchDog = true;                                 // allow ISR to set ISR-IN-EXEC signal high then low (set low again in ISR). Tmax around 400mS                                                  
     idleLoop();                                             // only for idle time measuring. Results in slight jitter on start of ISR (+/- 10 micros)
 }
+
+
+#if test_checkStack
+void fillStackGuard() {
+    uint8_t* start;
+    if ((uint16_t)__brkval == 0)
+        start = (uint8_t*)&__heap_start; // no heap used
+    else
+        start = (uint8_t*)__brkval;      // heap used
+
+    uint8_t* end = (uint8_t*)RAMEND;   // top of RAM (stack starts here)
+
+    while (start < end) {
+        *start++ = 0xCD;  // fill with known pattern
+    }
+}
+
+int getStackUsage() {
+    uint8_t* start;
+    if ((uint16_t)__brkval == 0)
+        start = (uint8_t*)&__heap_start;
+    else
+        start = (uint8_t*)__brkval;
+
+    uint8_t* p = start;
+
+    while (*p == 0xCD && p < (uint8_t*)RAMEND) {
+        p++;
+    }
+
+    // p is the first byte NOT equal to our marker → stack has grown here
+    return (RAMEND - (int)p);  // number of bytes of stack actually used
+}
+#endif
 
 
 // *** get either an event or a user command, but not both at the same time
@@ -1058,9 +1119,46 @@ void processEvent() {
     switch (ISRevent) {
         case eStatusChange:
             if (!statusData.isFloating) { errSignalMagnitudeSmooth = 0; }                   // globe currently not floating ? reset smoothed error value immediately
-            break;
+            ////break;  // CONTINUE with greenwich event code
 
-        case eFastRateData: {                                                               // data provided at a high rate (every 128 milliseconds)
+        case eGreenwich:
+        {
+            Serial.println("Greenwich event !!!");
+            Wire.beginTransmission(9);
+            Wire.write((char)eGreenwich);
+            Wire.write((char) ((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition  | 0x10)));
+            Wire.write ((char)statusData.isFloating);
+            Wire.write((char*)&greenwichData.globeRotationTime, 4);                     // seconds, time of last rotation
+            Wire.write((char*)&greenwichData.rotationOutOfSyncTime, 4);                 // seconds
+            Wire.write((char*)&greenwichData.greenwichLag, 4);                          // globe rotation lag (angle between start of magnetic coil cycle and Greenwich detection)
+            bool wireError = !Wire.endTransmission();                                   // stop transmitting, error currently not checked
+        }
+        break;
+
+        case eSecond:
+        {
+            if (!(secondData.eventSecond & 0b11)) {                                     // every 4 seconds
+                Wire.beginTransmission(9);
+                Wire.write((char)eSecond);
+                Wire.write((char*)&tempSmooth, 4);
+                Wire.write((char*)&magnetOnCyclesSmooth, 4);
+                Wire.write((char*)&ISRdurationSmooth, 4);
+                Wire.write((char*)&idleLoopMicrosSmooth, 4);
+                bool wireError = !Wire.endTransmission();                                   // stop transmitting, error currently not checked
+            }
+
+            if (secondData.eventSecond == 3) {
+                /* not used but could be used for a 3-second cue AFTER RESET
+                cli();                                                                      // interrupts off: interface with ISR and eeprom write
+                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
+                sei();
+                */
+            }
+        }
+        break;
+
+        case eFastRateData:
+        {                                                               // data provided at a high rate (every 128 milliseconds)
             // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fastDataRateSamplingPeriods to smoothing filters
             // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
             idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
@@ -1086,19 +1184,9 @@ void processEvent() {
                 highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
                 sei();
             }
-
-            break;
         }
+        break;
 
-        case eSecond:
-            if (secondData.eventSecond == 3) {
-                /* not used but could be used for a 3-second cue
-                cli();                                                                      // interrupts off: interface with ISR and eeprom write
-                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
-                sei();
-                */
-            }
-            break;
     }
 }
 
@@ -1776,7 +1864,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         }
 
         case 13: {
-            dtostrf(presetGain * analogGain / 10. + gainStepSize * (paramValueOrIndex - 16), 11, 3, s);         // 16: center point (preset)
+            dtostrf(presetGain * analogGain / 10. + gainStepSize * (paramValueOrIndex - 16), 11, 4, s);         // 16: center point (preset)
             break;
         }
         case 14: {
@@ -1785,7 +1873,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
             break;
         }
         case 15: {
-            dtostrf((presetDifTimeCst + difTimeStepSize * (paramValueOrIndex - 16)) * 1000., 6, 1, s);
+            dtostrf((presetDifTimeCst + difTimeStepSize * (paramValueOrIndex - 16)) * 1000., 6, 3, s);
             strcat(s, milliSecSymbol);
             break;
         }
@@ -2361,7 +2449,7 @@ SIGNAL(ADC_vect) {
 
                         // The magnetic field angle is defined as zero when the step number and rotation timer sample period are set to 0.
                         // The globe rotation angle is set to zero when the 'Greenwich' magnet passes the detector.
-                        // We define the magnetic field rotation as 'leading' be a certain angle if the magnetic field angle is less than 180 degrees when the glob's angle is zero.
+                        // We define the magnetic field rotation as 'leading' be a certain angle if the magnetic field angle is less than 180 degrees when the globe's angle is zero.
                         // The globe rotation is then lagging behind.
                         // Fast (slow) rotation times will increase (decrease) the globe rotation lag (lead), because of increased (decreased) air resistance when the globe is turning faster (slower).
 
@@ -2372,7 +2460,7 @@ SIGNAL(ADC_vect) {
                         // rotation lag (degrees) = ((stepNo * stepTime) + rotationTimerSamplePeriod) * 360 / step count       => when the Greenwich magnet passes the detector
 
                         // There is a linear relationship between the globe rotation sync error (the result of adding up individual GLOBE rotation times) and the globe rotation lag.
-                        // But in contrast to the globe rotation lag (degrees), which will always converge to the same angle (in similar circumstances, for a specific rotation speed), ...
+                        // But in contrast to the globe rotation lag (degrees), which will always converges to the same angle (in similar circumstances, for a specific rotation speed), ...
                         // ...the sync error (time) is not, because it is set to zero without taking into account the starting globe rotation lag angle with respect to the magnetic field rotation...
                         // ...when the status switches to 'locked'.
 
