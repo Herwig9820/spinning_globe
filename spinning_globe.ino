@@ -35,7 +35,7 @@
 
 #define test_showEventStats 0                               // only for testing (event message mechanism)
 
-#define test_checkStack 1
+#define test_checkStack 0////
 
 #if test_checkStack
 extern unsigned int __bss_end;
@@ -439,6 +439,78 @@ volatile uint8_t LSminReached, LSmaxReached;
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
 
 
+/* ================= CONFIGURATION ================= */
+
+constexpr uint8_t I2C_SLAVE_ADDR = 9;
+constexpr uint32_t I2C_CLOCK = 400000UL;  // 100 kHz////
+
+// Packet sizing
+constexpr uint8_t PAYLOAD_MAX = 29;
+constexpr uint8_t PACKET_MAX = 2 + PAYLOAD_MAX + 1; // id + len + payload + checksum: length max. 32
+
+// Ring queue
+constexpr uint8_t TX_QUEUE_SIZE = 4;      // small bounded queue
+
+// Timing/backoff
+constexpr unsigned long INTER_PACKET_DELAY_MS = 3;   // spacing after successful action
+constexpr unsigned long RETRY_BACKOFF_MS = 5;   // backoff after failed send
+constexpr unsigned long REQUEST_TIMEOUT_US = 3000UL;
+
+// Retries
+constexpr uint8_t MAX_RETRIES_PER_PACKET = 4;
+
+
+/* ================= MESSAGE TYPES ================= */
+
+enum MsgID : uint8_t {
+    MSG_PING = 0x01,
+    MSG_GET_SETTINGS = 0x02,
+    MSG_GREENWICH_EVENT = 0x03,
+    MSG_STATUS_EVENT = 0x04,
+    MSG_SECONDS_EVENT = 0x05,
+    MSG_ERROR = 0xFF
+};
+
+/* ================= PACKET STRUCTS ================= */
+
+struct PacketTX {
+    uint8_t id;
+    uint8_t len;                 // payload length (0..PAYLOAD_MAX)
+    uint8_t payload[PAYLOAD_MAX];
+    uint8_t checksum;
+};
+
+struct PacketRX {
+    uint8_t id;
+    uint8_t len;
+    uint8_t payload[PAYLOAD_MAX];
+    uint8_t checksum;
+};
+
+
+/* ================= RING BUFFER (ISR-safe enqueue) ================= */
+
+PacketTX txQueue[TX_QUEUE_SIZE];
+volatile uint8_t txHead = 0; // next free slot (ISR will write here)
+volatile uint8_t txTail = 0; // oldest queued (main reads here)
+uint8_t retryCounts[TX_QUEUE_SIZE]; // per-slot retry count (main only)
+
+
+/* ================= STATE + WORKING COPIES ================= */
+
+enum MasterState { MS_IDLE, MS_SEND, MS_RECEIVE };
+MasterState state = MS_IDLE;
+
+PacketTX txWorking; // working copy of the packet we attempt to send (peeked from queue)
+PacketRX rxWorking;
+
+unsigned long nextActionMillis = 0;   // inter-packet delay scheduling
+unsigned long nextRetryMillis = 0;   // global backoff timer
+uint32_t sendCount = 0;
+uint32_t dropCount = 0;
+uint32_t errorCount = 0;
+
+
 // *** structures: communication between ISR and main ***
 
 struct GreenwichData {                                                              // initialize members, awaiting first event
@@ -486,6 +558,211 @@ struct EventStats {
     unsigned int eventBufferBytesUsed{ 0 }, largestEventBufferBytesUsed{ 0 };       // No of ISR events logged for processing in main loop: all-time max
     long eventsMissed{ 0 };                                                         // keeps track of events missed (not used at this stage)
 };
+
+
+/* ================= RING BUFFER (ISR-safe enqueue) ================= */
+
+/*
+  enqueueTxISR: safe from ISR. Returns true if enqueued, false if queue full.
+  On success sets retry count for that slot to 0 (main loop must not overwrite).
+*/
+bool enqueueTxISR(const PacketTX& p) {
+    uint8_t next = txHead + 1;
+    if (next >= TX_QUEUE_SIZE) next = 0;
+    if (next == txTail) {
+      // queue full
+        return false;
+    }
+    txQueue[txHead] = p;         // struct copy
+    retryCounts[txHead] = 0;     // initialize retries (main loop only modifies)
+    txHead = next;
+    return true;
+}
+
+
+/* ================= CHECKSUM ================= */
+
+uint8_t calcChecksum(const uint8_t* data, uint8_t len) {
+    uint8_t sum = 0;
+    for (uint8_t i = 0; i < len; ++i) sum += data[i];
+    return sum;
+}
+
+
+/* ================= I2C HELPERS ================= */
+
+bool i2cMasterWrite(uint8_t addr, const uint8_t* data, uint8_t len) {
+    Wire.beginTransmission(addr);
+    Wire.write(data, len);
+    uint8_t err = Wire.endTransmission(); // 0 == success
+    return (err == 0);
+}
+
+uint8_t i2cMasterReadWithTimeout(uint8_t addr, uint8_t len, uint8_t* dst, unsigned long timeout_us) {
+    if (len == 0) return 0;
+    Wire.requestFrom((int)addr, (int)len);
+    unsigned long start = micros();
+    uint8_t idx = 0;
+    while (idx < len) {
+        if (Wire.available()) {
+            dst[idx++] = Wire.read();
+        }
+        else {
+            if ((unsigned long)(micros() - start) > timeout_us) break;
+        }
+    }
+    return idx;
+}
+
+
+/* ================= QUEUE PEEK (atomic read of tail/head) =================
+   Peek at the current packet at txTail without advancing the tail.
+   Returns true and fills txWorking if not empty; false if empty.
+*/
+bool peekQueueHead(PacketTX& out, uint8_t& indexAtTail) {
+    uint8_t head, tail;
+    uint8_t sreg = SREG;
+    cli();
+    head = txHead;
+    tail = txTail;
+    SREG = sreg;
+
+    if (head == tail) return false; // empty
+
+    indexAtTail = tail;
+    out = txQueue[tail]; // copy struct
+    return true;
+}
+
+
+
+void processQueueAndSend() {
+    unsigned long now = millis();
+
+    // Respect scheduling/backoff
+    if (now < nextRetryMillis) return;
+
+    // If currently idle, attempt to peek next packet
+    if (state == MS_IDLE) {
+        uint8_t indexAtTail;
+        if (!peekQueueHead(txWorking, indexAtTail)) {
+          // nothing to send
+            return;
+        }
+        // We have txWorking (peeked) and indexAtTail points to its slot in queue.
+        state = MS_SEND;
+    }
+
+    // SEND state: attempt send of txWorking (which is the packet at queue tail)
+    if (state == MS_SEND) {
+      // check inter-packet spacing
+        if (millis() < nextActionMillis) return;
+
+        // compute total bytes to send: id + len + payload + checksum = 3 + len -  ??? 
+        // formula: id(1) + len(1) + payload(len) + checksum(1) => 3 + txWorking.len
+        uint8_t outLen = 3 + txWorking.len;
+
+        bool ok = i2cMasterWrite(I2C_SLAVE_ADDR, reinterpret_cast<uint8_t*>(&txWorking), outLen);
+        Serial.print("wire send message type "); Serial.print(txWorking.id); Serial.print(" -  success ? "); Serial.println(ok);
+
+        if (!ok) {
+          // failure: increment retry count for the slot (atomic)
+          // we need to find index of the slot we peeked earlier: it's current txTail
+            uint8_t sreg = SREG;
+            cli();
+            uint8_t slot = txTail; // the packet we attempted was at tail
+            // increment retry count atomically
+            if (retryCounts[slot] < 255) retryCounts[slot]++;
+            uint8_t tries = retryCounts[slot];
+            SREG = sreg;
+
+            errorCount++;
+
+            // If exceeded MAX_RETRIES, drop the packet (advance tail)
+            if (tries > MAX_RETRIES_PER_PACKET) {
+                sreg = SREG;
+                cli();
+                // advance tail
+                uint8_t newTail = txTail + 1;
+                if (newTail >= TX_QUEUE_SIZE) newTail = 0;
+                txTail = newTail;
+                // reset retry count for that slot
+                retryCounts[slot] = 0;
+                SREG = sreg;
+
+                dropCount++;
+                // schedule a small delay before trying next message
+                nextRetryMillis = now + RETRY_BACKOFF_MS;
+                state = MS_IDLE;
+                return;
+            }
+
+            // schedule a backoff and stay in MS_IDLE (we will peek again later and try same packet)
+            nextRetryMillis = now + RETRY_BACKOFF_MS;
+            state = MS_IDLE;
+            return;
+        }
+
+        // success: advance send counters and pop the packet (advance tail atomically)
+        sendCount++;
+        uint8_t sreg = SREG;
+        cli();
+        // advance tail (pop)
+        uint8_t newTail = txTail + 1;
+        if (newTail >= TX_QUEUE_SIZE) newTail = 0;
+        // clear retry count for that slot (defensive)
+        retryCounts[txTail] = 0;
+        txTail = newTail;
+        SREG = sreg;
+
+        // after successful write, allow optional receive based on message type
+        state = MS_RECEIVE;
+        nextActionMillis = now + INTER_PACKET_DELAY_MS;
+    }
+
+    // RECEIVE state: attempt read if expected by protocol
+    if (state == MS_RECEIVE) {
+        if (millis() < nextActionMillis) return;
+
+        uint8_t expectedRX = 0;
+        // policy: define expected reply lengths for certain requests
+        if (txWorking.id == MSG_GET_SETTINGS) expectedRX = 5;
+        else if (txWorking.id == MSG_PING) expectedRX = 1;
+        else expectedRX = 0;
+
+        if (expectedRX > 0) {
+            uint8_t got = i2cMasterReadWithTimeout(I2C_SLAVE_ADDR, expectedRX, reinterpret_cast<uint8_t*>(&rxWorking), REQUEST_TIMEOUT_US);
+            if (got != expectedRX) {
+              // read error/timeout
+                errorCount++;
+                // do NOT re-enqueue; we drop/ignore reply
+            }
+            else {
+           // check checksum: rxWorking.checksum expected at last byte
+                uint8_t cs = calcChecksum(reinterpret_cast<uint8_t*>(&rxWorking), 2 + rxWorking.len);
+                if (cs != rxWorking.checksum) {
+                    errorCount++;
+                }
+                else {
+               // process reply packet (example)
+                    switch (rxWorking.id) {
+                        case MSG_PING:
+                          // ack handled
+                            break;
+                        case MSG_GET_SETTINGS:
+                          // handle status
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
+        // after receive (or no expected), go back to idle
+        state = MS_IDLE;
+        nextActionMillis = millis() + INTER_PACKET_DELAY_MS;
+    }
+}
 
 
 // *** class: millis and micros function based on timer1 and own time counting logic (millis and micros < one second, count seconds) ***
@@ -540,7 +817,7 @@ public:
 
 class MyEvents {
 private:
-    const uint8_t eventBufferSize{ 255 };                                                   // max 255
+    const uint8_t eventBufferSize{ 127 };                                                   // max 255
 
     uint8_t* eventBuffer{ nullptr };                                                        // dynamic memory to store event messages until they are processed
     uint8_t* oldestMessageStartPtr{ nullptr }, * newestMessageStartPtr{ nullptr };
@@ -695,7 +972,6 @@ void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0
 void writeStatus();                                             // print on event or on command
 void writeParamLabelAndValue();                                 // print on event or on command
 
-void writeToslaveMCU();
 
 void writeLedStrip();                                           // apply gamma correction and write led strip
 void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
@@ -864,6 +1140,8 @@ void setup()
     lcd.noAutoscroll();
 
     Wire.begin(); // join I2C bus (address optional for master)
+    ////Wire.setClock(I2C_CLOCK);
+    for (uint8_t i = 0; i < TX_QUEUE_SIZE; ++i) retryCounts[i] = 0;     // init: zero retry counts
 
     // *** enable watchdog timer (2 seconds) ***
 
@@ -896,8 +1174,9 @@ void loop()
     processEvent();                                         // process event, if available
     processCommand();                                       // process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
-    writeStatus();                                          // print status to Serial and LCD (if connected)
-    writeParamLabelAndValue();                              // print parameter label and value to Serial and LCD (if connected)
+    processQueueAndSend();                                  // I2C: peek/send/retry/pop logic
+    ////writeStatus();                                          // print status to Serial and LCD (if connected)
+    ////writeParamLabelAndValue();                              // print parameter label and value to Serial and LCD (if connected)
     writeLedStrip();                                        // write led strip on event      
     myEvents.removeOldestChunk(ISRevent != eNoEvent);       // has an event been processed now ? remove from message queue
 
@@ -1118,41 +1397,39 @@ void processEvent() {
 
     switch (ISRevent) {
         case eStatusChange:
-            if (!statusData.isFloating) { errSignalMagnitudeSmooth = 0; }                   // globe currently not floating ? reset smoothed error value immediately
-            ////break;  // CONTINUE with greenwich event code
+            if (!statusData.isFloating) { errSignalMagnitudeSmooth = 0.f; }                   // globe currently not floating ? reset smoothed error value immediately
+            // CONTINUE with greenwich event code 
 
         case eGreenwich:
         {
-            Serial.println("Greenwich event !!!");
-            Wire.beginTransmission(9);
-            Wire.write((char)eGreenwich);
-            Wire.write((char) ((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition  | 0x10)));
-            Wire.write ((char)statusData.isFloating);
-            Wire.write((char*)&greenwichData.globeRotationTime, 4);                     // seconds, time of last rotation
-            Wire.write((char*)&greenwichData.rotationOutOfSyncTime, 4);                 // seconds
-            Wire.write((char*)&greenwichData.greenwichLag, 4);                          // globe rotation lag (angle between start of magnetic coil cycle and Greenwich detection)
-            bool wireError = !Wire.endTransmission();                                   // stop transmitting, error currently not checked
+            PacketTX p;
+            p.id = MSG_GREENWICH_EVENT;
+            p.len = 14;     // payload length only
+            p.payload[0] = (char)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
+            p.payload[1] = (char)statusData.isFloating;
+            memcpy(p.payload + 2, &greenwichData.globeRotationTime, 4);                     // seconds, time of last rotation
+            memcpy(p.payload + 6, &greenwichData.rotationOutOfSyncTime, 4);                 // seconds
+            memcpy(p.payload + 10, &greenwichData.greenwichLag, 4);                          // globe rotation lag (angle between start of magnetic coil cycle and Greenwich detection)
+            // checksum over id+len
+            p.checksum = calcChecksum(reinterpret_cast<uint8_t*>(&p), 2 + p.len);
+            enqueueTxISR(p); // best-effort, may fail (queue full)
         }
         break;
 
         case eSecond:
         {
-            if (!(secondData.eventSecond & 0b11)) {                                     // every 4 seconds
-                Wire.beginTransmission(9);
-                Wire.write((char)eSecond);
-                Wire.write((char*)&tempSmooth, 4);
-                Wire.write((char*)&magnetOnCyclesSmooth, 4);
-                Wire.write((char*)&ISRdurationSmooth, 4);
-                Wire.write((char*)&idleLoopMicrosSmooth, 4);
-                bool wireError = !Wire.endTransmission();                                   // stop transmitting, error currently not checked
-            }
-
-            if (secondData.eventSecond == 3) {
-                /* not used but could be used for a 3-second cue AFTER RESET
-                cli();                                                                      // interrupts off: interface with ISR and eeprom write
-                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
-                sei();
-                */
+            if (!(secondData.eventSecond & 0b11L)) {                                     // every 4 seconds
+                PacketTX p;
+                p.id = MSG_SECONDS_EVENT;
+                p.len = 20;     // payload length only
+                memcpy(p.payload + 0, &tempSmooth, 4);                                  // raw input for wire slave
+                memcpy(p.payload + 4, &magnetOnCyclesSmooth, 4);
+                memcpy(p.payload + 8, &ISRdurationSmooth, 4);
+                memcpy(p.payload + 12, &idleLoopMicrosSmooth, 4);
+                memcpy(p.payload + 16, &errSignalMagnitudeSmooth, 4);
+                // checksum over id+len
+                p.checksum = calcChecksum(reinterpret_cast<uint8_t*>(&p), 2 + p.len);
+                enqueueTxISR(p); // best-effort, may fail (queue full)
             }
         }
         break;
@@ -1403,6 +1680,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
 
 // *** write status and other info to LCD and Serial ***
 
+#if 1
 void writeStatus() {
     if ((ISRevent == eNoEvent) && (userCommand == uNoCmd)) { return; }
 
@@ -1523,6 +1801,7 @@ void writeStatus() {
 // *** write a parameter and its value to LCD and Serial ***
 
 void writeParamLabelAndValue() {
+
     static bool blinkingTextNowOn{ true }, blinkEnabled{ false };                           // blinking values on LCD
 
     if (ISRevent == eBlink) { blinkingTextNowOn = false; }
@@ -1580,7 +1859,9 @@ void writeParamLabelAndValue() {
         Serial.println(s150);
     #endif
     }
+
 }
+#endif
 
 
 // *** write to led strip ***
@@ -1827,7 +2108,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         case 8: {                                                // error signal variance in milliVolt as read by Arduino (sensor value x analog gain)
             strcpy(s, " ---mV");
             if (statusData.isFloating) {                         // from latest fast rate update event before write
-                // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milliVolt
+                // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milliVolt range
                 dtostrf((errSignalMagnitudeSmooth / fastDataRateSamplingPeriods) * 5000. / (float)ADCsteps, 4, 0, s);
                 strcat(s, "mV");
             }
@@ -2827,8 +3108,8 @@ SIGNAL(ADC_vect) {
             ((GreenwichData*)messagePtr)->eventSecond = second;
             ((GreenwichData*)messagePtr)->globeRotationTime = globeRotationTime;
             ((GreenwichData*)messagePtr)->lockedRotations = lockedRotations;
-            ((GreenwichData*)messagePtr)->rotationOutOfSyncTime = rotationOutOfSyncTime;
-            ((GreenwichData*)messagePtr)->greenwichLag = greenwichLag;
+            ((GreenwichData*)messagePtr)->rotationOutOfSyncTime = rotationOutOfSyncTime;    // drift since first locked rotations
+            ((GreenwichData*)messagePtr)->greenwichLag = greenwichLag;                      // globe rotation start versus magnetic field rotation start (coils)
         }
     }
 
