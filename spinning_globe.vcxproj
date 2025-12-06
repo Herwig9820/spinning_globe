@@ -64,7 +64,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <IncludePath>$(ProjectDir)..\spinning_globe;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\cores\arduino;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\variants\eightanaloginputs;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include-fixed;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src\utility;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src</IncludePath>
+    <IncludePath>C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\cores\arduino;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\variants\eightanaloginputs;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include-fixed;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src</IncludePath>
     <RemoteCCompileToolExe>c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\bin\avr-g++</RemoteCCompileToolExe>
     <RemoteCppCompileToolExe>c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\bin\avr-g++</RemoteCppCompileToolExe>
     <ValidateArchitecture>false</ValidateArchitecture>
@@ -78,8 +78,10 @@
       <FileType>CppCode</FileType>
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
+    <ClCompile Include="wire_master_interface.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="wire_master_interface.h" />
     <ClInclude Include="__vm\.spinning_globe.vsarduino.h" />
   </ItemGroup>
   <PropertyGroup>
@@ -99,7 +101,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\spinning_globe;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\cores\arduino;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\variants\eightanaloginputs;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include-fixed;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src\utility;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\libraries\Wire\src;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\cores\arduino;c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.6\variants\eightanaloginputs;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\lib\gcc\avr\7.3.0\include-fixed;c:\users\herwi\appdata\local\arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\avr\include;C:\Users\herwi\AppData\Local\Arduino15\libraries\LiquidCrystal\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <GccToolChain>c:\Users\herwi\AppData\Local\Arduino15\packages\arduino\tools\avr-gcc\7.3.0-atmel3.6.1-arduino7\bin\avr-g++</GccToolChain>
       <CppLanguageStandard>gnu++11</CppLanguageStandard>
       <CLanguageStandard>gnu11</CLanguageStandard>
