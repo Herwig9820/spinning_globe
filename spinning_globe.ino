@@ -440,7 +440,7 @@ volatile uint8_t LSminReached, LSmaxReached;
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
 
 
-// *** structures: communication between ISR and main ***
+// *** communication between ISR and main ***
 
 struct GreenwichData {                                                              // initialize members, awaiting first event
     long eventMilliSecond{ 0 }, eventSecond{ 0 };
@@ -489,6 +489,53 @@ struct EventStats {
 };
 
 
+// I2C communication with nano ESP32 as Wire slave
+// -----------------------------------------------
+
+// note: Wire_master_interface class is not aware of payload details
+
+enum MsgID : uint8_t {
+    MSG_OUT_PING = 0x01,
+    MSG_OUT_GET_SETTINGS = 0x02,
+    MSG_OUT_GREENWICH_EVENT = 0x03,
+    MSG_OUT_STATUS_EVENT = 0x04,
+    MSG_OUT_SECOND_EVENT = 0x05,
+    MSG_OUT_ERROR = 0xFF,
+
+    MSG_IN_NONE = 0x10,
+    MSG_IN_PING = 0x11,
+    MSG_IN_USER_SETTINGS = 0x12,
+    MSG_IN_ERROR_COUNTS = 0x13
+};
+
+
+struct __attribute__((packed)) I2cMsgOut_greenwich {
+    uint8_t status;
+    uint8_t floating;
+    uint32_t actualRotationTime;        //// int32_t globeRotationTime corrigeren naar uint
+    int32_t rotationOutOfSyncTime;
+    int32_t greenwichLag;
+};
+
+struct __attribute__((packed)) I2cMsgOut_secondCue {
+    uint32_t tempSmooth;
+    float magnetOnCyclesSmooth;
+    float ISRdurationSmooth;
+    float idleLoopMicrosSmooth;
+    float errSignalMagnitudeSmooth;
+};
+
+struct __attribute__((packed)) I2cMsgIn_userSettings {
+    uint8_t requestRotationPeriod;
+    uint8_t requestLedEffect;
+    uint8_t requestLedCycleSpeed;
+    uint8_t error_count;
+};
+
+
+uint8_t expectedWireMsgTypeIn{ MSG_IN_NONE };
+
+
 // *** class: millis and micros function based on timer1 and own time counting logic (millis and micros < one second, count seconds) ***
 
 class MyTime {
@@ -498,33 +545,30 @@ private:
 
 public:
     long millis(long* secondsPtr = nullptr) {                           // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
-        uint8_t oldSREG = SREG;
-        cli();                                                          // retrieve seconds and mS while interrupts disabled 
-        if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
-        SREG = oldSREG;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
+        }
         return milliSecond;                                             // 0 to 999
     }
 
     // execution time is very close to 20 microSeconds (16MHz clock)
     long micros(long* secondsPtr = nullptr) {                           // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
-        uint8_t oldSREG = SREG;
-        cli();                                                          // retrieve seconds and mS, read timer while interrupts disabled 
-        if (secondsPtr != nullptr) { *secondsPtr = second; }            // total running
-        m_milliSecond = milliSecond;                                    // 0 to 999
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            if (secondsPtr != nullptr) { *secondsPtr = second; }            // total running
+            m_milliSecond = milliSecond;                                    // 0 to 999
 
-        bool oldTOV1 = (TIFR1 & _BV(TOV1));                             // timer 1 interrupt pending ? 
+            bool oldTOV1 = (TIFR1 & _BV(TOV1));                             // timer 1 interrupt pending ? 
 
-        m_nanoSecond500 = TCNT1;                                        // one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
-        m_nextNanoSecond500 = TCNT1;                                    // take 2 counter readings (500 nS steps) to determine slope (difference between 2 readings is exactly -1 or +1)
+            m_nanoSecond500 = TCNT1;                                        // one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
+            m_nextNanoSecond500 = TCNT1;                                    // take 2 counter readings (500 nS steps) to determine slope (difference between 2 readings is exactly -1 or +1)
 
-        if (m_nanoSecond500 > m_nextNanoSecond500) { m_nanoSecond500 = 2 * timer1Top - m_nextNanoSecond500; }   // counting down (500 nS per cycle)
+            if (m_nanoSecond500 > m_nextNanoSecond500) { m_nanoSecond500 = 2 * timer1Top - m_nextNanoSecond500; }   // counting down (500 nS per cycle)
 
-        if (TIFR1 & _BV(TOV1)) {                                        // timer 1 interrupt pending: milliSecond is not yet updated
-            m_milliSecond++;                                            // milliSecond will be updated when ISR runs
-            if (!oldTOV1) { m_nanoSecond500 = m_nextNanoSecond500; }    // two microsecond readings around overflow (zero) point: prevent "2 * timer1Top - m_nanoSecond500" calculation)
+            if (TIFR1 & _BV(TOV1)) {                                        // timer 1 interrupt pending: milliSecond is not yet updated
+                m_milliSecond++;                                            // milliSecond will be updated when ISR runs
+                if (!oldTOV1) { m_nanoSecond500 = m_nextNanoSecond500; }    // two microsecond readings around overflow (zero) point: prevent "2 * timer1Top - m_nanoSecond500" calculation)
+            }
         }
-
-        SREG = oldSREG;
 
         // calculate micro seconds in current second: 0 to 999999 (1 period = 500 nS) 
         microSecond = ((long)(m_nanoSecond500 >> 1)) + (m_milliSecond << 10) - (m_milliSecond << 4) - (m_milliSecond << 3);
@@ -692,6 +736,7 @@ void getEventOrUserCommand();                                   // retrieve an e
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
 void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
 void processEvent();                                            // process one event, if available
+void processWireSlaveReply();
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 void writeStatus();                                             // print on event or on command
@@ -720,6 +765,7 @@ void setup()
     wdt_disable();
     Serial.begin(115200);                                      // baud rate as entered
     lcd.begin(16, 2);                                           // 16 characters, 2 rows
+    pinMode(13, OUTPUT);
 
 #if test_checkStack
     fillStackGuard();
@@ -770,73 +816,73 @@ void setup()
     uint8_t eepromValue{ 0 };
     uint8_t ledstripCycle{}, ledstripTiming{};
 
-    cli();
+    ATOMIC_BLOCK(ATOMIC_FORCEON) {
 
     // read rotation time from eeprom and set
-    eepromValue = eeprom_read_byte((uint8_t*)0);                                        // restore globe rotation time from eeprom
-    cnt = paramValueCounts[paramNo_rotTimes];                                           // No of defined rotation times 
-    eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-    ParamsSelectedValuesOrIndexes[paramNo_rotTimes] = eepromValue;
-    setRotationTime(eepromValue, true);                                                 // set rotation time and store in eeprom
+        eepromValue = eeprom_read_byte((uint8_t*)0);                                        // restore globe rotation time from eeprom
+        cnt = paramValueCounts[paramNo_rotTimes];                                           // No of defined rotation times 
+        eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
+        ParamsSelectedValuesOrIndexes[paramNo_rotTimes] = eepromValue;
+        setRotationTime(eepromValue, true);                                                 // set rotation time and store in eeprom
 
 
-    // read globe vertical position setpoint from eeprom 
-    // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
-    // set PID controller
-    eepromValue = eeprom_read_byte((uint8_t*)1);
-    cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
-    eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-    ParamsSelectedValuesOrIndexes[paramNo_hallmVoltRefs] = eepromValue;
-    long hallmVoltRef = hallMilliVolts[eepromValue];                                    // globe vertical position ref in mVolt (after analog amplification)
-    targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                         // globe vertical position ref in ADC steps
-    hallRef_ADCsteps = targetHallRef_ADCsteps;
+        // read globe vertical position setpoint from eeprom 
+        // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
+        // set PID controller
+        eepromValue = eeprom_read_byte((uint8_t*)1);
+        cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
+        eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
+        ParamsSelectedValuesOrIndexes[paramNo_hallmVoltRefs] = eepromValue;
+        long hallmVoltRef = hallMilliVolts[eepromValue];                                    // globe vertical position ref in mVolt (after analog amplification)
+        targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                         // globe vertical position ref in ADC steps
+        hallRef_ADCsteps = targetHallRef_ADCsteps;
 
-    eepromValue = eeprom_read_byte((uint8_t*)4);
-    gainAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value (16)  
-    ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
+        eepromValue = eeprom_read_byte((uint8_t*)4);
+        gainAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value (16)  
+        ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
 
-    eepromValue = eeprom_read_byte((uint8_t*)5);
-    intTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value (16)
-    ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
+        eepromValue = eeprom_read_byte((uint8_t*)5);
+        intTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value (16)
+        ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
 
-    eepromValue = eeprom_read_byte((uint8_t*)6);
-    difTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value (16)
-    ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
+        eepromValue = eeprom_read_byte((uint8_t*)6);
+        difTimeCstAdjustSteps = (eepromValue >= 31) ? 31 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value (16)
+        ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
 
-    setPIDcontroller();
-
-
-    // NEW version 1.0.3: read phase adjustment for coils rotation start delay (non-locked rotation) from eeprom and store in memory     
-    eepromValue = eeprom_read_byte((uint8_t*)7);
-    phaseAdjustSteps = (eepromValue >= 179) ? 179 : eepromValue;                        // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
-    ParamsSelectedValuesOrIndexes[paramNo_phaseAdjust] = phaseAdjustSteps;
+        setPIDcontroller();
 
 
-    // read led strip cycle & timing from eeprom and set 
-    eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = led strip cycle time, b3210 = led strip cycle
+        // NEW version 1.0.3: read phase adjustment for coils rotation start delay (non-locked rotation) from eeprom and store in memory     
+        eepromValue = eeprom_read_byte((uint8_t*)7);
+        phaseAdjustSteps = (eepromValue >= 179) ? 179 : eepromValue;                        // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
+        ParamsSelectedValuesOrIndexes[paramNo_phaseAdjust] = phaseAdjustSteps;
 
-    /* not used but could be used for a 3-second cue
-    eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);        // if running time after previous reset was small: switch to next led strip color cycle
-    */
 
-    ledstripCycle = eepromValue & (uint8_t)0x0F;
-    ledstripTiming = eepromValue >> 4;
-    ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
-    ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
-    setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set led strip cycle and timing and store in eeprom
+        // read led strip cycle & timing from eeprom and set 
+        eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = led strip cycle time, b3210 = led strip cycle
 
-    // DIP switches 2 to 5 (signals SW3 to SW0): interpret as buttons if all 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches and enter program mode (do not connect buttons then)
-    // if in program mode, a selected setting restored from eeprom will be overridden 
-    switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program led strip
-    switchesSetRotationTime = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x01;    // signals SW3 to SW0: interpret as switches and use to program rotation time
-    switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program globe vertical position reference
-    useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
-    checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
+        /* not used but could be used for a 3-second cue
+        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);        // if running time after previous reset was small: switch to next led strip color cycle
+        */
 
-    /* not used but could be used for a 3-second cue
-    eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
-    */
-    sei();
+        ledstripCycle = eepromValue & (uint8_t)0x0F;
+        ledstripTiming = eepromValue >> 4;
+        ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
+        ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
+        setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set led strip cycle and timing and store in eeprom
+
+        // DIP switches 2 to 5 (signals SW3 to SW0): interpret as buttons if all 4 switches OFF (= 'high') after reset. If NOT all OFF, then interpret as switches and enter program mode (do not connect buttons then)
+        // if in program mode, a selected setting restored from eeprom will be overridden 
+        switchesSetLedstrip = (switchStates & pinD_keyBits) == (uint8_t)0x00;               // signals SW3 to SW0: interpret as switches and use to program led strip
+        switchesSetRotationTime = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x01;    // signals SW3 to SW0: interpret as switches and use to program rotation time
+        switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program globe vertical position reference
+        useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
+        checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
+
+        /* not used but could be used for a 3-second cue
+        eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
+        */
+    }
 
     // initial setting to display: rotation time, except if currently in program mode
     paramNo = switchesSetHallmVoltRef ? paramNo_hallmVoltRefs : paramNo_rotTimes;
@@ -893,9 +939,10 @@ void loop()
 
     getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
     processEvent();                                         // process event, if available
+    ////processWireSlaveReply();
     processCommand();                                       // process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
-    wire_master_interface.processQueueAndSend();                                  // I2C: peek/send/retry/pop logic
+    wire_master_interface.sendAndReceiveMessage();                                  // I2C: peek/send/retry/pop logic
     ////writeStatus();                                          // print status to Serial and LCD (if connected)
     ////writeParamLabelAndValue();                              // print parameter label and value to Serial and LCD (if connected)
     writeLedStrip();                                        // write led strip on event      
@@ -1112,6 +1159,8 @@ void processEvent() {
 
     if (ISRevent == eNoEvent) { return; }
 
+    expectedWireMsgTypeIn = MSG_IN_NONE;                // init
+
     // first order filters below are implemented as integrator with negative feedback: 
     // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
     // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
@@ -1123,34 +1172,30 @@ void processEvent() {
 
         case eGreenwich:
         {
-            Wire_master_interface::PacketTX p;
-            p.id = Wire_master_interface::MSG_GREENWICH_EVENT;
-            p.len = 14;     // payload length only
-            p.payload[0] = (char)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
-            p.payload[1] = (char)statusData.isFloating;
-            memcpy(p.payload + 2, &greenwichData.globeRotationTime, 4);                     // seconds, time of last rotation
-            memcpy(p.payload + 6, &greenwichData.rotationOutOfSyncTime, 4);                 // seconds
-            memcpy(p.payload + 10, &greenwichData.greenwichLag, 4);                          // globe rotation lag (angle between start of magnetic coil cycle and Greenwich detection)
-            // checksum over id+len
-            p.checksum = wire_master_interface.calcChecksum(p, 2 + p.len);
-            if (!wire_master_interface.enqueueTxISR(p));{ wire_master_interface.incr_stats_dropped(); } // best-effort, may fail (queue full)
+            Serial.print("enqueuing "); Serial.print(MSG_OUT_GREENWICH_EVENT); Serial.print(" at "); Serial.println(millis());
+            I2cMsgOut_greenwich p{};
+            p.status = (uint8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
+            p.floating = statusData.isFloating;
+            p.actualRotationTime = greenwichData.globeRotationTime;
+            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
+            p.greenwichLag = greenwichData.greenwichLag;
+            wire_master_interface.enqueueTx(MSG_OUT_GREENWICH_EVENT, &p, sizeof(p), sizeof(I2cMsgIn_userSettings));  // best-effort, may fail (queue full)
+            expectedWireMsgTypeIn = MSG_IN_USER_SETTINGS;
         }
         break;
 
         case eSecond:
         {
-            if (!(secondData.eventSecond & 0b11L)) {                                     // every 4 seconds
-                Wire_master_interface::PacketTX p;
-                p.id = Wire_master_interface::MSG_SECONDS_EVENT;
-                p.len = 20;     // payload length only
-                memcpy(p.payload + 0, &tempSmooth, 4);                                  // raw input for wire slave
-                memcpy(p.payload + 4, &magnetOnCyclesSmooth, 4);
-                memcpy(p.payload + 8, &ISRdurationSmooth, 4);
-                memcpy(p.payload + 12, &idleLoopMicrosSmooth, 4);
-                memcpy(p.payload + 16, &errSignalMagnitudeSmooth, 4);
-                // checksum over id+len
-                p.checksum = wire_master_interface.calcChecksum(p, 2 + p.len);
-                if (!wire_master_interface.enqueueTxISR(p)); { wire_master_interface.incr_stats_dropped(); } // best-effort, may fail (queue full)
+            if (secondData.eventSecond) {                                     // every second
+                Serial.print("enqueuing "); Serial.print(MSG_OUT_SECOND_EVENT); Serial.print(" at "); Serial.println(millis());
+                I2cMsgOut_secondCue p{};
+                p.tempSmooth = tempSmooth;                                  // raw input for wire slave
+                p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
+                p.ISRdurationSmooth = ISRdurationSmooth;
+                p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
+                p.errSignalMagnitudeSmooth = errSignalMagnitudeSmooth;
+                wire_master_interface.enqueueTx(MSG_OUT_SECOND_EVENT, &p, sizeof(p), sizeof(I2cMsgIn_userSettings));  // best-effort, may fail (queue full)
+                expectedWireMsgTypeIn = MSG_IN_USER_SETTINGS;
             }
         }
         break;
@@ -1167,9 +1212,9 @@ void processEvent() {
             // feed temp. sensor reading to smoothing filter
             // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
             long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
-            cli();                                                                          // tempSmooth is passed back to ISR for safety check high temperature
-            tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
-            sei();
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                        // tempSmooth is passed back to ISR for safety check high temperature
+                tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
+            }
 
             partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
             fastRateDataEventCounter++;                                                     // overflows at 255 idle events = 255 * 128 mS, period = 32768 milliseconds
@@ -1178,14 +1223,28 @@ void processEvent() {
                 for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
                 sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
                 partialSumMagnetOnCycles = 0;
-                cli();                                                                      // highLoad is passed back to ISR for safety check high magnet load
-                highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
-                sei();
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {               // highLoad is passed back to ISR for safety check high magnet load
+                    highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
+                }
             }
         }
         break;
 
     }
+}
+
+
+// *** process Wire slave reply ***
+
+void processWireSlaveReply() {
+
+    if (expectedWireMsgTypeIn == MSG_IN_NONE) { return; }
+
+    I2cMsgIn_userSettings userSettings{};
+    uint8_t i2cMsgTypeIn{ 0 };
+    uint8_t i2cMsgSizeIn{ 0 };
+    wire_master_interface.dequeueRx(i2cMsgTypeIn, &userSettings, i2cMsgSizeIn);
+    expectedWireMsgTypeIn = MSG_IN_NONE;
 }
 
 
@@ -1401,7 +1460,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
 
 // *** write status and other info to LCD and Serial ***
 
-#if 1
+#if 0
 void writeStatus() {
     if ((ISRevent == eNoEvent) && (userCommand == uNoCmd)) { return; }
 
@@ -1582,7 +1641,6 @@ void writeParamLabelAndValue() {
     }
 
 }
-#endif
 
 
 // *** fetch a parameter value ***
@@ -1715,6 +1773,8 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
 }
 
 
+#endif
+
 // *** write to led strip ***
 
 void writeLedStrip() {
@@ -1797,11 +1857,11 @@ void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask /* 
             // NOTE: original PORT D data does NOT need to be held and restored (but interrupts should hold and restore PORT D data)  
             PORTD = (b8 & (uint8_t)0x80) ? ledstripDataBits : (uint8_t)0x00;                    // currently, two ledstrips receive same data                       
         #endif
-            cli();                                                                              // do not interrupt clocking led strip
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             // speed: no port reads, only two port writes
-            PORTC = holdPortC & ~portC_IOdisableBit;                                            // setup led strip data at clock falling edge                                                        
-            PORTC = holdPortC | portC_IOdisableBit;                                             // clock in led strip data at clock rising edge
-            sei();
+                PORTC = holdPortC & ~portC_IOdisableBit;                                            // setup led strip data at clock falling edge                                                        
+                PORTC = holdPortC | portC_IOdisableBit;                                             // clock in led strip data at clock rising edge
+            }
         }
     }
 }
@@ -1814,23 +1874,22 @@ void idleLoop() {
     unsigned int prevNanoSecond500{ 0 };
 
     do {                                                                        // relies on (delta T between two loops << 1000 micro seconds), no need to check for timer 1 overflow (TOV1) as in class MyTime
-        uint8_t oldSREG = SREG;
-        cli();                                                                  // do not interrupt time counting loop
-        bool workPending = ((myEvents.isEventsWaiting()) || (keysAvailable > 0) // need to exit idle loop because ... (NOTE: use LIVE eventStats here in order to detect newly occuring events)
-            || (Serial.available() > 0));                                       // (1) there is something to do (possibly as a result from previous interrupts): 
-        stopCountingTime = (workPending || ISRoccurred);                        // (2) interrupt occurred (flag set in ISR) and the ISR duration may not be added to the idle time 
-        // this only works for 'my' interrupts, other interrupts (e.g. timer 0) are missed as they don't set ISRoccurred, resulting in a small error    
-        ISRoccurred = false;                                                    // reset flag
-        if (!stopCountingTime) {
-            unsigned int volatile nanoSecond500{}, nextNanoSecond500{};
-            nanoSecond500 = TCNT1;                                              // one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
-            nextNanoSecond500 = TCNT1;                                          // take 2 counter readings (500 nS steps) to determine slope (difference between 2 readings is exactly -1 or +1)
-            if (nanoSecond500 > nextNanoSecond500) { nanoSecond500 = 2 * timer1Top - nextNanoSecond500; }   // counting down (500 nS per cycle) 
-            if (!isFirstLoop) { idleLoopNanos500 = (idleLoopNanos500 + ((nanoSecond500 < prevNanoSecond500) ? 2 * timer1Top : 0) + nanoSecond500) - prevNanoSecond500; }
-            prevNanoSecond500 = nanoSecond500;
-            isFirstLoop = false;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            bool workPending = ((myEvents.isEventsWaiting()) || (keysAvailable > 0) // need to exit idle loop because ... (NOTE: use LIVE eventStats here in order to detect newly occuring events)
+                || (Serial.available() > 0));                                       // (1) there is something to do (possibly as a result from previous interrupts): 
+            stopCountingTime = (workPending || ISRoccurred);                        // (2) interrupt occurred (flag set in ISR) and the ISR duration may not be added to the idle time 
+            // this only works for 'my' interrupts, other interrupts (e.g. timer 0) are missed as they don't set ISRoccurred, resulting in a small error    
+            ISRoccurred = false;                                                    // reset flag
+            if (!stopCountingTime) {
+                unsigned int volatile nanoSecond500{}, nextNanoSecond500{};
+                nanoSecond500 = TCNT1;                                              // one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
+                nextNanoSecond500 = TCNT1;                                          // take 2 counter readings (500 nS steps) to determine slope (difference between 2 readings is exactly -1 or +1)
+                if (nanoSecond500 > nextNanoSecond500) { nanoSecond500 = 2 * timer1Top - nextNanoSecond500; }   // counting down (500 nS per cycle) 
+                if (!isFirstLoop) { idleLoopNanos500 = (idleLoopNanos500 + ((nanoSecond500 < prevNanoSecond500) ? 2 * timer1Top : 0) + nanoSecond500) - prevNanoSecond500; }
+                prevNanoSecond500 = nanoSecond500;
+                isFirstLoop = false;
+            }
         }
-        SREG = oldSREG;
     } while (!stopCountingTime);
 }
 
