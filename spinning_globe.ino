@@ -496,18 +496,21 @@ struct EventStats {
 
 enum MsgID : uint8_t {
     MSG_OUT_PING = 0x01,
-    MSG_OUT_GET_SETTINGS = 0x02,
+    MSG_OUT_REQUEST_MSG_IN = 0x02,          // payload type and size specified in payload (size: to allow size check at slave side)
     MSG_OUT_GREENWICH_EVENT = 0x03,
     MSG_OUT_STATUS_EVENT = 0x04,
     MSG_OUT_SECOND_EVENT = 0x05,
+    MSG_OUT_ERROR_COUNTS = 0x06,
+
     MSG_OUT_ERROR = 0xFF,
 
     MSG_IN_NONE = 0x10,
     MSG_IN_PING = 0x11,
     MSG_IN_USER_SETTINGS = 0x12,
-    MSG_IN_ERROR_COUNTS = 0x13
 };
 
+
+// ========== outward I2C messages (to slave) ==========
 
 struct __attribute__((packed)) I2cMsgOut_greenwich {
     uint8_t status;
@@ -525,15 +528,19 @@ struct __attribute__((packed)) I2cMsgOut_secondCue {
     float errSignalMagnitudeSmooth;
 };
 
-struct __attribute__((packed)) I2cMsgIn_userSettings {
-    uint8_t requestRotationPeriod;
-    uint8_t requestLedEffect;
-    uint8_t requestLedCycleSpeed;
-    uint8_t error_count;
+struct __attribute__((packed)) I2cMsgOut_requestReplyMsg {
+    uint8_t requestedMsgTypeIn;          
+    uint8_t requestedPayloadSizeIn;     // for safety only; allows slave to check with its message sizes
 };
 
 
-uint8_t expectedWireMsgTypeIn{ MSG_IN_NONE };
+// ========== inward I2C messages (from slave) ==========
+
+struct __attribute__((packed)) I2cMsgIn_userSettings {
+    uint8_t userSet_rotationPeriod;
+    uint8_t userSet_ledEffect;
+    uint8_t userSet_ledCycleSpeed;
+};
 
 
 // *** class: millis and micros function based on timer1 and own time counting logic (millis and micros < one second, count seconds) ***
@@ -736,7 +743,8 @@ void getEventOrUserCommand();                                   // retrieve an e
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
 void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
 void processEvent();                                            // process one event, if available
-void processWireSlaveReply();
+void sendI2CmessageToESP32();
+void receiveI2CmessageFromESP32();
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
 void writeStatus();                                             // print on event or on command
@@ -939,7 +947,8 @@ void loop()
 
     getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
     processEvent();                                         // process event, if available
-    ////processWireSlaveReply();
+    receiveI2CmessageFromESP32();                           // if incoming i2c message available, dequeue
+    sendI2CmessageToESP32();                                // if outgoing i2c message available, enqueue
     processCommand();                                       // process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
     wire_master_interface.sendAndReceiveMessage();                                  // I2C: peek/send/retry/pop logic
@@ -1159,8 +1168,6 @@ void processEvent() {
 
     if (ISRevent == eNoEvent) { return; }
 
-    expectedWireMsgTypeIn = MSG_IN_NONE;                // init
-
     // first order filters below are implemented as integrator with negative feedback: 
     // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
     // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
@@ -1168,37 +1175,7 @@ void processEvent() {
     switch (ISRevent) {
         case eStatusChange:
             if (!statusData.isFloating) { errSignalMagnitudeSmooth = 0.f; }                   // globe currently not floating ? reset smoothed error value immediately
-            // CONTINUE with greenwich event code 
-
-        case eGreenwich:
-        {
-            Serial.print("enqueuing "); Serial.print(MSG_OUT_GREENWICH_EVENT); Serial.print(" at "); Serial.println(millis());
-            I2cMsgOut_greenwich p{};
-            p.status = (uint8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
-            p.floating = statusData.isFloating;
-            p.actualRotationTime = greenwichData.globeRotationTime;
-            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
-            p.greenwichLag = greenwichData.greenwichLag;
-            wire_master_interface.enqueueTx(MSG_OUT_GREENWICH_EVENT, &p, sizeof(p), sizeof(I2cMsgIn_userSettings));  // best-effort, may fail (queue full)
-            expectedWireMsgTypeIn = MSG_IN_USER_SETTINGS;
-        }
-        break;
-
-        case eSecond:
-        {
-            if (secondData.eventSecond) {                                     // every second
-                Serial.print("enqueuing "); Serial.print(MSG_OUT_SECOND_EVENT); Serial.print(" at "); Serial.println(millis());
-                I2cMsgOut_secondCue p{};
-                p.tempSmooth = tempSmooth;                                  // raw input for wire slave
-                p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
-                p.ISRdurationSmooth = ISRdurationSmooth;
-                p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
-                p.errSignalMagnitudeSmooth = errSignalMagnitudeSmooth;
-                wire_master_interface.enqueueTx(MSG_OUT_SECOND_EVENT, &p, sizeof(p), sizeof(I2cMsgIn_userSettings));  // best-effort, may fail (queue full)
-                expectedWireMsgTypeIn = MSG_IN_USER_SETTINGS;
-            }
-        }
-        break;
+            break;
 
         case eFastRateData:
         {                                                               // data provided at a high rate (every 128 milliseconds)
@@ -1230,21 +1207,111 @@ void processEvent() {
         }
         break;
 
+        /*
+        // not used but could be used for a 3-second cue after reset
+        case eSecond:
+            if (secondData.eventSecond == 3) {
+                cli();                                                                      // interrupts off: interface with ISR and eeprom write
+                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
+                sei();
+            }
+        break;
+        */
     }
 }
 
 
-// *** process Wire slave reply ***
+// ========== send data to ESP32 Wire slave ==========
 
-void processWireSlaveReply() {
+void sendI2CmessageToESP32() {
 
-    if (expectedWireMsgTypeIn == MSG_IN_NONE) { return; }
+    if (ISRevent == eNoEvent) { return; }
 
-    I2cMsgIn_userSettings userSettings{};
-    uint8_t i2cMsgTypeIn{ 0 };
-    uint8_t i2cMsgSizeIn{ 0 };
-    wire_master_interface.dequeueRx(i2cMsgTypeIn, &userSettings, i2cMsgSizeIn);
-    expectedWireMsgTypeIn = MSG_IN_NONE;
+    switch (ISRevent) {
+
+        case eStatusChange:
+        {
+
+        }
+        break;
+
+        case eGreenwich:
+        {
+            I2cMsgOut_greenwich p{};
+            p.status = (uint8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
+            p.floating = statusData.isFloating;
+            p.actualRotationTime = greenwichData.globeRotationTime;
+            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
+            p.greenwichLag = greenwichData.greenwichLag;
+            wire_master_interface.enqueueTx(MSG_OUT_GREENWICH_EVENT, sizeof(p), &p);////, , sizeof(I2cMsgIn_userSettings));  // best-effort, may fail (queue full)
+            Serial.print("enqueued "); Serial.print(MSG_OUT_GREENWICH_EVENT); Serial.print(" at "); Serial.println(millis());
+        }
+        break;
+
+        case eSecond:
+        {
+            I2cMsgOut_secondCue p{};
+            p.tempSmooth = tempSmooth;                                  // raw input for wire slave
+            p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
+            p.ISRdurationSmooth = ISRdurationSmooth;
+            p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
+            p.errSignalMagnitudeSmooth = errSignalMagnitudeSmooth;
+            
+            wire_master_interface.enqueueTx(MSG_OUT_SECOND_EVENT, sizeof(p), &p);
+            Serial.print("enqueued "); Serial.print(MSG_OUT_SECOND_EVENT); Serial.print(" at "); Serial.println(millis());
+            
+
+            I2cMsgOut_requestReplyMsg q{};
+            q.requestedMsgTypeIn = MSG_IN_USER_SETTINGS;
+            q.requestedPayloadSizeIn = sizeof(I2cMsgIn_userSettings);       // although slave should know size (allows for safety check)
+            // enqueue doesn't know anything about payload contents, message types etc.
+            // => pass 'sizeof(I2cMsgIn_userSettings)' explicitly (although stored in payload out), to allow reply message size calculation
+            wire_master_interface.enqueueTx(MSG_OUT_REQUEST_MSG_IN, sizeof(q), &q, sizeof(I2cMsgIn_userSettings));
+            Serial.print("enqueued "); Serial.print(MSG_OUT_REQUEST_MSG_IN); Serial.print(" at "); Serial.println(millis());
+        }
+        break;
+    }
+}
+
+
+// ========== process ESP32 Wire slave reply ==========
+
+void receiveI2CmessageFromESP32() {
+    //// na een delay ? (slave tijd geven om data te prepareren)
+    uint8_t i2cMsgTypeIn{ 0 };              // message type received from slave
+    uint8_t i2cMsgSizeIn{ 0 };              // payload size as reported by slave
+    uint8_t plIn[Wire_master_interface::PAYLOAD_IN_MAX];
+
+    bool msgAvailable = wire_master_interface.dequeueRx(i2cMsgTypeIn, i2cMsgSizeIn, &plIn);
+    if (!msgAvailable) { return; }
+    Serial.print("dequeued "); Serial.print(i2cMsgTypeIn); Serial.print(" at "); Serial.println(millis());
+    
+    switch (i2cMsgTypeIn) {
+
+        case MSG_IN_PING:
+        {
+            Serial.println("PING received");
+        }
+        break;
+
+        case MSG_IN_USER_SETTINGS:
+        {
+            I2cMsgIn_userSettings* p = reinterpret_cast<I2cMsgIn_userSettings*>(plIn);
+            if (i2cMsgSizeIn != sizeof(I2cMsgIn_userSettings)) {Serial.println("size !!!"); break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            p->userSet_rotationPeriod;  //// gebruiken om rot.sped te veranderen
+
+            bool valid = ((p->userSet_ledCycleSpeed >= cLedstripOff) && (p->userSet_ledCycleSpeed <= cRedGreenBlue)
+                && (p->userSet_ledEffect >= cLedstripVeryFast + 1) && (p->userSet_ledEffect <= cLedStripVerySlow + 1));
+            if (valid) { setColorCycle(p->userSet_ledEffect, p->userSet_ledCycleSpeed); }
+
+            Serial.print("    selected rotation setting: "); Serial.println(p->userSet_rotationPeriod);
+            Serial.print("    selected led effect: "); Serial.println(p->userSet_ledEffect);
+            Serial.print("    selected led cycle speed: "); Serial.println(p->userSet_ledCycleSpeed);
+
+            //// enqueue new message to confirm / pass current settings to slave and mqtt
+        }
+        break;
+    }
 }
 
 

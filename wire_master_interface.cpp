@@ -19,7 +19,7 @@ Wire_master_interface::~Wire_master_interface() {
 */
 
 
-bool Wire_master_interface::enqueueTx(uint8_t type, const void* payload, uint8_t payloadSize, uint8_t replyPayloadSize) {
+bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadSize) {
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) { stats_dropped++; return false; }    // queue full
 
@@ -32,18 +32,23 @@ bool Wire_master_interface::enqueueTx(uint8_t type, const void* payload, uint8_t
     }
 
     txQueue[txHead][HEADER_SIZE + payloadSize] = sum;
-    expectedRxMsgLength[txHead] = HEADER_SIZE + replyPayloadSize + 1;
+    // remember reply MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
+    txExpReplyMsgSize[txHead] = (expReplyPayloadSize == 0xff) ? 0xff : HEADER_SIZE + expReplyPayloadSize + 1;
+
     txHead = next;
     return true;
 };
 
 
-bool Wire_master_interface::dequeueRx(uint8_t& type, void* payload, uint8_t& payloadSize) {
+bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
     if (!rxAvailable) { return false; }        // no data to dequeue
 
     type = rxQueue[0];
     payloadSize = rxQueue[1];
-    memcpy((uint8_t*)payload, (uint8_t*)(rxQueue)+HEADER_SIZE, payloadSize);
+    for (uint8_t i = 0; i < payloadSize; ++i) {
+        ((uint8_t*)payload)[i] = rxQueue[HEADER_SIZE + i];
+    }
+
     rxAvailable = false;
     return true;
 
@@ -52,12 +57,15 @@ bool Wire_master_interface::dequeueRx(uint8_t& type, void* payload, uint8_t& pay
 
 /* ================= I2C HELPERS ================= */
 
+// ========== receive data from the slave ===========
+
+
 /* ================= COPY QUEUE TAIL (atomic read of tail/head) =================
    Peek at the current packet at txTail without advancing the tail.
    Returns true and fills txWorking if not empty; false if empty.
 */
 
-bool Wire_master_interface::copyTXqueueTail(uint8_t* const out, uint8_t& indexAtTail) {     //// indexAtTail: weg ? (doet niets)
+bool Wire_master_interface::copyTXqueueTail(uint8_t* const out, uint8_t& indexAtTail, uint8_t& expReplyMsgSize) {     //// indexAtTail: weg ? (doet niets)
     uint8_t head, tail;
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         head = txHead;
@@ -69,7 +77,7 @@ bool Wire_master_interface::copyTXqueueTail(uint8_t* const out, uint8_t& indexAt
     indexAtTail = tail;
     uint8_t msgLength = HEADER_SIZE + txQueue[tail][1] + 1;            // message ID, payload length, checksum
     memcpy(out, (uint8_t*)txQueue[tail], msgLength); // copy struct
-    rxMsgLength = expectedRxMsgLength[tail];            // still expected at this time
+    expReplyMsgSize = txExpReplyMsgSize[tail];            // copy as well (0xff: no reply expected)
     sendRetryCount = 0;
     return true;
 }
@@ -78,44 +86,9 @@ bool Wire_master_interface::copyTXqueueTail(uint8_t* const out, uint8_t& indexAt
 bool Wire_master_interface::i2cWriteMessage(const uint8_t* p) {
     uint8_t msgLength = HEADER_SIZE + p[1] + 1;            // message ID, payload length, checksum
     Wire.beginTransmission(I2C_SLAVE_ADDR);
-    Wire.write(p, msgLength);    
+    Wire.write(p, msgLength);
     uint8_t err = Wire.endTransmission(); // 0 == success
     return (err == 0);
-}
-
-uint8_t Wire_master_interface::i2cReadMessage(uint8_t* p) {
-    // always a reply, even if no payload (at least msg type and length)
-    Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)rxMsgLength);
-
-    unsigned long start = micros();
-    uint8_t idx = 0;
-    while (idx < rxMsgLength) {
-        if (Wire.available()) {
-            p[idx++] = Wire.read();
-        }
-        else {
-            if ((unsigned long)(micros() - start) > 8000) break;        // message only partially received
-        }
-    }
-    return idx;
-}
-
-
-bool Wire_master_interface::copyRXqueue(uint8_t* const in) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        bool available = rxAvailable;
-        if (available) { return false; }      // a reply is already available for dequeue
-    }
-
-    uint8_t sum = 0;
-    for (uint8_t i = 0; i < rxMsgLength - 1; ++i) {     // includes header and payload, excludes received checksum from checksum calculation
-        rxQueue[i] = in[i];
-        sum ^= in[i];
-    }
-
-    // at this point rxAvailable is false, an ISR will never set it true
-    rxAvailable = (sum == in[rxMsgLength - 1]);        // checksum correct ?
-    return rxAvailable;
 }
 
 
@@ -127,16 +100,60 @@ void Wire_master_interface::popTXtailAtomic() {
 }
 
 
+// ========== receive data from the slave ===========
+
+uint8_t Wire_master_interface::i2cReadMessage(uint8_t* p, uint8_t expReplyMsgSize) {
+    // always a reply, even if no payload (at least msg type and length)
+    // if the slave sends less  bytes than expected, the master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
+
+    const uint32_t timeoutValue = 1000 + 150 * expReplyMsgSize;       // microseconds
+    Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)expReplyMsgSize);
+
+    unsigned long start = micros();
+    uint8_t idx = 0;
+    while (idx < expReplyMsgSize) {
+        if (Wire.available()) {
+            p[idx++] = Wire.read();
+        }
+        else {
+            if ((unsigned long)(micros() - start) > timeoutValue) break;        // blocking operation: timeout (message only partially received)     
+        }
+    }
+    return idx;
+}
+
+
+bool Wire_master_interface::copyRXqueue(uint8_t* const in, uint8_t expReplyMsgSize) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        bool available = rxAvailable;
+        if (available) { return false; }      // a reply is already available for dequeue
+    }
+
+    uint8_t sum = 0;
+    for (uint8_t i = 0; i < expReplyMsgSize - 1; ++i) {     // includes header and payload, excludes received checksum from checksum calculation
+        rxQueue[i] = in[i];
+        sum ^= in[i];
+    }
+
+    // at this point rxAvailable is false, an ISR will never set it true
+    rxAvailable = (sum == in[expReplyMsgSize - 1]);        // checksum correct ?
+    return rxAvailable;
+}
+
+
+
+
 // ========== must be frequently called from within main loop ==========
 
 void Wire_master_interface::sendAndReceiveMessage() {
     unsigned long currentTime = millis();
 
+    static uint8_t expReplyMsgSize{};
     // If currently idle, attempt to peek next packet
-    
+
     if (state == MS_IDLE) {
         uint8_t indexAtTail;
-        if (!copyTXqueueTail(txWorking, indexAtTail)) { return; }// nothing to send
+        if (!copyTXqueueTail(txWorking, indexAtTail, expReplyMsgSize)) { return; }// nothing to send
         // We have txWorking (peeked) and indexAtTail points to its slot in queue.
         sendRetryCount = 0;
         state = MS_SEND;
@@ -145,15 +162,15 @@ void Wire_master_interface::sendAndReceiveMessage() {
     // SEND state: attempt send of txWorking (which is the packet at queue tail)
     if (state == MS_SEND) {
         // Respect scheduling/backoff
-        if (currentTime < nextCycleTime) return;
-        nextCycleTime = currentTime + CYCLE_PERIOD_MS;      // init: assume transmission will be ok
+        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) {Serial.write('='); return; }
+        lastCycleTime = currentTime;      // init: assume transmission will be ok
 
         // check inter-packet spacing
         bool ok = i2cWriteMessage(txWorking);
 
         if (!ok) {
           // failure: increment retry count for the slot (atomic)
-          // we need to find index of the slot we peeked earlier: it's current txTail
+          // we need to find index of the slot we peeked earlier: it's the current txTail
             if (sendRetryCount < 255) sendRetryCount++;
             stats_errors++;
 
@@ -166,7 +183,6 @@ void Wire_master_interface::sendAndReceiveMessage() {
             }
 
             // keep the SEND state
-            nextCycleTime = currentTime + BACKOFF_DELAY_MS;      // do not wait a full cycle time to retry 
             return;
         }
 
@@ -174,14 +190,10 @@ void Wire_master_interface::sendAndReceiveMessage() {
         popTXtailAtomic();
         stats_sent++;
         // after successful write, allow optional receive based on message type
-        
-        static bool ledState    {};
-        digitalWrite(13, ledState = !ledState);
 
-        
-        ////
-        state = MS_IDLE;
-        //state = MS_RECEIVE;  //// ms_idle: for testing (nothing to receive yet)
+        static bool ledState{};
+        state = (expReplyMsgSize == 0xff) ? MS_IDLE : MS_RECEIVE;
+        digitalWrite(13, ledState = !ledState);
     }
 
 
@@ -189,16 +201,19 @@ void Wire_master_interface::sendAndReceiveMessage() {
 
     // RECEIVE state: attempt read if expected by protocol
     if (state == MS_RECEIVE) {
-        if (rxMsgLength > HEADER_SIZE + 1) {    // payload expected
-            uint8_t rxReceivedCount = i2cReadMessage(rxWorking);
-            if (rxReceivedCount != rxMsgLength) { stats_errors++; }               // do NOT re-enqueue; we drop/ignore reply
-            else if (copyRXqueue(rxWorking)) { rxAvailable = true; }
-            else { stats_errors++; }
-        
-            if(rxAvailable){ Serial.print("slave response type: "); Serial.print(rxQueue[1], DEC); Serial.print(", reply payload size: "); Serial.println(rxQueue[1], DEC);}
-            else{Serial.println("  nothing received"); }
-        }
-        // after receive (or no expected), go back to idle
+        // Respect scheduling/holdoff
+        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) { return; }
+        lastCycleTime = currentTime;      // init: assume transmission will be ok
+        //delay(1);
+
+        uint8_t rxReceivedCount = i2cReadMessage(rxWorking, expReplyMsgSize);
+        if (rxReceivedCount != expReplyMsgSize) { stats_errors++; }               // do NOT re-enqueue; we drop/ignore reply
+        else if (copyRXqueue(rxWorking, expReplyMsgSize)) { Serial.println("  "); rxAvailable = true; }
+        else { stats_errors++; }
+
+        if (!rxAvailable) { Serial.println("  nothing received"); }
+
+    // after receive (or no expected), go back to idle
         state = MS_IDLE;
     }
 }
