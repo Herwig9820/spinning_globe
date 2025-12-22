@@ -208,7 +208,7 @@ void Wire_master_interface::sendAndReceiveMessage() {
 
         uint8_t rxReceivedCount = i2cReadMessage(rxWorking, expReplyMsgSize);
         if (rxReceivedCount != expReplyMsgSize) { stats_errors++; }               // do NOT re-enqueue; we drop/ignore reply
-        else if (copyRXqueue(rxWorking, expReplyMsgSize)) { Serial.println("  "); rxAvailable = true; }
+        else if (copyToRXqueueHead(rxWorking, expReplyMsgSize)) {  }    ////
         else { stats_errors++; }
 
         if (!rxAvailable) { Serial.println("  nothing received"); }
