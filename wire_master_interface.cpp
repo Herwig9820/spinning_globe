@@ -1,29 +1,55 @@
 #include <Wire.h>
 #include "wire_master_interface.h"
 
+/*
+    --- SPSC queues ---
+    send and receive queues are implemented as SPSC (single producer single consumer) ring buffers:
+    the same queue element is never read and written concurrently => NO LOCKS (no atomic blocks) while ISR safe
+    -> txHead, rxHead = indexes for WRITING to tx, rx queues: ONLY WRITTEN TO DURING ENQUEUING
+    -> txTail, rxTail = indexes for READING to tx, rx queues: ONLY READ FROM DURING ENQUEUING
+    -> if head and tail are equal, the queue is either full (write attempt will fail) or empty (nothing to read)
+
+    --- notes ---
+    1. volatile variables
+    make ALL variables shared by MAIN and ISR volatile (force compiler never to rely on stored register values but to always access memory)
+    2. atomicity of operations
+    if indexes are 8-bit: index reads and writes are atomic: NO atomic blocks required while reading / writing indexes
+    operations with 16 or 32-bit variables (error counters etc.) MUST BE ATOMIC if shared between main and ISR
+    3. memory fences
+    writing the queue: DATA must be visible before updating the head index : use a memory fence to force ordered memory operations
+    reading the queue: tail index must be visible before reading the DATA  : idem
+
+    AVR MCU's
+    ---------
+    - the Wire master library does not call any user functions (no callbacks) during the execution of Wire library ISRs (the Wire slave library does).
+    - AVR memory operations are strongly ordered: no hardware fences needed, but added to make code generic
+    */
+
+#define release_barrier() asm volatile ("" ::: "memory")
+#define acquire_barrier() asm volatile ("" ::: "memory")
+
+
 Wire_master_interface::Wire_master_interface() {
     Wire.begin(); // join I2C bus (address optional for master)
-    ////Wire.setClock(I2C_CLOCK);
+    Wire.setClock(I2C_CLOCK);
 }
 
 Wire_master_interface::~Wire_master_interface() {
 }
 
 
+// ================= RING BUFFER IMPLEMENTATION ================= 
 
-/* ================= RING BUFFER (ISR-safe enqueue) ================= */
-
-/*
-  enqueueTx: safe from ISR. Returns true if enqueued, false if queue full.
-  On success sets retry count for that slot to 0 (main loop must not overwrite).
-*/
-
+//  enqueueTx: safe from ISR. Returns true if enqueued, false if queue full.
 
 bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadSize) {
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
-    if (next == txTail) { stats_dropped++; return false; }    // queue full
+    if (next == txTail) {                                           // queue full ?
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_tx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
+        return false;
+    }
 
-    txQueue[txHead][0] = type;         // struct copy
+    txQueue[txHead][0] = type;
     txQueue[txHead][1] = payloadSize;
     uint8_t sum = type ^ payloadSize;
     for (uint8_t i = 0; i < payloadSize; ++i) {
@@ -32,195 +58,218 @@ bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const v
     }
 
     txQueue[txHead][HEADER_SIZE + payloadSize] = sum;
-    // remember reply MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
+    // remember REPLY MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
     txExpReplyMsgSize[txHead] = (expReplyPayloadSize == 0xff) ? 0xff : HEADER_SIZE + expReplyPayloadSize + 1;
+
+    // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
+    release_barrier();                                              // ensure data is visible before updating head
 
     txHead = next;
     return true;
 };
 
 
-bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
-    if (!rxAvailable) { return false; }        // no data to dequeue
+//  dequeueRx: safe from ISR. Returns true if enqueued, false if queue empty.
 
-    type = rxQueue[0];
-    payloadSize = rxQueue[1];
+bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
+    // 8-bit index: atomic access by nature
+    if (rxHead == rxTail) { return false; }                         // rx queue empty ?
+
+    // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
+    acquire_barrier();                                              // ensure we see latest tail before reading data
+
+    type = rxQueue[rxTail][0];
+    payloadSize = rxQueue[rxTail][1];
+    if (payloadSize > PAYLOAD_IN_MAX) payloadSize = 0;
     for (uint8_t i = 0; i < payloadSize; ++i) {
-        ((uint8_t*)payload)[i] = rxQueue[HEADER_SIZE + i];
+        ((uint8_t*)payload)[i] = rxQueue[rxTail][HEADER_SIZE + i];
     }
 
-    rxAvailable = false;
+    rxTail = (rxTail + 1) % RX_QUEUE_SIZE;
     return true;
 
 };
 
 
-/* ================= I2C HELPERS ================= */
+// ========== PROCESS: SEND TX QUEUES AND RECEIVE RX QUEUES ==========
 
-// ========== receive data from the slave ===========
+// must be frequently called from within main loop 
 
+Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(uint8_t* msgType) {
+    static uint8_t expReplyMsgSize{};
 
-/* ================= COPY QUEUE TAIL (atomic read of tail/head) =================
-   Peek at the current packet at txTail without advancing the tail.
-   Returns true and fills txWorking if not empty; false if empty.
-*/
+    unsigned long currentTime = millis();
 
-bool Wire_master_interface::copyTXqueueTail(uint8_t* const out, uint8_t& indexAtTail, uint8_t& expReplyMsgSize) {     //// indexAtTail: weg ? (doet niets)
-    uint8_t head, tail;
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        head = txHead;
-        tail = txTail;
+    *msgType = 0;                                                   // init
+
+    if (state == MS_IDLE) {                                         // not sending or receiving ?
+        if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
+        sendMaxTries = 0;
+        *msgType = txOutBuffer[0];                                  // useful in case of error: last message (in or out) handled
+        state = MS_SEND;
     }
 
-    if (head == tail) { return false; } // empty
 
-    indexAtTail = tail;
-    uint8_t msgLength = HEADER_SIZE + txQueue[tail][1] + 1;            // message ID, payload length, checksum
-    memcpy(out, (uint8_t*)txQueue[tail], msgLength); // copy struct
-    expReplyMsgSize = txExpReplyMsgSize[tail];            // copy as well (0xff: no reply expected)
-    sendRetryCount = 0;
+    if (state == MS_SEND) {
+        // Respect scheduling (backoff time)
+        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) { return WireStatus::I_waitForCue; }
+        lastCycleTime = currentTime;                                // init: assume transmission will be ok
+
+        // check inter-packet spacing
+        bool ok = i2cWriteMessage(txOutBuffer);                     // Wire write
+        if (!ok) {                                                  // Wire library transmit error 
+            // manage retries: if exceeded MAX_RETRIES, drop the packet (advance tail)
+            if (++sendMaxTries < MAX_RETRIES_PER_PACKET) {          // max. retries was reached before ?
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { W_stats_tx_retrying++; } // warning only: count retries
+                return WireStatus::E_tx_WireXmitError;
+            }
+
+            txTail = (txTail + 1) % TX_QUEUE_SIZE;              // advance tail
+            state = MS_IDLE;                                    // go back to IDLE
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_tx_wireXmitError++; }
+            return WireStatus::E_tx_WireXmitError;
+        }
+
+
+        // success: advance send counters and pop the packet (advance tail atomically)
+        txTail = (txTail + 1) % TX_QUEUE_SIZE;
+        // after successful write, allow optional receive based on message type
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { I_stats_sent++; }
+
+        state = (expReplyMsgSize == 0xff) ? MS_IDLE : MS_RECEIVE;
+        if (state == MS_IDLE) { return WireStatus::I_xmitOK; }
+    }
+
+
+    // RECEIVE state: attempt read if expected by protocol
+    // NOTE: one message out results in one message in (1:1)
+
+    if (state == MS_RECEIVE) {
+        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+        lastCycleTime = currentTime;                                    // init
+
+        bool ok = i2cReadMessage(rxInBuffer, expReplyMsgSize);
+        *msgType = rxInBuffer[0];                                       // useful in case of error: last message (in or out) handled
+        if (!ok) {
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
+            state = MS_IDLE;
+            return WireStatus::E_rx_timeOut;
+        }
+
+        WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgSize);
+        state = MS_IDLE;
+        return wireStatus;
+    }
+
+    return WireStatus::I_idle;                                          // safety (control doesn't pass here)
+}
+
+
+// ========== PROCESS: SEND TX QUEUES AND RECEIVE RX QUEUES ==========
+
+// safe from ISR
+
+void Wire_master_interface::getStats(uint32_t& sent, uint32_t& tx_retries, uint32_t& tx_wireXmitError, uint32_t& tx_full,
+    uint32_t& received, uint32_t& rx_checksum, uint32_t& rx_timeOut, uint32_t& rx_full) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        sent = I_stats_sent;
+        tx_retries = W_stats_tx_retrying;
+        tx_wireXmitError = E_stats_tx_wireXmitError;
+        tx_full = E_stats_tx_full;
+        received = I_stats_received;
+        rx_checksum = E_stats_rx_checksum;
+        rx_timeOut = E_stats_rx_timeOut;
+        rx_full = E_stats_rx_full;
+    }
+}
+
+
+// ================= HELPERS: SEND TX QUEUE TAIL  =================
+
+bool Wire_master_interface::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgSize) {
+    uint8_t head, tail;
+    head = txHead;
+    tail = txTail;
+
+    if (head == tail) { return false; }                             // empty
+
+    // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
+    acquire_barrier();                                              // ensure we see latest tail before reading data
+
+    uint8_t msgLength = HEADER_SIZE + txQueue[tail][1] + 1;         // message ID, payload length, checksum
+    memcpy(out, (uint8_t*)txQueue[tail], msgLength);                // copy struct
+    expReplyMsgSize = txExpReplyMsgSize[tail];                      // copy as well (0xff: no reply expected)
+    sendMaxTries = 0;
     return true;
 }
 
 
-bool Wire_master_interface::i2cWriteMessage(const uint8_t* p) {
-    uint8_t msgLength = HEADER_SIZE + p[1] + 1;            // message ID, payload length, checksum
+bool Wire_master_interface::i2cWriteMessage(const uint8_t* out) {
+    uint8_t msgLength = HEADER_SIZE + out[1] + 1;                   // message ID, payload length, checksum
+    bool ok{ false };
     Wire.beginTransmission(I2C_SLAVE_ADDR);
-    Wire.write(p, msgLength);
-    uint8_t err = Wire.endTransmission(); // 0 == success
-    return (err == 0);
+    Wire.write(out, msgLength);
+    uint8_t err = Wire.endTransmission();                           // 0 == success
+    ok = (err == 0);
+    return ok;
 }
 
 
-// pop tx tail (advance)
-void Wire_master_interface::popTXtailAtomic() {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        txTail = (txTail + 1) % TX_QUEUE_SIZE;
-    }
-}
+// ========== HELPERS: RECEIVE RX QUEUE HEAD ===========
 
+bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgSize) {
+    // if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
 
-// ========== receive data from the slave ===========
-
-uint8_t Wire_master_interface::i2cReadMessage(uint8_t* p, uint8_t expReplyMsgSize) {
-    // always a reply, even if no payload (at least msg type and length)
-    // if the slave sends less  bytes than expected, the master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
-
-    const uint32_t timeoutValue = 1000 + 150 * expReplyMsgSize;       // microseconds
+    const uint32_t timeoutValue = 1000 + 150 * expReplyMsgSize;     // microseconds; allowed timeout depends on message size
     Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)expReplyMsgSize);
 
     unsigned long start = micros();
     uint8_t idx = 0;
+    bool ok{ false };
+
+    // while loop: must execute fast to free internal Wire buffer
     while (idx < expReplyMsgSize) {
         if (Wire.available()) {
-            p[idx++] = Wire.read();
+            delayMicroseconds(1000);
+            in[idx++] = Wire.read();
         }
         else {
-            if ((unsigned long)(micros() - start) > timeoutValue) break;        // blocking operation: timeout (message only partially received)     
+            if ((micros() - start) > timeoutValue) { break; }   // blocking operation: timeout (message only partially received)     
         }
     }
-    return idx;
+
+    ok = (idx == expReplyMsgSize);
+    return ok;
 }
 
 
-bool Wire_master_interface::copyRXqueue(uint8_t* const in, uint8_t expReplyMsgSize) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        bool available = rxAvailable;
-        if (available) { return false; }      // a reply is already available for dequeue
+Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgSize) {
+    // compute next head index in standard SPSC ring-buffer
+    uint8_t head = rxHead;
+    uint8_t next = (head + 1) % RX_QUEUE_SIZE;
+
+    if (next == rxTail) {    // Buffer full -> drop packet
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
+        return WireStatus::E_rx_full;
     }
 
     uint8_t sum = 0;
-    for (uint8_t i = 0; i < expReplyMsgSize - 1; ++i) {     // includes header and payload, excludes received checksum from checksum calculation
-        rxQueue[i] = in[i];
+    for (uint8_t i = 0; i < expReplyMsgSize - 1; ++i) {             // includes header and payload, excludes received checksum from checksum calculation
+        rxQueue[head][i] = in[i];
         sum ^= in[i];
     }
+    if (sum != in[expReplyMsgSize - 1]) {                           // checksum correct ?
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
+        return WireStatus::E_rx_checksum;
+    };
 
-    // at this point rxAvailable is false, an ISR will never set it true
-    rxAvailable = (sum == in[expReplyMsgSize - 1]);        // checksum correct ?
-    return rxAvailable;
+    // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
+    release_barrier();                                              // ensure data is visible before updating head
+
+    rxHead = next;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { I_stats_received++; }
+    return WireStatus::I_xmitOK;
 }
-
-
-
-
-// ========== must be frequently called from within main loop ==========
-
-void Wire_master_interface::sendAndReceiveMessage() {
-    unsigned long currentTime = millis();
-
-    static uint8_t expReplyMsgSize{};
-    // If currently idle, attempt to peek next packet
-
-    if (state == MS_IDLE) {
-        uint8_t indexAtTail;
-        if (!copyTXqueueTail(txWorking, indexAtTail, expReplyMsgSize)) { return; }// nothing to send
-        // We have txWorking (peeked) and indexAtTail points to its slot in queue.
-        sendRetryCount = 0;
-        state = MS_SEND;
-    }
-
-    // SEND state: attempt send of txWorking (which is the packet at queue tail)
-    if (state == MS_SEND) {
-        // Respect scheduling/backoff
-        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) {Serial.write('='); return; }
-        lastCycleTime = currentTime;      // init: assume transmission will be ok
-
-        // check inter-packet spacing
-        bool ok = i2cWriteMessage(txWorking);
-
-        if (!ok) {
-          // failure: increment retry count for the slot (atomic)
-          // we need to find index of the slot we peeked earlier: it's the current txTail
-            if (sendRetryCount < 255) sendRetryCount++;
-            stats_errors++;
-
-            // If exceeded MAX_RETRIES, drop the packet (advance tail)
-            if (sendRetryCount > MAX_RETRIES_PER_PACKET) {
-                popTXtailAtomic();
-                stats_dropped++;
-                state = MS_IDLE;
-                return;
-            }
-
-            // keep the SEND state
-            return;
-        }
-
-        // success: advance send counters and pop the packet (advance tail atomically)
-        popTXtailAtomic();
-        stats_sent++;
-        // after successful write, allow optional receive based on message type
-
-        static bool ledState{};
-        state = (expReplyMsgSize == 0xff) ? MS_IDLE : MS_RECEIVE;
-        digitalWrite(13, ledState = !ledState);
-    }
-
-
-
-
-    // RECEIVE state: attempt read if expected by protocol
-    if (state == MS_RECEIVE) {
-        // Respect scheduling/holdoff
-        if (lastCycleTime + CYCLE_PERIOD_MS > currentTime) { return; }
-        lastCycleTime = currentTime;      // init: assume transmission will be ok
-        //delay(1);
-
-        uint8_t rxReceivedCount = i2cReadMessage(rxWorking, expReplyMsgSize);
-        if (rxReceivedCount != expReplyMsgSize) { stats_errors++; }               // do NOT re-enqueue; we drop/ignore reply
-        else if (copyToRXqueueHead(rxWorking, expReplyMsgSize)) {  }    ////
-        else { stats_errors++; }
-
-        if (!rxAvailable) { Serial.println("  nothing received"); }
-
-    // after receive (or no expected), go back to idle
-        state = MS_IDLE;
-    }
-}
-
-
-
-
 
 
 
