@@ -24,7 +24,7 @@ private:
     static constexpr uint8_t RX_QUEUE_SIZE = 4;
 
     // Timing/backoff
-    static constexpr unsigned long CYCLE_PERIOD_MS = 10;            // spacing between send or receive operations
+    static constexpr unsigned long CYCLE_PERIOD_MS = 100;            // spacing between send or receive operations
 
     // Retries
     static constexpr uint8_t MAX_RETRIES_PER_PACKET = 3;            // max. retries allowed per message (send)
@@ -59,15 +59,6 @@ private:
     uint8_t sendMaxTries = 0;
     uint8_t msgType = 0;
 
-    volatile uint32_t I_stats_sent = 0;                             // info: counts     
-    volatile uint32_t W_stats_tx_retrying = 0;                      // warning: count 
-    volatile uint32_t E_stats_tx_wireXmitError = 0;
-    volatile uint32_t E_stats_tx_full = 0;                          // errors: counts
-
-    volatile uint32_t I_stats_received = 0;
-    volatile uint32_t E_stats_rx_checksum = 0;
-    volatile uint32_t E_stats_rx_timeOut = 0;
-    volatile uint32_t E_stats_rx_full = 0;
 
 public:
     enum class WireStatus : uint8_t {
@@ -80,6 +71,23 @@ public:
         E_rx_full
     };
 
+    struct I2C_m_sendStats {
+        uint32_t I_stats_sent = 0;                             // info: counts     
+        uint32_t W_stats_tx_retrying = 0;                      // warning: count 
+        uint32_t E_stats_tx_wireXmitError = 0;
+        uint32_t E_stats_tx_full = 0;                          // errors: counts
+    } ;
+
+    struct I2C_m_receiveStats{
+        uint32_t I_stats_received = 0;
+        uint32_t E_stats_rx_checksum = 0;
+        uint32_t E_stats_rx_timeOut = 0;
+        uint32_t E_stats_rx_full = 0;
+    };
+    
+    volatile I2C_m_sendStats sendStats{};
+    volatile I2C_m_receiveStats receiveStats{};
+
     Wire_master_interface();
     ~Wire_master_interface();
 
@@ -89,10 +97,10 @@ public:
     bool dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload);
 
     // should be called frequently from application main loop
-    WireStatus sendAndReceiveMessage(uint8_t* msgType = nullptr);
+    WireStatus sendAndReceiveMessage(uint8_t* pmsgType = nullptr);
 
-    void getStats(uint32_t& sent, uint32_t& tx_retries, uint32_t& tx_wireXmitError, uint32_t& tx_full,
-        uint32_t& received, uint32_t& rx_checksum, uint32_t& rx_timeOut, uint32_t& rx_full);
+    void getSendStats(I2C_m_sendStats& sendStatSnapshot);
+    void getReceiveStats(I2C_m_receiveStats& receiveStatSnapshot);
 
 private:
     // helpers: called from sendAndReceiveMessage()

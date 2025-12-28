@@ -45,7 +45,7 @@ Wire_master_interface::~Wire_master_interface() {
 bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadSize) {
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) {                                           // queue full ?
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_tx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { sendStats.E_stats_tx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
         return false;
     }
 
@@ -95,17 +95,17 @@ bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void*
 
 // must be frequently called from within main loop 
 
-Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(uint8_t* msgType) {
+Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(uint8_t* pmsgType) {
     static uint8_t expReplyMsgSize{};
 
     unsigned long currentTime = millis();
 
-    *msgType = 0;                                                   // init
+    *pmsgType = 0;                                                   // init
 
     if (state == MS_IDLE) {                                         // not sending or receiving ?
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendMaxTries = 0;
-        *msgType = txOutBuffer[0];                                  // useful in case of error: last message (in or out) handled
+        *pmsgType = txOutBuffer[0];                                  // useful in case of error: last message (in or out) handled
         state = MS_SEND;
     }
 
@@ -120,13 +120,14 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(u
         if (!ok) {                                                  // Wire library transmit error 
             // manage retries: if exceeded MAX_RETRIES, drop the packet (advance tail)
             if (++sendMaxTries < MAX_RETRIES_PER_PACKET) {          // max. retries was reached before ?
-                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { W_stats_tx_retrying++; } // warning only: count retries
+                // stay in SEND state: max. tries not yet attempted
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { sendStats.W_stats_tx_retrying++; } // warning only: count retries
                 return WireStatus::E_tx_WireXmitError;
             }
 
             txTail = (txTail + 1) % TX_QUEUE_SIZE;              // advance tail
             state = MS_IDLE;                                    // go back to IDLE
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_tx_wireXmitError++; }
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { sendStats.E_stats_tx_wireXmitError++; }
             return WireStatus::E_tx_WireXmitError;
         }
 
@@ -134,7 +135,7 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(u
         // success: advance send counters and pop the packet (advance tail atomically)
         txTail = (txTail + 1) % TX_QUEUE_SIZE;
         // after successful write, allow optional receive based on message type
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { I_stats_sent++; }
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { sendStats.I_stats_sent++; }
 
         state = (expReplyMsgSize == 0xff) ? MS_IDLE : MS_RECEIVE;
         if (state == MS_IDLE) { return WireStatus::I_xmitOK; }
@@ -149,9 +150,9 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(u
         lastCycleTime = currentTime;                                    // init
 
         bool ok = i2cReadMessage(rxInBuffer, expReplyMsgSize);
-        *msgType = rxInBuffer[0];                                       // useful in case of error: last message (in or out) handled
+        *pmsgType = rxInBuffer[0];                                       // useful in case of error: last message (in or out) handled
         if (!ok) {
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { receiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
             state = MS_IDLE;
             return WireStatus::E_rx_timeOut;
         }
@@ -169,17 +170,15 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage(u
 
 // safe from ISR
 
-void Wire_master_interface::getStats(uint32_t& sent, uint32_t& tx_retries, uint32_t& tx_wireXmitError, uint32_t& tx_full,
-    uint32_t& received, uint32_t& rx_checksum, uint32_t& rx_timeOut, uint32_t& rx_full) {
+void Wire_master_interface::getSendStats(I2C_m_sendStats& sendStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        sent = I_stats_sent;
-        tx_retries = W_stats_tx_retrying;
-        tx_wireXmitError = E_stats_tx_wireXmitError;
-        tx_full = E_stats_tx_full;
-        received = I_stats_received;
-        rx_checksum = E_stats_rx_checksum;
-        rx_timeOut = E_stats_rx_timeOut;
-        rx_full = E_stats_rx_full;
+        sendStatSnapshot = const_cast<const I2C_m_sendStats&>(sendStats);
+    }
+}
+
+void Wire_master_interface::getReceiveStats(I2C_m_receiveStats& receiveStatSnapshot) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        receiveStatSnapshot = const_cast<const I2C_m_receiveStats&>(receiveStats);
     }
 }
 
@@ -199,6 +198,14 @@ bool Wire_master_interface::copyTXqueueTailToOut(uint8_t* const out, uint8_t& ex
     uint8_t msgLength = HEADER_SIZE + txQueue[tail][1] + 1;         // message ID, payload length, checksum
     memcpy(out, (uint8_t*)txQueue[tail], msgLength);                // copy struct
     expReplyMsgSize = txExpReplyMsgSize[tail];                      // copy as well (0xff: no reply expected)
+    
+    Serial.print("COPY txQueue to OUT: expected size "); Serial.println(expReplyMsgSize);
+    Serial.print("msg out type + length ");Serial.print(txQueue[tail][0]);Serial.write(" "); Serial.println(msgLength);
+    for (int i = 0; i < msgLength; i++) {
+        Serial.print(txQueue[tail][i], HEX); Serial.write(' '); // last is checksum as received
+    }
+    Serial.write(' '), Serial.println(millis());Serial.println();
+
     sendMaxTries = 0;
     return true;
 }
@@ -220,7 +227,7 @@ bool Wire_master_interface::i2cWriteMessage(const uint8_t* out) {
 bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgSize) {
     // if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
 
-    const uint32_t timeoutValue = 1000 + 150 * expReplyMsgSize;     // microseconds; allowed timeout depends on message size
+    const uint32_t timeoutValue = 100 + 150 * expReplyMsgSize;     // microseconds; allowed timeout depends on message size
     Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)expReplyMsgSize);
 
     unsigned long start = micros();
@@ -230,15 +237,16 @@ bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgSize)
     // while loop: must execute fast to free internal Wire buffer
     while (idx < expReplyMsgSize) {
         if (Wire.available()) {
-            delayMicroseconds(1000);
+            ////delayMicroseconds(1000);
             in[idx++] = Wire.read();
         }
-        else {
+        else {  //// check timeout value
             if ((micros() - start) > timeoutValue) { break; }   // blocking operation: timeout (message only partially received)     
         }
     }
 
-    ok = (idx == expReplyMsgSize);
+    ok = (idx == expReplyMsgSize);//// <> timeout msg
+    
     return ok;
 }
 
@@ -249,7 +257,7 @@ Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uin
     uint8_t next = (head + 1) % RX_QUEUE_SIZE;
 
     if (next == rxTail) {    // Buffer full -> drop packet
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { receiveStats.E_stats_rx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
         return WireStatus::E_rx_full;
     }
 
@@ -258,16 +266,28 @@ Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uin
         rxQueue[head][i] = in[i];
         sum ^= in[i];
     }
-    if (sum != in[expReplyMsgSize - 1]) {                           // checksum correct ?
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
+    rxQueue[head][expReplyMsgSize-1] = in[expReplyMsgSize-1];
+
+    Serial.print("COPY in TO rxQueue: expected size "); Serial.println(expReplyMsgSize);
+    for (int i = 0; i < expReplyMsgSize - 1; i++) {
+        Serial.print(rxQueue[head][i], HEX); Serial.write(' '); // last is checksum as received
+    }
+    Serial.print(rxQueue[head][expReplyMsgSize-1], HEX); Serial.write(':'), Serial.print(sum, HEX);
+    Serial.write(' '), Serial.print(millis());
+
+    if (sum != rxQueue[head][expReplyMsgSize - 1]) {                           // checksum correct ?
+        Serial.println("*******\r\n--------------");
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { receiveStats.E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
         return WireStatus::E_rx_checksum;
     };
+    Serial.println("\r\n--------------");
+
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                              // ensure data is visible before updating head
 
     rxHead = next;
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { I_stats_received++; }
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { receiveStats.I_stats_received++; }
     return WireStatus::I_xmitOK;
 }
 
