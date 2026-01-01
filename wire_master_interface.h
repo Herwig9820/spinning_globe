@@ -24,7 +24,10 @@ private:
     static constexpr uint8_t RX_QUEUE_SIZE = 4;
 
     // Timing/backoff
-    static constexpr unsigned long CYCLE_PERIOD_MS = 100;            // spacing between send or receive operations
+    static constexpr unsigned long SLAVE_POLL_INTERVAL_micros = 2000;
+    static constexpr unsigned long MIN_CYCLE_PERIOD_MICROS = 10000;         // minimum spacing between send or receive operations
+    
+    static constexpr unsigned long MAX_RECEIVE_CYCLE_MILLIS = 100;       // maximum time waiting for a slave reply (from send to receive)
 
     // Retries
     static constexpr uint8_t MAX_RETRIES_PER_PACKET = 3;            // max. retries allowed per message (send)
@@ -49,18 +52,23 @@ private:
 
     /* ================= STATE + WORKING COPIES ================= */
 
-    enum MasterState { MS_IDLE, MS_SEND, MS_RECEIVE };
+    enum MasterState { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
     MasterState state = MS_IDLE;
 
     uint8_t rxInBuffer[HEADER_SIZE + PAYLOAD_IN_MAX + 1];
     uint8_t txOutBuffer[HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
 
-    unsigned long lastCycleTime = 0;                                // inter-packet delay scheduling
-    uint8_t sendMaxTries = 0;
-    uint8_t msgType = 0;
 
+    // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
+    enum class WireTransport {
+        NONE = 0x00,
+        M_CTRL_POLL = 0xa0,           // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
+        S_CTRL_BUSY,                 // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
+        S_CTRL_READY                 // idem
+    };
 
 public:
+    // state returned to the calling program
     enum class WireStatus : uint8_t {
         I_idle,
         I_waitForCue,                                               // counting time until next cue
@@ -71,22 +79,23 @@ public:
         E_rx_full
     };
 
-    struct I2C_m_sendStats {
+    // keep track of master send & receive errors
+    struct I2C_MasterSendStats {
         uint32_t I_stats_sent = 0;                             // info: counts     
         uint32_t W_stats_tx_retrying = 0;                      // warning: count 
         uint32_t E_stats_tx_wireXmitError = 0;
         uint32_t E_stats_tx_full = 0;                          // errors: counts
-    } ;
+    };
 
-    struct I2C_m_receiveStats{
+    struct I2C_masterReceiveStats {
         uint32_t I_stats_received = 0;
         uint32_t E_stats_rx_checksum = 0;
         uint32_t E_stats_rx_timeOut = 0;
         uint32_t E_stats_rx_full = 0;
     };
-    
-    volatile I2C_m_sendStats sendStats{};
-    volatile I2C_m_receiveStats receiveStats{};
+
+    volatile I2C_MasterSendStats masterSendStats{};
+    volatile I2C_masterReceiveStats masterReceiveStats{};
 
     Wire_master_interface();
     ~Wire_master_interface();
@@ -97,10 +106,10 @@ public:
     bool dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload);
 
     // should be called frequently from application main loop
-    WireStatus sendAndReceiveMessage(uint8_t* pmsgType = nullptr);
+    WireStatus sendAndReceiveMessage();
 
-    void getSendStats(I2C_m_sendStats& sendStatSnapshot);
-    void getReceiveStats(I2C_m_receiveStats& receiveStatSnapshot);
+    void getSendStats(I2C_MasterSendStats& sendStatSnapshot);
+    void getReceiveStats(I2C_masterReceiveStats& receiveStatSnapshot);
 
 private:
     // helpers: called from sendAndReceiveMessage()
