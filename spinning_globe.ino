@@ -36,16 +36,11 @@
 
 #define test_showEventStats 0                               // only for testing (event message mechanism)
 
-#define test_checkStack 0////
-
 #define IS_WIRE_MASTER 1
 
-#if test_checkStack
-extern unsigned int __bss_end;
-extern unsigned int __heap_start;
-extern void* __brkval;
-#endif
-
+// testing
+#define WITH_WIRE_COMM 1
+#define WITH_OLD_PROCS 0
 
 // *** enumerations ***
 
@@ -506,7 +501,7 @@ enum MsgType : uint8_t {
     // ========== 0x20–0x3F: master → slave ==========
 
     M_MSG_NONE = 0x20,
-    
+
     // data sent to slave
     M_MSG_PING = 0x21,                  // slave reply msg type: S_PING 
     M_MSG_GREENWICH = 0x22,             // slave reply msg type: S_ACK
@@ -520,14 +515,14 @@ enum MsgType : uint8_t {
     M_MSG_PID_SETTINGS = 0x28,          // idem
     M_MSG_VERT_POS_SETPOINT = 0x29,     // idem
     M_MSG_COIL_PHASE_ADJUST = 0x2A,     // idem
-    
+
     // requests to slave to send data
     M_MSG_REQ_USER_SETTINGS = 0x30,     // slave reply msg type: S_MSG_USER_SETTINGS
     M_MSG_REQ_PID_SETTINGS = 0x31,      // slave reply msg type: S_MSG_PID_SETTINGS
     M_MSG_REQ_VERT_POS_SETPOINT = 0x32, // slave reply msg type: S_MSG_VERT_POS_SETPOINT
     M_MSG_REQ_COIL_PHASE_ADJUST = 0x33, // slave reply msg type: S_MSG_COIL_PHASE_ADJUST
 
-    
+
     // ========== 0x40–0x5F: slave → master ==========
 
     S_MSG_NONE = 0x40,
@@ -737,14 +732,14 @@ bool MyEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messa
             eventStats.largestEventBufferBytesUsed = max(eventStats.largestEventBufferBytesUsed, eventStats.eventBufferBytesUsed);
 
         #if test_showEventStats 
-            Serial.println(); Serial.print("+ ;");  Serial.println((int)newestMessageStartPtr);
+            Serial.println(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
         #endif
         }
 
         else {
             eventStats.eventsMissed++;
         #if test_showEventStats 
-            Serial.println(); Serial.println("missed");
+            Serial.println(); Serial.println(F("missed"));
         #endif
         }
     }
@@ -762,7 +757,7 @@ bool MyEvents::removeOldestChunk(bool remove) {
         eventStats.eventBufferBytesUsed -= *(oldestMessageStartPtr + 1);                                                            // before pointer update
 
     #if test_showEventStats 
-        Serial.println(); Serial.print("- ;");  Serial.println((int)oldestMessageStartPtr);
+        Serial.println(); Serial.print(F("- ;"));  Serial.println((int)oldestMessageStartPtr);
     #endif
 
         if (oldestMessageStartPtr == newestMessageStartPtr) { oldestMessageStartPtr = nullptr; newestMessageStartPtr = nullptr; }   // remove last remaining
@@ -819,8 +814,8 @@ void getEventOrUserCommand();                                   // retrieve an e
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
 void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
 void processEvent(uint8_t& msgTypeOut);                                            // process one event, if available
-void sendI2CmessageToSlave(uint8_t& msgTypeOut);
-void receiveI2CmessageFromSlave(uint8_t& msgTypeOut);
+void enqueueI2CmessageToSlave(uint8_t& msgTypeOut);
+void dequeueI2CmessageFromSlave(uint8_t& msgTypeOut);
 void getWireStats();
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
@@ -850,10 +845,7 @@ void setup()
     wdt_disable();
     Serial.begin(115200);                                      // baud rate as entered
     lcd.begin(16, 2);                                           // 16 characters, 2 rows
-
-#if test_checkStack
-    fillStackGuard();
-#endif
+    delay(3000);
 
     // *** hardware: initialize ports ***
 
@@ -911,8 +903,6 @@ void setup()
 
 
         // read globe vertical position setpoint from eeprom 
-        // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
-        // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)1);
         cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
@@ -921,6 +911,8 @@ void setup()
         targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                         // globe vertical position ref in ADC steps
         hallRef_ADCsteps = targetHallRef_ADCsteps;
 
+        // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
+        // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
         gainAdjustSteps = (eepromValue >= PIDsettingSteps - 1) ? PIDsettingSteps - 1 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value (16)  
         ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
@@ -961,11 +953,12 @@ void setup()
         switchesSetRotationTime = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x01;    // signals SW3 to SW0: interpret as switches and use to program rotation time
         switchesSetHallmVoltRef = ((switchStates & pinD_keyBits) >> 2) == (uint8_t)0x02;    // signals SW3 to SW0: interpret as switches and use to program globe vertical position reference
         useButtons = (switchStates & pinD_keyBits) == pinD_keyBits;                         // signals SW3 to SW0: interpret as buttons if all corresponding 4 switches OFF (= 'high') after reset (if not all OFF, then do not connect buttons)
+    #if WITH_OLD_PROCS
         checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
-
-        /* not used but could be used for a 3-second cue
-        eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
-        */
+    #endif
+            /* not used but could be used for a 3-second cue
+            eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
+            */
     }
 
     // initial setting to display: rotation time, except if currently in program mode
@@ -1013,28 +1006,34 @@ void setup()
 
 void loop()
 {
-#if test_checkStack
-    int used = getStackUsage();
+    static uint8_t eventMsgTypeOut{ MsgType::M_MSG_NONE };
+    static uint8_t followUpMsgTypeOut{ MsgType::M_MSG_NONE };
+    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };
 
-    if (used > 1600) {  // example threshold
-        Serial.println("WARNING: Stack usage critical!");
-    }
-#endif
-
-    static uint8_t msgTypeOut{ MsgType::M_MSG_NONE };
-
+#if WITH_OLD_PROCS
     getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
     processEvent(msgTypeOut);                                         // process event, if available
-    ////wireStatus = wire_master_interface.sendAndReceiveMessage();   // return master or slave message in error
-    ////sendI2CmessageToSlave(msgTypeOut);                                // if outgoing i2c message available, enqueue
-    ////receiveI2CmessageFromSlave(msgTypeOut);                           // if incoming i2c message available, dequeue
     processCommand();                                       // process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
-    ////getWireStats();
-#if 1
     writeStatus();                                          // print status to Serial and LCD (if connected)
     writeParamLabelAndValue();                              // print parameter label and value to Serial and LCD (if connected)
 #endif
+
+#if WITH_WIRE_COMM
+
+    //if (followUpMsgTypeOut == M_MSG_NONE) {                   // no trailing message to bes enqueued in sequence
+        getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
+        processEvent(nextMsgTypeOut);                                         // process event, if available
+    //}
+    //// else { nextMsgTypeOut = followUpMsgTypeOut; }
+
+    enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
+    wireStatus = wire_master_interface.sendAndReceiveMessage();         // return master or slave message in error
+    dequeueI2CmessageFromSlave(followUpMsgTypeOut);                           // if incoming i2c message available, dequeue
+
+////getWireStats();
+#endif
+
     writeLedStrip();                                        // write led strip on event      
     myEvents.removeOldestChunk(ISRevent != eNoEvent);       // has an event been processed now ? remove from message queue
 
@@ -1044,39 +1043,6 @@ void loop()
 }
 
 
-#if test_checkStack
-void fillStackGuard() {
-    uint8_t* start;
-    if ((uint16_t)__brkval == 0)
-        start = (uint8_t*)&__heap_start; // no heap used
-    else
-        start = (uint8_t*)__brkval;      // heap used
-
-    uint8_t* end = (uint8_t*)RAMEND;   // top of RAM (stack starts here)
-
-    while (start < end) {
-        *start++ = 0xCD;  // fill with known pattern
-    }
-}
-
-int getStackUsage() {
-    uint8_t* start;
-    if ((uint16_t)__brkval == 0)
-        start = (uint8_t*)&__heap_start;
-    else
-        start = (uint8_t*)__brkval;
-
-    uint8_t* p = start;
-
-    while (*p == 0xCD && p < (uint8_t*)RAMEND) {
-        p++;
-    }
-
-    // p is the first byte NOT equal to our marker → stack has grown here
-    return (RAMEND - (int)p);  // number of bytes of stack actually used
-}
-#endif
-
 
 // *** get either an event or a user command, but not both at the same time
 
@@ -1084,7 +1050,9 @@ void getEventOrUserCommand() {
     ISRevent = eNoEvent;
     userCommand = uNoCmd;
     getISRevent();                                          // retrieve an event for processing, if available
+#if WITH_OLD_PROCS
     if (ISRevent == eNoEvent) { getCommand(); }             // if no event waiting to be processed and character(s) available, parse until command is complete or out of characters 
+#endif
 }
 
 
@@ -1126,6 +1094,7 @@ void getISRevent() {
 
 // *** parse multiple characters until either a command is complete OR no characters available (even if command is not yet complete) ***
 
+#if WITH_OLD_PROCS
 void getCommand() {
 
     // all user commands are 1 character, without the need for a CR or LF (both are ignored) because globe buttons do not have these keys
@@ -1217,7 +1186,7 @@ void getCommand() {
             }
         }
 
-        if (commandState == 9) {                                                                            // command assembled
+        if (commandstate == MasterState:: 9) {                                                                            // command assembled
             userCommand = commandBuffer;
 
             commandParam1 = commandParam1Buffer;
@@ -1225,14 +1194,14 @@ void getCommand() {
             commandState = 0;
         }
 
-        else if (commandState == 10) {                                                                      // command error
+        else if (commandstate == MasterState:: 10) {                                                                      // command error
             userCommand = uUnknownCmd;
             commandState = 0;
         }
 
     } while (commandState != 0);
 }
-
+#endif
 
 // *** process an event (except printing) ***
 
@@ -1247,7 +1216,7 @@ void processEvent(uint8_t& msgTypeOut) {
     static long movingSumMagnetOnCycles{ 0 };
     static long sumMagnetOnCycles[averagingPeriodsMagnetLoad] = { 0 };
 
-    if (msgTypeOut != MsgType::M_MSG_NONE) { return; }                                      // handle i2c message first (event has to wait, it's still in event buffer)
+    ////if (msgTypeOut != MsgType::M_MSG_NONE) { return; }                                      // handle i2c message first (event has to wait, it's still in event buffer)
     if (ISRevent == eNoEvent) { return; }
 
     // first order filters below are implemented as integrator with negative feedback: 
@@ -1299,11 +1268,12 @@ void processEvent(uint8_t& msgTypeOut) {
         // not used but could be used for a 3-second cue after reset
         case eSecond:
         {
-            /*  
+            msgTypeOut = MsgType::M_MSG_SECOND;
+            /*
             uint8_t clockDividerBitMask = 0b0000;       // example: 0b0011 divides frequency by 4
             if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
             */
-            
+
             /*
             if (secondData.eventSecond == 3) {
                 cli();                                                                      // interrupts off: interface with ISR and eeprom write
@@ -1322,14 +1292,14 @@ void processEvent(uint8_t& msgTypeOut) {
     }
 }
 
-#if 0
+#if WITH_WIRE_COMM
 // ========== send data to Wire slave ==========
 
-void sendI2CmessageToSlave(uint8_t& msgTypeOut) {
+void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
     if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
 
-    ////Serial.print("message out: "); Serial.println(msgTypeOut);
+    ////Serial.print(F("message out: ")); Serial.println(msgTypeOut);
 
     switch (msgTypeOut) {
 
@@ -1337,31 +1307,13 @@ void sendI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         case MsgType::M_MSG_PING:
         {
-            wire_master_interface.enqueueTx(M_MSG_PING, 0, nullptr, 0);         // no payload
-            Serial.println("ping sent");
+            wire_master_interface.enqueueTx(M_MSG_PING, 0, nullptr, S_MSG_PING, 0);         // no payload
+            Serial.println(F("ping sent"));
         }
         break;
 
 
         // ========== message types SENDING DATA to slave after an event ==========
-
-        case  MsgType::M_MSG_GREENWICH:
-        {
-            I2C_m_greenwich p{};
-            p.actualRotationTime = greenwichData.globeRotationTime;
-            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
-            p.greenwichLag = greenwichData.greenwichLag;
-            wire_master_interface.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, sizeof(I2C_s_ack));   // best-effort, may fail (queue full)
-        }
-        break;
-
-        case MsgType::M_MSG_STATUS:
-        {
-            I2C_m_status p{};
-            p.status = (int8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
-            wire_master_interface.enqueueTx(M_MSG_STATUS, sizeof(p), &p, sizeof(I2C_s_ack));
-        }
-        break;
 
         case  MsgType::M_MSG_SECOND:
         {
@@ -1371,12 +1323,31 @@ void sendI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.ISRdurationSmooth = ISRdurationSmooth;
             p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
             p.errSignalMagnitudeSmooth = errSignalMagnitudeSmooth;
-            wire_master_interface.enqueueTx(M_MSG_SECOND, sizeof(p), &p, sizeof(I2C_s_ack));
+            wire_master_interface.enqueueTx(M_MSG_SECOND, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
+        case  MsgType::M_MSG_GREENWICH:
+        {
+            I2C_m_greenwich p{};
+            p.actualRotationTime = greenwichData.globeRotationTime;
+            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
+            p.greenwichLag = greenwichData.greenwichLag;
+            wire_master_interface.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
 
-        // ========== message types SENDING DATA to slave ==========
+        case MsgType::M_MSG_STATUS:
+        {
+            I2C_m_status p{};
+            p.status = (int8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
+            wire_master_interface.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+    #if 0
+
+
+            // ========== message types SENDING DATA to slave ==========
 
         case MsgType::M_MSG_SEND_STATS:
         {
@@ -1430,17 +1401,18 @@ void sendI2CmessageToSlave(uint8_t& msgTypeOut) {
             wire_master_interface.enqueueTx(M_MSG_REQ_PID_SETTINGS, 0, nullptr, sizeof(I2C_s_PIDsettings));
         }
         break;
+    #endif
 
         case MsgType::M_MSG_REQ_VERT_POS_SETPOINT:
         {
-            wire_master_interface.enqueueTx(M_MSG_REQ_VERT_POS_SETPOINT, 0, nullptr, sizeof(I2C_s_vertPosSetpoint));
+            wire_master_interface.enqueueTx(M_MSG_REQ_VERT_POS_SETPOINT, 0, nullptr, S_MSG_VERT_POS_SETPOINT, sizeof(I2C_s_vertPosSetpoint));
         }
         break;
 
         case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
         {
-            wire_master_interface.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, sizeof(I2C_s_coilPhaseAdjust));
-            Serial.println("REQUESTING to receive coil phase adjust");
+            wire_master_interface.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, S_MSG_COIL_PHASE_ADJUST, sizeof(I2C_s_coilPhaseAdjust));
+            Serial.println(F("REQUESTING to receive coil phase adjust"));
 
         }
         break;
@@ -1449,43 +1421,42 @@ void sendI2CmessageToSlave(uint8_t& msgTypeOut) {
     msgTypeOut = MsgType::M_MSG_NONE;
 }
 
-
 // ========== process Wire slave reply ==========
 
-void receiveI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
+void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     //// na een delay ? (slave tijd geven om data te prepareren)
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };              // message type received from slave
-    uint8_t i2cMsgSizeIn{ 0 };              // payload size as reported by slave
+    uint8_t i2cPayloadSizeIn{ 0 };              // payload size as reported by slave
     uint8_t plIn[Wire_master_interface::PAYLOAD_IN_MAX];
 
-    bool msgAvailable = wire_master_interface.dequeueRx(msgTypeIn, i2cMsgSizeIn, &plIn);
+    bool msgAvailable = wire_master_interface.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn);
     if (!msgAvailable) { return; }
 
-    ////Serial.print("message in: "); Serial.println(msgTypeIn);
+    ////Serial.print(F("message in: ")); Serial.println(msgTypeIn);
 
     switch (msgTypeIn) {
 
         case S_MSG_PING:
         {
-            Serial.println("ping received");
+            Serial.println(F("ping received"));
         }
         break;
 
         case S_MSG_ACK:
         {
             I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
-            if (i2cMsgSizeIn != sizeof(I2C_s_ack)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            if (i2cPayloadSizeIn != sizeof(I2C_s_ack)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
             nextMsgTypeOut = p->requestMasterMsgType;
-            ////Serial.print("ack received - requested msg type out: "); Serial.println(nextMsgTypeOut);
+            Serial.print(F("ack received -> next msg type out: ")); Serial.println(nextMsgTypeOut, HEX);
         }
         break;
-
+    #if 0   
         case S_MSG_USER_SETTINGS: //// use of volatile vars: ok ????
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_userSettings* p = reinterpret_cast<I2C_s_userSettings*>(plIn);
-            if (i2cMsgSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            if (i2cPayloadSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
 
             Serial.print("rot. time idx "); Serial.print(p->userSet_rotationPeriod);
             Serial.print(", leds "); Serial.print(p->userSet_ledEffect);
@@ -1512,7 +1483,7 @@ void receiveI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_PIDsettings* p = reinterpret_cast<I2C_s_PIDsettings*>(plIn);
-            if (i2cMsgSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            if (i2cPayloadSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
 
             Serial.print("PID gain "); Serial.print(p->gainAdjustSteps);
             Serial.print(", int.cst "); Serial.print(p->intTimeCstAdjustSteps);
@@ -1536,15 +1507,15 @@ void receiveI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         }
         break;
 
-        case S_MSG_VERT_POS_SETPOINT: 
+    #endif
+        case S_MSG_VERT_POS_SETPOINT:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_vertPosSetpoint* p = reinterpret_cast<I2C_s_vertPosSetpoint*>(plIn);
-            if (i2cMsgSizeIn != sizeof(I2C_s_vertPosSetpoint)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            if (i2cPayloadSizeIn != sizeof(I2C_s_vertPosSetpoint)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
 
-            Serial.print("vert.pos.idx"); Serial.println(p->userSet_vertPosIndex);
-            break; //// temp
+            Serial.print(F("vert.pos.idx")); Serial.println(p->userSet_vertPosIndex);
 
             // if not valid, ignore
             int cnt = paramValueCounts[paramNo_hallmVoltRefs];
@@ -1556,18 +1527,17 @@ void receiveI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         }
         break;
 
-        case  S_MSG_COIL_PHASE_ADJUST: 
+        case  S_MSG_COIL_PHASE_ADJUST:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_coilPhaseAdjust* p = reinterpret_cast<I2C_s_coilPhaseAdjust*>(plIn);
-            if (i2cMsgSizeIn != sizeof(I2C_s_coilPhaseAdjust)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            if (i2cPayloadSizeIn != sizeof(I2C_s_coilPhaseAdjust)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
 
-             if(p->userSet_coilPhaseAdjust>179){p->userSet_coilPhaseAdjust = 179;}     // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
-             paramNo = paramNo_phaseAdjust;
-             paramValueOrIndex = p->userSet_coilPhaseAdjust;
-             saveAndUseParam();
-             Serial.println("RECEIVING coil phase adjust");
+            if (p->userSet_coilPhaseAdjust > 179) { p->userSet_coilPhaseAdjust = 179; }     // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
+            paramNo = paramNo_phaseAdjust;
+            paramValueOrIndex = p->userSet_coilPhaseAdjust;
+            saveAndUseParam; ////tijdelijk niet
 
 
         }
@@ -1578,6 +1548,7 @@ void receiveI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
         }
         break;
+
     }
 
 }
@@ -1594,21 +1565,24 @@ void getWireStats() {               //// wanneer ?
             wire_master_interface.getReceiveStats(receiveStats);
 
         /*
-            Serial.println("======== STATS ========");
-            Serial.print("sent       "); Serial.println(masterSendStats.I_stats_sent);
-            Serial.print("tx_retry   "); Serial.println(masterSendStats.W_stats_tx_retrying);
-            Serial.print("tx_xmitErr "); Serial.println(masterSendStats.E_stats_tx_wireXmitError);
-            Serial.print("tx_full    "); Serial.println(masterSendStats.E_stats_tx_full);
-            Serial.print("received   "); Serial.println(masterReceiveStats.I_stats_received);
-            Serial.print("rx_ch.sum  "); Serial.println(masterReceiveStats.E_stats_rx_checksum);
-            Serial.print("rx_timeout "); Serial.println(masterReceiveStats.E_stats_rx_timeOut);
-            Serial.print("rx_full    "); Serial.println(masterReceiveStats.E_stats_rx_full);
+            Serial.println(F("======== STATS ========"));
+            Serial.print(F("sent       ")); Serial.println(masterSendStats.I_stats_sent);
+            Serial.print(F("tx_retry   ")); Serial.println(masterSendStats.W_stats_tx_retrying);
+            Serial.print(F("tx_xmitErr ")); Serial.println(masterSendStats.E_stats_tx_wireXmitError);
+            Serial.print(F("tx_full    ")); Serial.println(masterSendStats.E_stats_tx_full);
+            Serial.print(F("received   ")); Serial.println(masterReceiveStats.I_stats_received);
+            Serial.print(F("rx_ch.sum  ")); Serial.println(masterReceiveStats.E_stats_rx_checksum);
+            Serial.print(F("rx_timeout ")); Serial.println(masterReceiveStats.E_stats_rx_timeOut);
+            Serial.print(F("rx_full    ")); Serial.println(masterReceiveStats.E_stats_rx_full);
             Serial.println();
         */
         }
     }
 }
 #endif
+
+
+#if WITH_OLD_PROCS
 
 // *** execute a user command (except printing) ***
 
@@ -1822,7 +1796,6 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
 
 // *** write status and other info to LCD and Serial ***
 
-#if 1
 void writeStatus() {
     if ((ISRevent == eNoEvent) && (userCommand == uNoCmd)) { return; }
 

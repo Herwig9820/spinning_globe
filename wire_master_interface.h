@@ -36,6 +36,7 @@ private:
 /* ================= TX: RING BUFFER, RX: RING BUFFER ================= */
 
 private:
+    volatile uint8_t txExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index
     volatile uint8_t txExpReplyMsgSize[TX_QUEUE_SIZE];              // paired with txQueue slot index
 
     volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_IN_MAX + 1];  // message type + payload size + payload + checksum
@@ -53,7 +54,7 @@ private:
     /* ================= STATE + WORKING COPIES ================= */
 
     enum MasterState { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
-    MasterState state = MS_IDLE;
+    MasterState state = MasterState::MS_IDLE;
 
     uint8_t rxInBuffer[HEADER_SIZE + PAYLOAD_IN_MAX + 1];
     uint8_t txOutBuffer[HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
@@ -102,7 +103,7 @@ public:
 
     // safe to call from ISR
     // enqueue with expReplyPayloadSize = 0xff: no return message requested, = 0x00: requested, without payload
-    bool enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadSize = 0xff);
+    bool enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadType, uint8_t expReplyPayloadSize = 0xff);
     bool dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload);
 
     // should be called frequently from application main loop
@@ -113,10 +114,10 @@ public:
 
 private:
     // helpers: called from sendAndReceiveMessage()
-    bool copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgSize);
+    bool copyTXqueueTailToOut(uint8_t* const out, uint8_t &expReplyMsgType, uint8_t& expReplyMsgSize);
     bool i2cWriteMessage(const uint8_t* p);
-    bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgSize);
-    Wire_master_interface::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgSize);
+    bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
+    Wire_master_interface::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
 };
 
 #endif
