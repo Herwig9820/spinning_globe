@@ -1006,7 +1006,6 @@ void setup()
 
 void loop()
 {
-    static uint8_t eventMsgTypeOut{ MsgType::M_MSG_NONE };
     static uint8_t followUpMsgTypeOut{ MsgType::M_MSG_NONE };
     static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };
 
@@ -1297,9 +1296,9 @@ void processEvent(uint8_t& msgTypeOut) {
 
 void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
-    if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
+    static long sequence {0};////
 
-    ////Serial.print(F("message out: ")); Serial.println(msgTypeOut);
+    if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
 
     switch (msgTypeOut) {
 
@@ -1318,7 +1317,7 @@ void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case  MsgType::M_MSG_SECOND:
         {
             I2C_m_secondCue p{};
-            p.tempSmooth = tempSmooth;                                  // raw input for wire slave
+            p.tempSmooth =  sequence++;; ////tempSmooth;                                  // raw input for wire slave
             p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
             p.ISRdurationSmooth = ISRdurationSmooth;
             p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
@@ -1412,8 +1411,6 @@ void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
         {
             wire_master_interface.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, S_MSG_COIL_PHASE_ADJUST, sizeof(I2C_s_coilPhaseAdjust));
-            Serial.println(F("REQUESTING to receive coil phase adjust"));
-
         }
         break;
 
@@ -1432,8 +1429,6 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     bool msgAvailable = wire_master_interface.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn);
     if (!msgAvailable) { return; }
 
-    ////Serial.print(F("message in: ")); Serial.println(msgTypeIn);
-
     switch (msgTypeIn) {
 
         case S_MSG_PING:
@@ -1447,7 +1442,6 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
             if (i2cPayloadSizeIn != sizeof(I2C_s_ack)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
             nextMsgTypeOut = p->requestMasterMsgType;
-            Serial.print(F("ack received -> next msg type out: ")); Serial.println(nextMsgTypeOut, HEX);
         }
         break;
     #if 0   
@@ -1514,8 +1508,6 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
 
             I2C_s_vertPosSetpoint* p = reinterpret_cast<I2C_s_vertPosSetpoint*>(plIn);
             if (i2cPayloadSizeIn != sizeof(I2C_s_vertPosSetpoint)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-
-            Serial.print(F("vert.pos.idx")); Serial.println(p->userSet_vertPosIndex);
 
             // if not valid, ignore
             int cnt = paramValueCounts[paramNo_hallmVoltRefs];

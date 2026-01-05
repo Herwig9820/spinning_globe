@@ -63,6 +63,8 @@ bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const v
     txExpReplyMsgType[txHead] = expReplyPayloadType;
     txExpReplyMsgSize[txHead] = (expReplyPayloadSize == 0xff) ? 0xff : HEADER_SIZE + expReplyPayloadSize + 1;
 
+    Serial.print(F("\r\n\r\nENQUEUE-seq ")); Serial.println(txQueue[txHead][2], HEX);
+
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                              // ensure data is visible before updating head
 
@@ -80,6 +82,8 @@ bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void*
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     acquire_barrier();                                              // ensure we see latest tail before reading data
 
+    Serial.print(F("DEQUEUE-seq ")); Serial.println(rxQueue[rxTail][2], HEX);
+
     type = rxQueue[rxTail][0];
     payloadSize = rxQueue[rxTail][1];
     if (payloadSize > PAYLOAD_IN_MAX) payloadSize = 0;
@@ -88,6 +92,8 @@ bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void*
     }
 
     rxTail = (rxTail + 1) % RX_QUEUE_SIZE;
+
+
     return true;
 
 };
@@ -110,22 +116,28 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
     unsigned long now_millis = millis();
     unsigned long now_micros = micros();
 
-    if (state == MasterState:: MS_IDLE) {                                         // not sending or receiving ?
+    unsigned long timePassed{};
+
+    if (state == MasterState::MS_IDLE) {                                         // not sending or receiving ?
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
-        state = MasterState::MS_SEND; Serial.println(F("++++ status SEND"));
+        state = MasterState::MS_SEND;
+        Serial.println(F("-> SEND"));
     }
 
 
-    if (state == MasterState:: MS_SEND) {
+    if (state == MasterState::MS_SEND) {
         // Respect scheduling (backoff time)
-        if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }
+
+        ////if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }
+        timePassed = (now_micros < lastTaskTime_micros) ? ((0xffffffff - lastTaskTime_micros) + now_micros) : (now_micros - lastTaskTime_micros);
+        if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }
+
         lastTaskTime_millis = now_millis;                                // init: assume transmission will be ok
         lastTaskTime_micros = now_micros;
 
         // check inter-packet spacing
         bool ok = i2cWriteMessage(txOutBuffer);                     // Wire write
-        Serial.print(F("== write type "));Serial.println(txOutBuffer[0], HEX);
         if (!ok) {                                                  // Wire library transmit error 
             // manage retries: if exceeded MAX_RETRIES, drop the packet (advance tail)
             if (++sendRetryCount < MAX_RETRIES_PER_PACKET) {          // max. retries was reached before ?
@@ -134,7 +146,8 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
                 return WireStatus::E_tx_WireXmitError;
             }
 
-            state = MasterState::MS_IDLE; Serial.println(F("++++ status IDLE-write error"));                     // go back to IDLE
+            state = MasterState::MS_IDLE;                    // go back to IDLE
+            Serial.println(F("-> IDLE-write error"));
             // error: advance txTail, send counters and pop the packet (advance tail atomically)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 txTail = (txTail + 1) % TX_QUEUE_SIZE;              // advance tx tail (even with 8-bit length, operation  is not atomic)
@@ -152,60 +165,63 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
         }
 
         state = (expReplyMsgSize == 0xff) ? MasterState::MS_IDLE : MasterState::MS_WAIT_BEFORE_POLLING;           // 0xff: msg does not expect a reply  
-        if(state == MasterState:: MS_IDLE){ Serial.println(F("++++ status IDLE-nothing to receive"));} else { Serial.println(F("++++ status WAIT MIN.TIME"));}
-        if (state == MasterState:: MS_IDLE) { return WireStatus::I_xmitOK; }
-    
+        if (state == MasterState::MS_IDLE) { Serial.println(F("-> IDLE-nothing received")); }
+        else { Serial.println(F("-> WAIT BEFORE POLL")); }
+        if (state == MasterState::MS_IDLE) { return WireStatus::I_xmitOK; }
+
     }
 
 
     // wait a fixed time (the minimum cycle time) before starting polling
-    if (state == MasterState:: MS_WAIT_BEFORE_POLLING) {
-        if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+    if (state == MasterState::MS_WAIT_BEFORE_POLLING) {
+        ////if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+        timePassed = (now_micros < lastTaskTime_micros) ? ((0xffffffff - lastTaskTime_micros) + now_micros) : (now_micros - lastTaskTime_micros);
+        if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+
         lastPollTime_micros = lastTaskTime_micros = now_micros;              // init
         lastTaskTime_millis = now_millis;
         state = MasterState::MS_WAIT_FOR_SLAVE_READY;
-        Serial.println(F("++++ status WAIT for slave READY"));
+        Serial.println(F("-> WAIT SLAVE READY"));
     }
 
 
-    if (state == MasterState:: MS_WAIT_FOR_SLAVE_READY) {
-        if (lastTaskTime_millis + MAX_RECEIVE_CYCLE_MILLIS < now_millis) {
+    if (state == MasterState::MS_WAIT_FOR_SLAVE_READY) {
+        ////if (lastTaskTime_millis + MAX_RECEIVE_CYCLE_MILLIS < now_millis) {
+        timePassed = (now_millis < lastTaskTime_millis) ? ((0xffffffff - lastTaskTime_millis) + now_millis) : (now_millis - lastTaskTime_millis);
+        if (timePassed > MAX_RECEIVE_CYCLE_MILLIS) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; }
             state = MasterState::MS_IDLE;
-            Serial.println(F("++++ status IDLE - no slave"));
+            Serial.println(F("-> IDLE-no slave"));
             return WireStatus::E_rx_timeOut;                        // expect reply non-arrival now
         }
 
-        // time now: (send) + MIN_CYCLE_PERIOD_MICROS < now_millis < t(send) + MAX_RECEIVE_CYCLE_MILLIS 
-        Serial.println(F("** A"));
+        // time now (== time sent) + MIN_CYCLE_PERIOD_MICROS < now_millis < time sent + MAX_RECEIVE_CYCLE_MILLIS 
+        Serial.print(F("(wait)"));
         // poll every (SLAVE_POLL_INTERVAL_micros)
         if (lastPollTime_micros + SLAVE_POLL_INTERVAL_micros > now_micros) { return WireStatus::I_waitForCue; }
         lastPollTime_micros = now_micros;
-        Serial.println(F("** B"));
+        Serial.println(F("\r\npoll now"));
 
-        // poll
+        // start polling
         constexpr uint8_t request = (uint8_t)WireTransport::M_CTRL_POLL;
         uint8_t reply{ (uint8_t)WireTransport::S_CTRL_BUSY };                 // init, will be unchanged if write error 
-        Serial.write('W');
         Wire.beginTransmission(I2C_SLAVE_ADDR);
         Wire.write(&request, 1);
         uint8_t err = Wire.endTransmission();                           // 0 == success
         if (err == 0) {
-            Serial.write('S');
             if (i2cReadMessage(&reply, 0, 1)) {
-                Serial.write('R');
                 // Any poll result other than READY is treated as BUSY by design
-                Serial.print(reply, HEX);
                 if (reply != (uint8_t)WireTransport::S_CTRL_READY) {       // an erroneous reply byte is captured here (although nothing is done with it) 
                     reply = (uint8_t)WireTransport::S_CTRL_BUSY;
                 }
             }
             else { reply = (uint8_t)WireTransport::S_CTRL_BUSY; }       // reading busy/ready reply timeout error (although nothing is done with it)
         }
-        Serial.println(reply == 0xa2);
+        Serial.print(F("slave ready ? ")); Serial.println(reply == 0xa2);      // slave ready to send ?
 
         if (reply == (uint8_t)WireTransport::S_CTRL_READY) {
-            state = MasterState::MS_RECEIVE; Serial.println(F("++++ status RECEIVE"));
+            state = MasterState::MS_RECEIVE;
+            Serial.println(F("-> RECEIVE"));
         }
     }
 
@@ -214,22 +230,23 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
 // RECEIVE state: attempt read if expected by protocol
 // NOTE: one message out results in one message in (1:1)
 
-    if (state == MasterState:: MS_RECEIVE) {
+    if (state == MasterState::MS_RECEIVE) {
         if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
         lastTaskTime_millis = now_millis;                                    // init
         lastTaskTime_micros = now_micros;                                    // init
 
         bool ok = i2cReadMessage(rxInBuffer, expReplyMsgType, expReplyMsgSize);
-        Serial.print(F("== read type "));Serial.println(rxInBuffer[0], HEX);
 
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
-            state = MasterState::MS_IDLE; Serial.println(F("++++ status IDLE-read issue"));
+            state = MasterState::MS_IDLE;
+            Serial.println(F("-> IDLE-read error"));
             return WireStatus::E_rx_timeOut;
         }
-
+        else { Serial.print(F("Wire in-seq ")); Serial.println(rxInBuffer[2], HEX); }
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
-        state = MasterState::MS_IDLE; Serial.println(F("++++ status IDLE-receive success"));
+        state = MasterState::MS_IDLE;
+        Serial.println(F("-> IDLE-receive success"));
         return wireStatus;
     }
 
@@ -271,25 +288,26 @@ bool Wire_master_interface::copyTXqueueTailToOut(uint8_t* const out, uint8_t& ex
     expReplyMsgType = txExpReplyMsgType[tail];
     expReplyMsgSize = txExpReplyMsgSize[tail];                      // copy as well (0xff: no reply expected)
 
-    /*
-    Serial.print(F(">>COPY txQueue to OUT: expected reply type ")); Serial.print(expReplyMsgType, HEX);
-    Serial.write(", length "); Serial.println(expReplyMsgSize);
+    Serial.print(F("txQueue to OUT-seq ")); Serial.print(out[2], HEX); Serial.print(F("/msg: "));
     for (int i = 0; i < msgLength; i++) {
         Serial.print(txQueue[tail][i], HEX); Serial.write(' '); // last is checksum as received
     }
-    Serial.write(' '), Serial.println(millis()); Serial.println();
-    */
+    Serial.write('('), Serial.print(millis()); Serial.println(F(")"));
+
     return true;
 }
 
 
 bool Wire_master_interface::i2cWriteMessage(const uint8_t* out) {
+
     uint8_t msgLength = HEADER_SIZE + out[1] + 1;                   // message ID, payload length, checksum
     bool ok{ false };
     Wire.beginTransmission(I2C_SLAVE_ADDR);
     Wire.write(out, msgLength);
     uint8_t err = Wire.endTransmission();                           // 0 == success
     ok = (err == 0);
+
+    Serial.print(F("Wire out-seq ")); Serial.println(out[2], HEX);
     return ok;
 }
 
@@ -319,7 +337,7 @@ bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType,
             else { readNext = (idx < in[1]); }
         }
         else {  //// check timeout value
-            if ((micros() - start_micros) > timeoutValue) { break; }   // blocking operation: timeout (message only partially received)     
+            if ((micros() - start_micros) > timeoutValue) { break; }   // blocking operation: timeout (message only partially received)
         }
     }
 */
@@ -335,6 +353,7 @@ bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType,
     }
 
     ok = (idx == expReplyMsgSize);
+
     return ok;
 }
 
@@ -355,21 +374,19 @@ Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uin
         sum ^= in[i];
     }
     rxQueue[head][expReplyMsgSize - 1] = in[expReplyMsgSize - 1];
-    
-    
-    Serial.print(F(">>COPY in TO rxQueue: expected type ")); Serial.println(expReplyMsgType, HEX);
+
+    if (sum != rxQueue[head][expReplyMsgSize - 1]) {                           // checksum correct ?
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
+        return WireStatus::E_rx_checksum;
+    };
+
+    Serial.print(F("IN to rxQueue-seq ")); Serial.print(in[2], HEX); Serial.print(F("/msg: "));
     for (int i = 0; i < expReplyMsgSize - 1; i++) {
         Serial.print(rxQueue[head][i], HEX); Serial.write(' '); // last is checksum as received
     }
     Serial.print(rxQueue[head][expReplyMsgSize - 1], HEX); Serial.write(':'), Serial.print(sum, HEX);
-    Serial.write(' '), Serial.print(millis());
-    
-    if (sum != rxQueue[head][expReplyMsgSize - 1]) {                           // checksum correct ?
-        //Serial.println(F("************\r\n--------------"));
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
-        return WireStatus::E_rx_checksum;
-    };
-    //Serial.println(F("\r\n--------------"));
+    Serial.write('('), Serial.print(millis()); Serial.println(F(")"));
+
 
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
@@ -377,6 +394,7 @@ Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uin
 
     rxHead = next;
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.I_stats_received++; }
+
     return WireStatus::I_xmitOK;
 }
 
