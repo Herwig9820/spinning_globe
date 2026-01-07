@@ -63,7 +63,7 @@ private:
     // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
     enum class WireTransport {
         NONE = 0x00,
-        M_CTRL_POLL = 0xa0,           // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
+        M_CTRL_POLL = 0x01,           // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
         S_CTRL_BUSY,                 // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
         S_CTRL_READY                 // idem
     };
@@ -80,7 +80,7 @@ public:
         E_rx_full
     };
 
-    // keep track of master send & receive errors
+    // keep track of master send & receive stats
     struct I2C_MasterSendStats {
         uint32_t I_stats_sent = 0;                             // info: counts     
         uint32_t W_stats_tx_retrying = 0;                      // warning: count 

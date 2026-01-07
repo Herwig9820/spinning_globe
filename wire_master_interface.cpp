@@ -43,16 +43,17 @@ Wire_master_interface::~Wire_master_interface() {
 
 //  enqueueTx: safe from ISR. Returns true if enqueued, false if queue full.
 
-bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadType, uint8_t expReplyPayloadSize) {
+bool Wire_master_interface::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadType, uint8_t expReplyPayloadSize) {
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) {                                           // queue full ?
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterSendStats.E_stats_tx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
+        Serial.println("!! Enqueue: tx full");
         return false;
     }
 
-    txQueue[txHead][0] = type;
+    txQueue[txHead][0] = msgType;
     txQueue[txHead][1] = payloadSize;
-    uint8_t sum = type ^ payloadSize;
+    uint8_t sum = msgType ^ payloadSize;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[txHead][HEADER_SIZE + i] = ((uint8_t*)payload)[i];
         sum ^= ((uint8_t*)payload)[i];
@@ -63,7 +64,7 @@ bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const v
     txExpReplyMsgType[txHead] = expReplyPayloadType;
     txExpReplyMsgSize[txHead] = (expReplyPayloadSize == 0xff) ? 0xff : HEADER_SIZE + expReplyPayloadSize + 1;
 
-    Serial.print(F("\r\n\r\nENQUEUE-seq ")); Serial.println(txQueue[txHead][2], HEX);
+    Serial.print(F("\r\n\r\nENQUEUE-seq ")); Serial.print(txQueue[txHead][2], HEX); Serial.print(" - msg type "); Serial.println(msgType, HEX);
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                              // ensure data is visible before updating head
@@ -76,6 +77,7 @@ bool Wire_master_interface::enqueueTx(uint8_t type, uint8_t payloadSize, const v
 //  dequeueRx: safe from ISR. Returns true if enqueued, false if queue empty.
 
 bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
+    
     // 8-bit index: atomic access by nature
     if (rxHead == rxTail) { return false; }                         // rx queue empty ?
 
@@ -118,25 +120,29 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
 
     unsigned long timePassed{};
 
+    /* ---------- state machine: MS_IDLE: enqueue message if available ---------- */
+
     if (state == MasterState::MS_IDLE) {                                         // not sending or receiving ?
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
-        state = MasterState::MS_SEND;
+        state = MasterState::MS_SEND;                                           // change status to MS_SEND 
         Serial.println(F("-> SEND"));
     }
 
 
+
+    /* ---------- state machine: MS_SEND: send message to slave (respect inter-message spacing) ---------- */
+
     if (state == MasterState::MS_SEND) {
         // Respect scheduling (backoff time)
 
-        ////if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }
-        timePassed = (now_micros < lastTaskTime_micros) ? ((0xffffffff - lastTaskTime_micros) + now_micros) : (now_micros - lastTaskTime_micros);
+        // check inter-message spacing (non-blocking)
+        timePassed = (now_micros - lastTaskTime_micros);            // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }
-
         lastTaskTime_millis = now_millis;                                // init: assume transmission will be ok
         lastTaskTime_micros = now_micros;
 
-        // check inter-packet spacing
+        // transmit; in case of error, retry a few times (non-blocking) 
         bool ok = i2cWriteMessage(txOutBuffer);                     // Wire write
         if (!ok) {                                                  // Wire library transmit error 
             // manage retries: if exceeded MAX_RETRIES, drop the packet (advance tail)
@@ -148,7 +154,7 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
 
             state = MasterState::MS_IDLE;                    // go back to IDLE
             Serial.println(F("-> IDLE-write error"));
-            // error: advance txTail, send counters and pop the packet (advance tail atomically)
+            // error: advance txTail, increment counter and pop the packet (advance tail atomically)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 txTail = (txTail + 1) % TX_QUEUE_SIZE;              // advance tx tail (even with 8-bit length, operation  is not atomic)
                 masterSendStats.E_stats_tx_wireXmitError++;               // after max retries: error
@@ -157,50 +163,49 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
         }
 
 
-        // success: advance txTail, send counters and pop the packet (advance tail atomically)
-        // after successful write, allow optional receive based on message type
+        // success: advance txTail, increment counter and pop the packet (advance tail atomically)
+        // after successful write, allow optional receive based on message msgType
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             txTail = (txTail + 1) % TX_QUEUE_SIZE;                                  // advance tx tail (even with 8-bit length, operation  is not atomic)
             masterSendStats.I_stats_sent++;
         }
 
-        state = (expReplyMsgSize == 0xff) ? MasterState::MS_IDLE : MasterState::MS_WAIT_BEFORE_POLLING;           // 0xff: msg does not expect a reply  
-        if (state == MasterState::MS_IDLE) { Serial.println(F("-> IDLE-nothing received")); }
-        else { Serial.println(F("-> WAIT BEFORE POLL")); }
-        if (state == MasterState::MS_IDLE) { return WireStatus::I_xmitOK; }
-
+        state = MasterState::MS_WAIT_BEFORE_POLLING;        ////   // 0xff: msg does not expect a reply
+        Serial.println(F("-> WAIT BEFORE POLL"));
     }
 
 
+    /* ---------- state machine: MS_WAIT_BEFORE_POLLING ---------- */
+
     // wait a fixed time (the minimum cycle time) before starting polling
     if (state == MasterState::MS_WAIT_BEFORE_POLLING) {
-        ////if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
-        timePassed = (now_micros < lastTaskTime_micros) ? ((0xffffffff - lastTaskTime_micros) + now_micros) : (now_micros - lastTaskTime_micros);
+        timePassed = (now_micros - lastTaskTime_micros);        // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
-
         lastPollTime_micros = lastTaskTime_micros = now_micros;              // init
         lastTaskTime_millis = now_millis;
+
         state = MasterState::MS_WAIT_FOR_SLAVE_READY;
         Serial.println(F("-> WAIT SLAVE READY"));
     }
 
 
+
+    /* ---------- state machine: poll until slave ready or timeout (non-blocking) ---------- */
+
     if (state == MasterState::MS_WAIT_FOR_SLAVE_READY) {
-        ////if (lastTaskTime_millis + MAX_RECEIVE_CYCLE_MILLIS < now_millis) {
-        timePassed = (now_millis < lastTaskTime_millis) ? ((0xffffffff - lastTaskTime_millis) + now_millis) : (now_millis - lastTaskTime_millis);
+        timePassed = (now_millis - lastTaskTime_millis);         // unsigned integer subtraction: modulo 2^32
         if (timePassed > MAX_RECEIVE_CYCLE_MILLIS) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; }
             state = MasterState::MS_IDLE;
             Serial.println(F("-> IDLE-no slave"));
-            return WireStatus::E_rx_timeOut;                        // expect reply non-arrival now
+            return WireStatus::E_rx_timeOut;                        // reply did not arrive in time
         }
 
-        // time now (== time sent) + MIN_CYCLE_PERIOD_MICROS < now_millis < time sent + MAX_RECEIVE_CYCLE_MILLIS 
-        Serial.print(F("(wait)"));
         // poll every (SLAVE_POLL_INTERVAL_micros)
-        if (lastPollTime_micros + SLAVE_POLL_INTERVAL_micros > now_micros) { return WireStatus::I_waitForCue; }
+        timePassed = now_micros - lastPollTime_micros;         // unsigned integer subtraction: modulo 2^32
+        if (timePassed < SLAVE_POLL_INTERVAL_micros ) { return WireStatus::I_waitForCue; }
         lastPollTime_micros = now_micros;
-        Serial.println(F("\r\npoll now"));
+        Serial.println(F("poll now"));
 
         // start polling
         constexpr uint8_t request = (uint8_t)WireTransport::M_CTRL_POLL;
@@ -217,7 +222,7 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
             }
             else { reply = (uint8_t)WireTransport::S_CTRL_BUSY; }       // reading busy/ready reply timeout error (although nothing is done with it)
         }
-        Serial.print(F("slave ready ? ")); Serial.println(reply == 0xa2);      // slave ready to send ?
+        Serial.print(F("slave ready ? ")); Serial.println(reply == (uint8_t)WireTransport::S_CTRL_READY);      // slave ready to send ?
 
         if (reply == (uint8_t)WireTransport::S_CTRL_READY) {
             state = MasterState::MS_RECEIVE;
@@ -226,17 +231,19 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
     }
 
 
+    /* ---------- state machine: receive slave message  ---------- */
 
-// RECEIVE state: attempt read if expected by protocol
-// NOTE: one message out results in one message in (1:1)
+    // RECEIVE state: attempt read if expected by protocol
+    // NOTE: one message out results in one message in (1:1)
 
     if (state == MasterState::MS_RECEIVE) {
-        if (lastTaskTime_micros + MIN_CYCLE_PERIOD_MICROS > now_micros) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+        timePassed = now_micros - lastTaskTime_micros;         // unsigned integer subtraction: modulo 2^32
+        if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
         lastTaskTime_millis = now_millis;                                    // init
         lastTaskTime_micros = now_micros;                                    // init
 
         bool ok = i2cReadMessage(rxInBuffer, expReplyMsgType, expReplyMsgSize);
-
+        
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
             state = MasterState::MS_IDLE;
@@ -254,9 +261,7 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
 }
 
 
-// ========== PROCESS: SEND TX QUEUES AND RECEIVE RX QUEUES ==========
-
-// safe from ISR
+// ========== GET master send and receive stats ==========
 
 void Wire_master_interface::getSendStats(I2C_MasterSendStats& sendStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
@@ -323,24 +328,6 @@ bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType,
     unsigned long start_micros = micros();
     uint8_t idx = 0;
     bool ok{ false };
-
-/*
-    Serial.print(Serial.print(F(""state: ")); Serial.println(MS_WAIT_FOR_SLAVE_READY);
-    int8_t msgType{}, msgSize = 3;       // MINIMUM message size (if payload size  is 0)
-    bool readNext{ true };
-    while (readNext) {
-        if (Wire.available()) {
-            in[idx++] = Wire.read();
-            if (state == MasterState:: MS_WAIT_FOR_SLAVE_READY) { return true; }
-            else if (idx == 1) { msgType = in[0]; }
-            else if (idx == 2) { msgSize = in[1]; }
-            else { readNext = (idx < in[1]); }
-        }
-        else {  //// check timeout value
-            if ((micros() - start_micros) > timeoutValue) { break; }   // blocking operation: timeout (message only partially received)
-        }
-    }
-*/
 
     // while loop: must execute fast to free internal Wire buffer
     while (idx < expReplyMsgSize) {

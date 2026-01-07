@@ -29,7 +29,7 @@
 #include <limits.h>                                         // specific constants
 #include <Arduino.h>
 #include <stdlib.h>
-#include "wire_master_interface.h"
+#include "wire_common.h"
 
 #define boardVersion 101                                    // board version: 100 = hardware v1, 101 = v1 rev A and B
 #define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
@@ -290,7 +290,8 @@ constexpr float presetDifTimeCst{ 0.023 };                                      
 constexpr long initialTTTintTerm{ 800 };                                            // PID: initial value integrator term (for easier globe handling) --> depends on gain !
 #endif
 
-constexpr uint8_t PIDsettingSteps{ 32 };                                             // must be even; from -steps/2 to steps/2 - 1  
+constexpr uint8_t settingSteps{ 32 };                                             // must be even; from -steps/2 to steps/2 - 1  
+constexpr uint8_t centerPointStep = settingSteps / 2;
 
 // step sizes for user adjustments
 // !!! connection to Arduino cloud via dedicated MCU, communicating via I2C:
@@ -485,131 +486,6 @@ struct EventStats {
     uint8_t eventsPending{ 0 }, largestEventsPending{ 0 };                          // No of ISR events currently logged for processing in main loop 
     unsigned int eventBufferBytesUsed{ 0 }, largestEventBufferBytesUsed{ 0 };       // No of ISR events logged for processing in main loop: all-time max
     long eventsMissed{ 0 };                                                         // keeps track of events missed (not used at this stage)
-};
-
-
-// I2C communication with Wire slave
-// ---------------------------------
-
-// note: Wire_master_interface class is not aware of payload details
-
-
-enum MsgType : uint8_t {
-    // ========== 0x00-0x1f RESERVED for CONTROL SIGNALS between master and slave libraries ==========
-
-
-    // ========== 0x20–0x3F: master → slave ==========
-
-    M_MSG_NONE = 0x20,
-
-    // data sent to slave
-    M_MSG_PING = 0x21,                  // slave reply msg type: S_PING 
-    M_MSG_GREENWICH = 0x22,             // slave reply msg type: S_ACK
-    M_MSG_STATUS = 0x23,                // idem
-    M_MSG_SECOND = 0x24,                // idem
-
-    M_MSG_SEND_STATS = 0x25,            // idem
-    M_MSG_RECEIVE_STATS = 0x26,         // idem
-
-    M_MSG_USER_SETTINGS = 0x27,         // idem
-    M_MSG_PID_SETTINGS = 0x28,          // idem
-    M_MSG_VERT_POS_SETPOINT = 0x29,     // idem
-    M_MSG_COIL_PHASE_ADJUST = 0x2A,     // idem
-
-    // requests to slave to send data
-    M_MSG_REQ_USER_SETTINGS = 0x30,     // slave reply msg type: S_MSG_USER_SETTINGS
-    M_MSG_REQ_PID_SETTINGS = 0x31,      // slave reply msg type: S_MSG_PID_SETTINGS
-    M_MSG_REQ_VERT_POS_SETPOINT = 0x32, // slave reply msg type: S_MSG_VERT_POS_SETPOINT
-    M_MSG_REQ_COIL_PHASE_ADJUST = 0x33, // slave reply msg type: S_MSG_COIL_PHASE_ADJUST
-
-
-    // ========== 0x40–0x5F: slave → master ==========
-
-    S_MSG_NONE = 0x40,
-    S_MSG_PING = 0x41,
-    S_MSG_ACK = 0x42,                   // payload contains optional message type slave requests to send. Master must respond with msg type MSG_OUT_REQUEST_MSG_IN first
-
-    S_REQ_MSG_SEND_STATS = 0x45,            // idem
-    S_REQ_MSG_RECEIVE_STATS = 0x46,         // idem
-
-    S_MSG_USER_SETTINGS = 0x50,
-    S_MSG_PID_SETTINGS = 0x51,
-    S_MSG_VERT_POS_SETPOINT = 0x52,
-    S_MSG_COIL_PHASE_ADJUST = 0x53
-};
-
-
-// ========== I2C messages from master to slave ==========
-
-struct __attribute__((packed)) I2C_m_status {
-    uint8_t status;
-};
-
-struct __attribute__((packed)) I2C_m_greenwich {
-    uint32_t actualRotationTime;
-    int32_t rotationOutOfSyncTime;      // can be negative
-    int32_t greenwichLag;               // can be negative
-};
-
-struct __attribute__((packed)) I2C_m_secondCue {
-    uint32_t tempSmooth;
-    float magnetOnCyclesSmooth;
-    float ISRdurationSmooth;
-    float idleLoopMicrosSmooth;
-    float errSignalMagnitudeSmooth;
-};
-
-#if IS_WIRE_MASTER
-struct __attribute__((packed)) I2C_m_sendStats {               // '_m_': message from >m<aster to slave
-    Wire_master_interface::I2C_MasterSendStats sendStats;
-};
-
-struct __attribute__((packed)) I2C_m_receiveStats {              // '_m_': message from >m<aster to slave
-    Wire_master_interface::I2C_masterReceiveStats receiveStats;
-};
-
-#else
-struct __attribute__((packed)) I2C_m_MasterSendStats {                // '_m_': message from >m<aster to slave
-    uint32_t I_stats_sent;
-    uint32_t W_stats_tx_retrying;
-    uint32_t E_stats_tx_wireXmitError;
-    uint32_t E_stats_tx_full;
-};
-
-struct __attribute__((packed)) I2C_m_masterReceiveStats {             // '_m_': message from >m<aster to slave
-    uint32_t I_stats_received;
-    uint32_t E_stats_rx_checksum;
-    uint32_t E_stats_rx_timeOut;
-    uint32_t E_stats_rx_full;
-};
-#endif
-
-
-// ========== I2C messages from slave to master ==========
-
-struct __attribute__((packed)) I2C_s_ack {
-    uint8_t ack;                                    // message received by slave: 0x00 = error, 0x01 = OK 
-    uint8_t requestMasterMsgType;                   // slave requests master to send message type
-};
-
-struct __attribute__((packed)) I2C_s_userSettings {
-    uint8_t userSet_rotationPeriod;                 // index into array with defined rotation periods 
-    uint8_t userSet_ledEffect;
-    uint8_t userSet_ledCycleSpeed;
-};
-
-struct __attribute__((packed)) I2C_s_PIDsettings {
-    int8_t gainAdjustSteps;                         // positive or negative
-    int8_t intTimeCstAdjustSteps;
-    int8_t difTimeCstAdjustSteps;
-};
-
-struct __attribute__((packed)) I2C_s_vertPosSetpoint {
-    uint8_t userSet_vertPosIndex = 0;               // index into array with vert. positions (in mV)
-};
-
-struct __attribute__((packed)) I2C_s_coilPhaseAdjust {
-    uint8_t userSet_coilPhaseAdjust = 0;               // index into array with vert. positions (in mV)
 };
 
 
@@ -843,7 +719,7 @@ void setup()
     // *** disable watchdog, open serial port and LCD ***
 
     wdt_disable();
-    Serial.begin(115200);                                      // baud rate as entered
+    Serial.begin(115200);                                       // baud rate as entered
     lcd.begin(16, 2);                                           // 16 characters, 2 rows
     delay(3000);
 
@@ -914,15 +790,15 @@ void setup()
         // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
         // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
-        gainAdjustSteps = (eepromValue >= PIDsettingSteps - 1) ? PIDsettingSteps - 1 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value (16)  
+        gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value   
         ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)5);
-        intTimeCstAdjustSteps = (eepromValue >= PIDsettingSteps - 1) ? PIDsettingSteps - 1 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value (16)
+        intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
         ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)6);
-        difTimeCstAdjustSteps = (eepromValue >= PIDsettingSteps - 1) ? PIDsettingSteps - 1 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value (16)
+        difTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value 
         ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
 
         setPIDcontroller();
@@ -1006,12 +882,12 @@ void setup()
 
 void loop()
 {
-    static uint8_t followUpMsgTypeOut{ MsgType::M_MSG_NONE };
-    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };
+    static uint8_t slaveRequestMsgTypeOut{ MsgType::M_MSG_NONE };       // master message type requested by slave
+    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
 
 #if WITH_OLD_PROCS
     getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
-    processEvent(msgTypeOut);                                         // process event, if available
+    processEvent(nextMsgTypeOut);                                         // process event, if available
     processCommand();                                       // process command, if available
     checkSwitches();                                        // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
     writeStatus();                                          // print status to Serial and LCD (if connected)
@@ -1020,15 +896,18 @@ void loop()
 
 #if WITH_WIRE_COMM
 
-    //if (followUpMsgTypeOut == M_MSG_NONE) {                   // no trailing message to bes enqueued in sequence
+    if (slaveRequestMsgTypeOut != M_MSG_NONE) {
+        nextMsgTypeOut = slaveRequestMsgTypeOut;
+    }
+    else {
         getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
         processEvent(nextMsgTypeOut);                                         // process event, if available
-    //}
-    //// else { nextMsgTypeOut = followUpMsgTypeOut; }
+    }
 
     enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
     wireStatus = wire_master_interface.sendAndReceiveMessage();         // return master or slave message in error
-    dequeueI2CmessageFromSlave(followUpMsgTypeOut);                           // if incoming i2c message available, dequeue
+    dequeueI2CmessageFromSlave(slaveRequestMsgTypeOut);                           // if incoming i2c message available, dequeue
+
 
 ////getWireStats();
 #endif
@@ -1185,7 +1064,7 @@ void getCommand() {
             }
         }
 
-        if (commandstate == MasterState:: 9) {                                                                            // command assembled
+        if (commandState == 9) {                                                                            // command assembled
             userCommand = commandBuffer;
 
             commandParam1 = commandParam1Buffer;
@@ -1193,7 +1072,7 @@ void getCommand() {
             commandState = 0;
         }
 
-        else if (commandstate == MasterState:: 10) {                                                                      // command error
+        else if (commandState == 10) {                                                                      // command error
             userCommand = uUnknownCmd;
             commandState = 0;
         }
@@ -1286,8 +1165,8 @@ void processEvent(uint8_t& msgTypeOut) {
         default:
         {
             msgTypeOut = MsgType::M_MSG_NONE;
-            break;
         }
+        break;
     }
 }
 
@@ -1296,7 +1175,7 @@ void processEvent(uint8_t& msgTypeOut) {
 
 void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
-    static long sequence {0};////
+    static long sequence{ 0 };////
 
     if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
 
@@ -1317,7 +1196,7 @@ void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case  MsgType::M_MSG_SECOND:
         {
             I2C_m_secondCue p{};
-            p.tempSmooth =  sequence++;; ////tempSmooth;                                  // raw input for wire slave
+            p.tempSmooth = sequence++;; ////tempSmooth;                                  // raw input for wire slave
             p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
             p.ISRdurationSmooth = ISRdurationSmooth;
             p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
@@ -1343,46 +1222,64 @@ void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             wire_master_interface.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
-    #if 0
 
+    #if 1
 
-            // ========== message types SENDING DATA to slave ==========
+            // ========== message types SENDING DATA to slave when requested ==========
 
+        // send master send stats to wire slave
         case MsgType::M_MSG_SEND_STATS:
         {
             I2C_m_sendStats p{};
             wire_master_interface.getSendStats(p.sendStats);
-            wire_master_interface.enqueueTx(M_MSG_SEND_STATS, sizeof(p), &p, sizeof(I2C_s_ack));
+            wire_master_interface.enqueueTx(M_MSG_SEND_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
+        // send master receive stats to wire slave
         case MsgType::M_MSG_RECEIVE_STATS:
         {
             I2C_m_receiveStats p{};
             wire_master_interface.getReceiveStats(p.receiveStats);
-            wire_master_interface.enqueueTx(M_MSG_RECEIVE_STATS, sizeof(p), &p, sizeof(I2C_s_ack));
+            wire_master_interface.enqueueTx(M_MSG_RECEIVE_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
 
-        break; case MsgType::M_MSG_USER_SETTINGS:
+        // send user settings to wire slave
+        case MsgType::M_MSG_USER_SETTINGS:
         {
+        ////
         }
         break;
 
+        // send PID settings to wire slave
         case MsgType::M_MSG_PID_SETTINGS:
         {
+            I2C_m_PIDsettings p{};
+            p.gainAdjustSteps = gainAdjustSteps;
+            p.intTimeCstAdjustSteps = intTimeCstAdjustSteps;
+            p.difTimeCstAdjustSteps = difTimeCstAdjustSteps;
+            wire_master_interface.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+            Serial.println("PID controller adjust steps (sent):");
+            Serial.print("    gain          "); Serial.println(p.gainAdjustSteps);
+            Serial.print("    int. time cst "); Serial.println(p.intTimeCstAdjustSteps);
+            Serial.print("    dif. time cst "); Serial.println(p.difTimeCstAdjustSteps);
         }
         break;
 
 
+        // send globe vertical position setpoint to wire slave
         case MsgType::M_MSG_VERT_POS_SETPOINT:
         {
+        ////
         }
         break;
 
+        // send coil phase adjustment setting to wire slave
         case MsgType::M_MSG_COIL_PHASE_ADJUST:
         {
+        ////
         }
         break;
 
@@ -1400,19 +1297,19 @@ void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             wire_master_interface.enqueueTx(M_MSG_REQ_PID_SETTINGS, 0, nullptr, sizeof(I2C_s_PIDsettings));
         }
         break;
-    #endif
 
         case MsgType::M_MSG_REQ_VERT_POS_SETPOINT:
-        {
+        {   //// ??
             wire_master_interface.enqueueTx(M_MSG_REQ_VERT_POS_SETPOINT, 0, nullptr, S_MSG_VERT_POS_SETPOINT, sizeof(I2C_s_vertPosSetpoint));
         }
         break;
 
         case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
-        {
+        {   //// ??
             wire_master_interface.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, S_MSG_COIL_PHASE_ADJUST, sizeof(I2C_s_coilPhaseAdjust));
         }
         break;
+    #endif
 
     }
     msgTypeOut = MsgType::M_MSG_NONE;
@@ -1427,12 +1324,16 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     uint8_t plIn[Wire_master_interface::PAYLOAD_IN_MAX];
 
     bool msgAvailable = wire_master_interface.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn);
-    if (!msgAvailable) { return; }
+    if (!msgAvailable) {
+        nextMsgTypeOut = M_MSG_NONE;
+        return;
+    }
 
     switch (msgTypeIn) {
 
         case S_MSG_PING:
         {
+            nextMsgTypeOut = MsgType::M_MSG_NONE;
             Serial.println(F("ping received"));
         }
         break;
@@ -1441,10 +1342,13 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         {
             I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
             if (i2cPayloadSizeIn != sizeof(I2C_s_ack)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
+            // next requested message type - allowed message types:     
+            // M_MSG_SEND_STATS, M_MSG_RECEIVE_STATS, M_MSG_USER_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST
             nextMsgTypeOut = p->requestMasterMsgType;
         }
         break;
-    #if 0   
+
+        // receive user settings from wire slave
         case S_MSG_USER_SETTINGS: //// use of volatile vars: ok ????
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
@@ -1472,6 +1376,7 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         }
         break;
 
+        // receive PID settings from wire slave
         case S_MSG_PID_SETTINGS: //// use of volatile vars: ok ????
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
@@ -1484,14 +1389,14 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             Serial.print(", dif.cst "); Serial.println(p->difTimeCstAdjustSteps);
             break;      //// temp
 
-            // PID controller stores settings as positive values
-            gainAdjustSteps = (uint8_t)p->gainAdjustSteps + PIDsettingSteps / 2;                 // preset gain corresponds to gainAdjustSteps mid value (16)  
-            intTimeCstAdjustSteps = (uint8_t)p->intTimeCstAdjustSteps + PIDsettingSteps / 2;
-            difTimeCstAdjustSteps = (uint8_t)p->difTimeCstAdjustSteps + PIDsettingSteps / 2;
+            // setting steps: positive values (preset value = mid point) 
+            gainAdjustSteps = (uint8_t)p->gainAdjustSteps;                  // preset gain corresponds to gainAdjustSteps mid value   
+            intTimeCstAdjustSteps = (uint8_t)p->intTimeCstAdjustSteps;
+            difTimeCstAdjustSteps = (uint8_t)p->difTimeCstAdjustSteps;
 
-            if (gainAdjustSteps >= PIDsettingSteps) { gainAdjustSteps = PIDsettingSteps - 1; }
-            if (intTimeCstAdjustSteps >= PIDsettingSteps) { intTimeCstAdjustSteps = PIDsettingSteps - 1; }
-            if (difTimeCstAdjustSteps >= PIDsettingSteps) { difTimeCstAdjustSteps = PIDsettingSteps - 1; }
+            if (gainAdjustSteps >= settingSteps) { gainAdjustSteps = settingSteps - 1; }
+            if (intTimeCstAdjustSteps >= settingSteps) { intTimeCstAdjustSteps = settingSteps - 1; }
+            if (difTimeCstAdjustSteps >= settingSteps) { difTimeCstAdjustSteps = settingSteps - 1; }
 
             ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
             ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
@@ -1501,7 +1406,7 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         }
         break;
 
-    #endif
+        // receive globe vertical position setpoint from wire slave
         case S_MSG_VERT_POS_SETPOINT:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
@@ -1519,6 +1424,7 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         }
         break;
 
+        // receive coil phase adjustment setting from wire slave
         case  S_MSG_COIL_PHASE_ADJUST:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
@@ -1529,7 +1435,7 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             if (p->userSet_coilPhaseAdjust > 179) { p->userSet_coilPhaseAdjust = 179; }     // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
             paramNo = paramNo_phaseAdjust;
             paramValueOrIndex = p->userSet_coilPhaseAdjust;
-            saveAndUseParam; ////tijdelijk niet
+            saveAndUseParam;
 
 
         }
@@ -1542,7 +1448,6 @@ void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         break;
 
     }
-
 }
 
 
@@ -2078,16 +1983,16 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         }
 
         case 13: {
-            dtostrf(presetGain * analogGain / 10. + gainStepSize * (paramValueOrIndex - 16), 11, 4, s);         // 16: center point (preset)
+            dtostrf(presetGain * analogGain / 10. + gainStepSize * (paramValueOrIndex - centerPointStep), 11, 4, s);
             break;
         }
         case 14: {
-            dtostrf(presetIntTimeCst + intTimeCstStepSize * (paramValueOrIndex - 16), 7, 1, s);
+            dtostrf(presetIntTimeCst + intTimeCstStepSize * (paramValueOrIndex - centerPointStep), 7, 1, s);
             strcat(s, "s");
             break;
         }
         case 15: {
-            dtostrf((presetDifTimeCst + difTimeStepSize * (paramValueOrIndex - 16)) * 1000., 6, 3, s);
+            dtostrf((presetDifTimeCst + difTimeStepSize * (paramValueOrIndex - centerPointStep)) * 1000., 6, 3, s);
             strcat(s, milliSecSymbol);
             break;
         }
@@ -2324,9 +2229,9 @@ void setPIDcontroller()
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                             // interrupts off: interface with ISR and eeprom write
         // multiplication factors must be chosen in relation to order of magnitude of the presets
-        gain = presetGain + gainStepSize * (gainAdjustSteps - 16);                  // 16: center point (preset)
-        intTimeCst = presetIntTimeCst + intTimeCstStepSize * (intTimeCstAdjustSteps - 16);
-        difTimeCst = presetDifTimeCst + difTimeStepSize * (difTimeCstAdjustSteps - 16);
+        gain = presetGain + gainStepSize * (gainAdjustSteps - centerPointStep);
+        intTimeCst = presetIntTimeCst + intTimeCstStepSize * (intTimeCstAdjustSteps - centerPointStep);
+        difTimeCst = presetDifTimeCst + difTimeStepSize * (difTimeCstAdjustSteps - centerPointStep);
 
         TTTintTimeCst = (intTimeCst * (1 + difTimeCst / intTimeCst));               // TTT integrator time constant
         TTTdifTimeCst = (difTimeCst / (1 + difTimeCst / intTimeCst));               // TTT differentiator time constant
