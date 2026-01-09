@@ -4,7 +4,7 @@
 #include "arduino.h"
 #include <util/atomic.h>                                            // atomic operations
 
-class  Wire_master_interface {
+class  WireMaster {
 
 /* ================= CONSTANTS ================= */
 
@@ -17,7 +17,7 @@ private:
     static constexpr uint32_t I2C_CLOCK = 100000UL;                 // 100 or 400 kHz
 
     // Packet (message) sizing
-    static constexpr uint8_t HEADER_SIZE = 2;                       // message type and length
+    static constexpr uint8_t HEADER_SIZE = 3;                       // message type and length
 
     // Ring queue
     static constexpr uint8_t TX_QUEUE_SIZE = 4;                     // queue depths     
@@ -98,8 +98,11 @@ public:
     volatile I2C_MasterSendStats masterSendStats{};
     volatile I2C_masterReceiveStats masterReceiveStats{};
 
-    Wire_master_interface();
-    ~Wire_master_interface();
+    
+    /* ========== METHODS ========== */
+
+    WireMaster();
+    ~WireMaster();
 
     // safe to call from ISR
     // enqueue with expReplyPayloadSize = 0xff: no return message requested, = 0x00: requested, without payload
@@ -117,7 +120,7 @@ private:
     bool copyTXqueueTailToOut(uint8_t* const out, uint8_t &expReplyMsgType, uint8_t& expReplyMsgSize);
     bool i2cWriteMessage(const uint8_t* p);
     bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
-    Wire_master_interface::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
+    WireMaster::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
 };
 
 #endif

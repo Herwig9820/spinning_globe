@@ -74,15 +74,18 @@
     <ProjectCapability Include="VisualMicroLinux" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="messageHandling.cpp" />
     <ClCompile Include="spinning_globe.ino">
       <FileType>CppCode</FileType>
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
-    <ClCompile Include="wire_master_interface.cpp" />
+    <ClCompile Include="wireMaster.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="wire_common.h" />
-    <ClInclude Include="wire_master_interface.h" />
+    <ClInclude Include="floatingGlobeState.h" />
+    <ClInclude Include="messageHandling.h" />
+    <ClInclude Include="messages_common.h" />
+    <ClInclude Include="wireMaster.h" />
     <ClInclude Include="__vm\.spinning_globe.vsarduino.h" />
   </ItemGroup>
   <PropertyGroup>

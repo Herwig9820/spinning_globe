@@ -22,17 +22,15 @@
 
 */
 
-#include "wire_master_interface.h"
 #include <LiquidCrystal.h>                                  // LCD
 #include <util/atomic.h>                                    // atomic operations
 #include <avr/wdt.h>                                        // watchdog timer
 #include <limits.h>                                         // specific constants
-#include <Arduino.h>
-#include <stdlib.h>
-#include "wire_common.h"
+
+#include "floatingGlobeState.h"
+#include "messageHandling.h""
 
 #define boardVersion 101                                    // board version: 100 = hardware v1, 101 = v1 rev A and B
-#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
 #define test_showEventStats 0                               // only for testing (event message mechanism)
 
@@ -51,13 +49,6 @@ enum userCmds :int {
     uLedstripSettings = 200,                                                                                            // cmds with 2 parameters: 200-299
     uUnknownCmd = 999                                                                                                   // unknown command receives code 999
 };
-
-enum rotStatus :uint8_t { rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked };                         // rotNoPosSync: also if rotation OFF or not floating   
-enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMagnetLoad, errTemp };
-// eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
-enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
-enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
-enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
 
 // *** I/O ***
@@ -186,40 +177,13 @@ const char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
 const char str_eventMaxStats[] PROGMEM = "event max stats: events pending %d, mem size %d";
 #endif
 
+// *** strings ***
+
 const char* const paramLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
     str_vertPos, str_errSigVar, str_intTerm, str_avgPhase, str_isrTime, str_procLoad, str_gain, str_intTimeCst, str_difTimeCst, str_phaseAdj };
 
-
-// *** user selectable parameter values ***
-
-constexpr int paramNo_rotTimes{ 0 }, paramNo_hallmVoltRefs{ 7 };
-constexpr int paramNo_gainAdjust{ 13 }, paramNo_intTimeConstAdjust{ 14 }, paramNo_difTimeConstAdjust{ 15 }, paramNo_phaseAdjust{ 16 };      // order in sequence of parameters
-
-/*v1.0.1 high speed rotation times adapted or created new*/
-long rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };           // must be divisible by 12 (steps), 0 means OFF
-#if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
-long hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                               // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
-#else
-long hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                               // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
-#endif
-
-constexpr int paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
-    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };       // 0 if no value list for parameter
-constexpr long* paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-    hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };  // nullptr if no value list for parameter
-constexpr long parameterEditable{ 0b11110000010000001 };                                                // LSB: first parameter in list
-
-// initialize array with selected values
-int ParamsSelectedValuesOrIndexes[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };    // -1 if display only (no changeable parameter); otherwise default value - needed in case the eeprom is not used to store spinning globe presets 
-
 constexpr int paramCount = sizeof(paramLabels) / sizeof(paramLabels[0]);
 
-bool paramChangeMode{ false };
-long paramNo{ 0 };
-int paramValueOrIndex{ 0 };
-
-
-// *** strings ***
 
 constexpr char degreesSymbol[] = { ' ', 'C', 0 };                                   // character '°' not in LCD character set
 constexpr char milliSecSymbol[] = { 'm', 's', 0 };                                  // character 'µ' not in LCD character set: use 'u'
@@ -250,8 +214,6 @@ bool forceWriteLedstripSpecs{ false };
 uint8_t currentSwitchStates{};
 uint8_t ISRevent{ eNoEvent };                                                       // current ISR event retrieved for processing in main loop
 int userCommand{ uNoCmd }, commandParam1, commandParam2;
-float idleLoopMicrosSmooth{ 0 }, magnetOnCyclesSmooth{ 0 }, ISRdurationSmooth{ 0 }; // values smoothed by first order filter
-float errSignalMagnitudeSmooth{ 0 };
 
 // interface between ISR and main
 volatile bool resetHWwatchDog{ false };                                             // periodic reset of hardware watchdog (disabling magnets)
@@ -290,9 +252,6 @@ constexpr float presetDifTimeCst{ 0.023 };                                      
 constexpr long initialTTTintTerm{ 800 };                                            // PID: initial value integrator term (for easier globe handling) --> depends on gain !
 #endif
 
-constexpr uint8_t settingSteps{ 32 };                                             // must be even; from -steps/2 to steps/2 - 1  
-constexpr uint8_t centerPointStep = settingSteps / 2;
-
 // step sizes for user adjustments
 // !!! connection to Arduino cloud via dedicated MCU, communicating via I2C:
 // !!! step size that can be stored in float variables without rounding (1/2, 1/4, 1/8)
@@ -310,29 +269,36 @@ constexpr int TTTdifFactor_BinaryFractionDigits{ 3 };                           
 constexpr long ADCsteps{ 1024L };                                                   // globe vertical position sensor: resolution (10 bit ADC)
 constexpr uint16_t printPIDperiod{ 20000 }, PIDstepTime{ 1000 };                    // for step response measurement
 
-// interface between ISR and main
-volatile uint8_t gainAdjustSteps{ 0 };                                                  // as stored in eeprom
-volatile uint8_t intTimeCstAdjustSteps{ 0 };
-volatile uint8_t difTimeCstAdjustSteps{ 0 };
-
-volatile float gain{ };
-volatile float intTimeCst{  };
-volatile float difTimeCst{  };
-
-volatile long TTTgain{};                                                            // true three term controller
-volatile long TTTintFactor{};
-volatile long TTTdifFactor{};
-volatile float TTTintTimeCst{};                                                     // TTT integrator time constant
-volatile float TTTdifTimeCst{};                                                     // TTT differentiator time constant
-
-volatile long maxTTTallTerms{};
-
 
 volatile long targetHallRef_ADCsteps{};                                             // globe vertical position ref (controller reference input) to reach after changing ref, in ADC steps 
 volatile long hallRef_ADCsteps{};                                                   // current globe vertical position ref (controller reference input) in ADC steps 
 volatile uint32_t firstFullAccIntTerm{};                                            // for printing step response (allows PC simulations)
 volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };                        // for step response measurement; printPIDperiod + 1 : 'printing stopped'   
 volatile bool applyStep{ false };                                                   // apply step when measuring (step) response
+
+
+
+
+
+
+
+int paramsSelectedValuesOrIndexes[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };    // -1 if display only (no changeable parameter); otherwise default value - needed in case the eeprom is not used to store spinning globe presets 
+
+
+ParamSettings paramSettings;
+SmoothedMeasurements smoothedMeasurements{};
+PIDsettings pidSettings{};
+
+// retain values from event message buffer
+StatusData statusData;
+GreenwichData greenwichData;
+SecondData secondData;
+
+// pointers into event message buffer
+FastRateData* fastRateDataPtr;
+LedstripData* ledstripDataPtr;
+StepResponseData* stepResponseDataPtr;
+
 
 
 // *** globe rotation controller ***
@@ -397,9 +363,6 @@ volatile long stepTimeNewRotation{ targetStepTime };
 
 // *** led strip dimming ***
 
-constexpr uint8_t LSbrightnessItemCount{ 3 };                                       // max no of brightness values available for color led dimming 
-constexpr uint8_t LSminBrightnessLevel{ 0x00 };                                     // min: 0 (LS off) 
-constexpr uint8_t LSmaxBrightnessLevel{ 0xff };                                     // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
 
 // interface between ISR and main
 volatile bool LSlongTimeUnit{ false };                                              // 128 ms instead of 1 ms
@@ -438,55 +401,6 @@ volatile uint8_t LSminReached, LSmaxReached;
 // *** for testing purposes ***
 
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
-
-
-// *** communication between ISR and main ***
-
-struct GreenwichData {                                                              // initialize members, awaiting first event
-    long eventMilliSecond{ 0 }, eventSecond{ 0 };
-    long globeRotationTime{ 0 };
-    long rotationOutOfSyncTime{ 0 };
-    long greenwichLag{ 0 };                                                         // versus (steady) magnetic field rotation (coils), when globe rotation is locked to it
-    long lockedRotations{ 0 };
-};
-
-struct StatusData {                                                                 // initialize members, awaiting first event
-    long eventMilliSecond{ 0 }, eventSecond{ 0 };
-    uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
-    bool isGreenwich{ false };
-    bool isFloating{ false };
-};
-
-struct SecondData {                                                                 // initialize members, awaiting first event
-    long eventSecond{ 0 };
-    long liftingSecond{ 0 }, lockedSecond{ 0 };
-    long realTTTintTerm{ 0 };
-};
-
-struct FastRateData {
-    long sumIdleLoopMicros;
-    long sumISRdurations;
-    long sumMagnetOnCycles;
-    long sumADCtemp;
-    long sumErrSignalMagnitude;
-};
-
-struct LedstripData {
-    uint8_t LSupdate, LSmaxReached, LSminReached;
-    uint8_t LScolor[LSbrightnessItemCount];
-};
-
-struct StepResponseData {
-    uint16_t count, hallReading_ADCsteps, TTTcontrOut;
-};
-
-struct EventStats {
-    uint8_t* activeMsgPtr{ nullptr };
-    uint8_t activeEventType{ eNoEvent };
-    uint8_t eventsPending{ 0 }, largestEventsPending{ 0 };                          // No of ISR events currently logged for processing in main loop 
-    unsigned int eventBufferBytesUsed{ 0 }, largestEventBufferBytesUsed{ 0 };       // No of ISR events logged for processing in main loop: all-time max
-    long eventsMissed{ 0 };                                                         // keeps track of events missed (not used at this stage)
-};
 
 
 // *** class: millis and micros function based on timer1 and own time counting logic (millis and micros < one second, count seconds) ***
@@ -671,46 +585,9 @@ MyEvents myEvents;
 
 EventStats eventSnapshot;
 
-// retain values from event message buffer
-StatusData statusData;
-GreenwichData greenwichData;
-SecondData secondData;
-
-// pointers into event message buffer
-FastRateData* fastRateDataPtr;
-LedstripData* ledstripDataPtr;
-StepResponseData* stepResponseDataPtr;
-
-Wire_master_interface::WireStatus wireStatus{};
-Wire_master_interface wire_master_interface;
-
-// *** forward declarations ***
-
-void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
-void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
-void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
-void processEvent(uint8_t& msgTypeOut);                                            // process one event, if available
-void enqueueI2CmessageToSlave(uint8_t& msgTypeOut);
-void dequeueI2CmessageFromSlave(uint8_t& msgTypeOut);
-void getWireStats();
-void processCommand();                                          // process one user command, if available
-void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
-void writeStatus();                                             // print on event or on command
-void writeParamLabelAndValue();                                 // print on event or on command
+MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, paramSettings);
 
 
-void writeLedStrip();                                           // apply gamma correction and write led strip
-void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
-void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);      // write one led strip led
-void idleLoop();
-
-void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
-void readKey(char* keyAscii);                                   // from Serial interface and on board keys
-void saveAndUseParam();
-void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex);
-void setPIDcontroller();
-void setRotationTime(int paramValueOrIndex);
-void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
 
 
 
@@ -768,13 +645,15 @@ void setup()
     uint8_t eepromValue{ 0 };
     uint8_t ledstripCycle{}, ledstripTiming{};
 
+    paramSettings.pParamsSelectedValuesOrIndexes = paramsSelectedValuesOrIndexes;
+
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
 
-    // read rotation time from eeprom and set
+        // read rotation time from eeprom and set
         eepromValue = eeprom_read_byte((uint8_t*)0);                                        // restore globe rotation time from eeprom
         cnt = paramValueCounts[paramNo_rotTimes];                                           // No of defined rotation times 
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-        ParamsSelectedValuesOrIndexes[paramNo_rotTimes] = eepromValue;
+        paramsSelectedValuesOrIndexes[paramNo_rotTimes] = eepromValue;
         setRotationTime(eepromValue);                                                 // set rotation time and store in eeprom
 
 
@@ -782,7 +661,7 @@ void setup()
         eepromValue = eeprom_read_byte((uint8_t*)1);
         cnt = paramValueCounts[paramNo_hallmVoltRefs];                                      // No of defined hall setpoints in millivolt
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-        ParamsSelectedValuesOrIndexes[paramNo_hallmVoltRefs] = eepromValue;
+        paramsSelectedValuesOrIndexes[paramNo_hallmVoltRefs] = eepromValue;
         long hallmVoltRef = hallMilliVolts[eepromValue];                                    // globe vertical position ref in mVolt (after analog amplification)
         targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                         // globe vertical position ref in ADC steps
         hallRef_ADCsteps = targetHallRef_ADCsteps;
@@ -790,16 +669,16 @@ void setup()
         // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
         // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
-        gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value   
-        ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
+        pidSettings.gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                           // preset gain corresponds to gainAdjustSteps mid value   
+        paramsSelectedValuesOrIndexes[paramNo_gainAdjust] = pidSettings.gainAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)5);
-        intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
-        ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
+        pidSettings.intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
+        paramsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = pidSettings.intTimeCstAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)6);
-        difTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value 
-        ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
+        pidSettings.difTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;                     // preset time constant corresponds to difTimeCstAdjustSteps mid value 
+        paramsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = pidSettings.difTimeCstAdjustSteps;
 
         setPIDcontroller();
 
@@ -807,7 +686,7 @@ void setup()
         // NEW version 1.0.3: read phase adjustment for coils rotation start delay (non-locked rotation) from eeprom and store in memory     
         eepromValue = eeprom_read_byte((uint8_t*)7);
         phaseAdjustSteps = (eepromValue >= 179) ? 179 : eepromValue;                        // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
-        ParamsSelectedValuesOrIndexes[paramNo_phaseAdjust] = phaseAdjustSteps;
+        paramsSelectedValuesOrIndexes[paramNo_phaseAdjust] = phaseAdjustSteps;
 
 
         // read led strip cycle & timing from eeprom and set 
@@ -838,8 +717,8 @@ void setup()
     }
 
     // initial setting to display: rotation time, except if currently in program mode
-    paramNo = switchesSetHallmVoltRef ? paramNo_hallmVoltRefs : paramNo_rotTimes;
-    paramValueOrIndex = ParamsSelectedValuesOrIndexes[paramNo];
+    paramSettings.paramNo = switchesSetHallmVoltRef ? paramNo_hallmVoltRefs : paramNo_rotTimes;
+    paramSettings.paramValueOrIndex = paramSettings.pParamsSelectedValuesOrIndexes[paramSettings.paramNo];
 
 
     // *** do a first temp reading here and assign it to temperature filter output, to avoid slow temperature ramp up ***
@@ -904,9 +783,9 @@ void loop()
         processEvent(nextMsgTypeOut);                                         // process event, if available
     }
 
-    enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
-    wireStatus = wire_master_interface.sendAndReceiveMessage();         // return master or slave message in error
-    dequeueI2CmessageFromSlave(slaveRequestMsgTypeOut);                           // if incoming i2c message available, dequeue
+    messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
+    uint8_t messageStatus = messageHandling.transmit();         // return master or slave message in error
+    messageHandling.dequeueI2CmessageFromSlave(slaveRequestMsgTypeOut);                           // if incoming i2c message available, dequeue
 
 
 ////getWireStats();
@@ -1103,7 +982,7 @@ void processEvent(uint8_t& msgTypeOut) {
 
     switch (ISRevent) {
         case eStatusChange:
-            if (!statusData.isFloating) { errSignalMagnitudeSmooth = 0.f; }                   // globe currently not floating ? reset smoothed error value immediately
+            if (!statusData.isFloating) { smoothedMeasurements.errSignalMagnitudeSmooth = 0.f; }                   // globe currently not floating ? reset smoothed error value immediately
             msgTypeOut = MsgType::M_MSG_STATUS;
             break;
 
@@ -1117,10 +996,10 @@ void processEvent(uint8_t& msgTypeOut) {
 
             // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fastDataRateSamplingPeriods to smoothing filters
             // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
-            idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - ISRdurationSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - magnetOnCyclesSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
+            smoothedMeasurements.idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - smoothedMeasurements.idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - smoothedMeasurements.ISRdurationSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - smoothedMeasurements.magnetOnCyclesSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - smoothedMeasurements.errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
 
             // feed temp. sensor reading to smoothing filter
             // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
@@ -1149,11 +1028,11 @@ void processEvent(uint8_t& msgTypeOut) {
             msgTypeOut = MsgType::M_MSG_SECOND;
             /*
             uint8_t clockDividerBitMask = 0b0000;       // example: 0b0011 divides frequency by 4
-            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
+            if (!(_secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
             */
 
             /*
-            if (secondData.eventSecond == 3) {
+            if (_secondData.eventSecond == 3) {
                 cli();                                                                      // interrupts off: interface with ISR and eeprom write
                 eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
                 sei();
@@ -1171,311 +1050,6 @@ void processEvent(uint8_t& msgTypeOut) {
 }
 
 #if WITH_WIRE_COMM
-// ========== send data to Wire slave ==========
-
-void enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
-
-    static long sequence{ 0 };////
-
-    if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
-
-    switch (msgTypeOut) {
-
-        // ========== message type requesting a PING back from slave ==========
-
-        case MsgType::M_MSG_PING:
-        {
-            wire_master_interface.enqueueTx(M_MSG_PING, 0, nullptr, S_MSG_PING, 0);         // no payload
-            Serial.println(F("ping sent"));
-        }
-        break;
-
-
-        // ========== message types SENDING DATA to slave after an event ==========
-
-        case  MsgType::M_MSG_SECOND:
-        {
-            I2C_m_secondCue p{};
-            p.tempSmooth = sequence++;; ////tempSmooth;                                  // raw input for wire slave
-            p.magnetOnCyclesSmooth = magnetOnCyclesSmooth;
-            p.ISRdurationSmooth = ISRdurationSmooth;
-            p.idleLoopMicrosSmooth = idleLoopMicrosSmooth;
-            p.errSignalMagnitudeSmooth = errSignalMagnitudeSmooth;
-            wire_master_interface.enqueueTx(M_MSG_SECOND, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        case  MsgType::M_MSG_GREENWICH:
-        {
-            I2C_m_greenwich p{};
-            p.actualRotationTime = greenwichData.globeRotationTime;
-            p.rotationOutOfSyncTime = greenwichData.rotationOutOfSyncTime;
-            p.greenwichLag = greenwichData.greenwichLag;
-            wire_master_interface.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        case MsgType::M_MSG_STATUS:
-        {
-            I2C_m_status p{};
-            p.status = (int8_t)((statusData.errorCondition == errNoError) ? statusData.rotationStatus : (statusData.errorCondition | 0x10));
-            wire_master_interface.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-    #if 1
-
-            // ========== message types SENDING DATA to slave when requested ==========
-
-        // send master send stats to wire slave
-        case MsgType::M_MSG_SEND_STATS:
-        {
-            I2C_m_sendStats p{};
-            wire_master_interface.getSendStats(p.sendStats);
-            wire_master_interface.enqueueTx(M_MSG_SEND_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        // send master receive stats to wire slave
-        case MsgType::M_MSG_RECEIVE_STATS:
-        {
-            I2C_m_receiveStats p{};
-            wire_master_interface.getReceiveStats(p.receiveStats);
-            wire_master_interface.enqueueTx(M_MSG_RECEIVE_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-
-        // send user settings to wire slave
-        case MsgType::M_MSG_USER_SETTINGS:
-        {
-        ////
-        }
-        break;
-
-        // send PID settings to wire slave
-        case MsgType::M_MSG_PID_SETTINGS:
-        {
-            I2C_m_PIDsettings p{};
-            p.gainAdjustSteps = gainAdjustSteps;
-            p.intTimeCstAdjustSteps = intTimeCstAdjustSteps;
-            p.difTimeCstAdjustSteps = difTimeCstAdjustSteps;
-            wire_master_interface.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-            Serial.println("PID controller adjust steps (sent):");
-            Serial.print("    gain          "); Serial.println(p.gainAdjustSteps);
-            Serial.print("    int. time cst "); Serial.println(p.intTimeCstAdjustSteps);
-            Serial.print("    dif. time cst "); Serial.println(p.difTimeCstAdjustSteps);
-        }
-        break;
-
-
-        // send globe vertical position setpoint to wire slave
-        case MsgType::M_MSG_VERT_POS_SETPOINT:
-        {
-        ////
-        }
-        break;
-
-        // send coil phase adjustment setting to wire slave
-        case MsgType::M_MSG_COIL_PHASE_ADJUST:
-        {
-        ////
-        }
-        break;
-
-
-        // ========== message types REQUESTING DATA from slave ==========
-
-        case MsgType::M_MSG_REQ_USER_SETTINGS:
-        {
-            wire_master_interface.enqueueTx(M_MSG_REQ_USER_SETTINGS, 0, nullptr, sizeof(I2C_s_userSettings));
-        }
-        break;
-
-        case MsgType::M_MSG_REQ_PID_SETTINGS:
-        {
-            wire_master_interface.enqueueTx(M_MSG_REQ_PID_SETTINGS, 0, nullptr, sizeof(I2C_s_PIDsettings));
-        }
-        break;
-
-        case MsgType::M_MSG_REQ_VERT_POS_SETPOINT:
-        {   //// ??
-            wire_master_interface.enqueueTx(M_MSG_REQ_VERT_POS_SETPOINT, 0, nullptr, S_MSG_VERT_POS_SETPOINT, sizeof(I2C_s_vertPosSetpoint));
-        }
-        break;
-
-        case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
-        {   //// ??
-            wire_master_interface.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, S_MSG_COIL_PHASE_ADJUST, sizeof(I2C_s_coilPhaseAdjust));
-        }
-        break;
-    #endif
-
-    }
-    msgTypeOut = MsgType::M_MSG_NONE;
-}
-
-// ========== process Wire slave reply ==========
-
-void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
-    //// na een delay ? (slave tijd geven om data te prepareren)
-    uint8_t msgTypeIn{ MsgType::M_MSG_NONE };              // message type received from slave
-    uint8_t i2cPayloadSizeIn{ 0 };              // payload size as reported by slave
-    uint8_t plIn[Wire_master_interface::PAYLOAD_IN_MAX];
-
-    bool msgAvailable = wire_master_interface.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn);
-    if (!msgAvailable) {
-        nextMsgTypeOut = M_MSG_NONE;
-        return;
-    }
-
-    switch (msgTypeIn) {
-
-        case S_MSG_PING:
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-            Serial.println(F("ping received"));
-        }
-        break;
-
-        case S_MSG_ACK:
-        {
-            I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
-            if (i2cPayloadSizeIn != sizeof(I2C_s_ack)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-            // next requested message type - allowed message types:     
-            // M_MSG_SEND_STATS, M_MSG_RECEIVE_STATS, M_MSG_USER_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST
-            nextMsgTypeOut = p->requestMasterMsgType;
-        }
-        break;
-
-        // receive user settings from wire slave
-        case S_MSG_USER_SETTINGS: //// use of volatile vars: ok ????
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            I2C_s_userSettings* p = reinterpret_cast<I2C_s_userSettings*>(plIn);
-            if (i2cPayloadSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-
-            Serial.print("rot. time idx "); Serial.print(p->userSet_rotationPeriod);
-            Serial.print(", leds "); Serial.print(p->userSet_ledEffect);
-            Serial.print(", "); Serial.println(p->userSet_ledCycleSpeed);
-            break;      //// temp
-
-            // rotation period
-            int cnt = paramValueCounts[paramNo_rotTimes];
-            if ((p->userSet_rotationPeriod >= 0) && (p->userSet_rotationPeriod < cnt)) {
-                paramNo = paramNo_rotTimes;
-                paramValueOrIndex = p->userSet_rotationPeriod;
-                saveAndUseParam();
-            }
-
-            // digital LED settings
-            bool valid = ((p->userSet_ledEffect >= cLedstripOff) && (p->userSet_ledEffect <= cRedGreenBlue)
-                && (p->userSet_ledCycleSpeed >= cLedstripVeryFast) && (p->userSet_ledCycleSpeed <= cLedStripVerySlow));
-            if (valid) { setColorCycle(p->userSet_ledEffect, p->userSet_ledCycleSpeed); }
-        }
-        break;
-
-        // receive PID settings from wire slave
-        case S_MSG_PID_SETTINGS: //// use of volatile vars: ok ????
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            I2C_s_PIDsettings* p = reinterpret_cast<I2C_s_PIDsettings*>(plIn);
-            if (i2cPayloadSizeIn != sizeof(I2C_s_userSettings)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-
-            Serial.print("PID gain "); Serial.print(p->gainAdjustSteps);
-            Serial.print(", int.cst "); Serial.print(p->intTimeCstAdjustSteps);
-            Serial.print(", dif.cst "); Serial.println(p->difTimeCstAdjustSteps);
-            break;      //// temp
-
-            // setting steps: positive values (preset value = mid point) 
-            gainAdjustSteps = (uint8_t)p->gainAdjustSteps;                  // preset gain corresponds to gainAdjustSteps mid value   
-            intTimeCstAdjustSteps = (uint8_t)p->intTimeCstAdjustSteps;
-            difTimeCstAdjustSteps = (uint8_t)p->difTimeCstAdjustSteps;
-
-            if (gainAdjustSteps >= settingSteps) { gainAdjustSteps = settingSteps - 1; }
-            if (intTimeCstAdjustSteps >= settingSteps) { intTimeCstAdjustSteps = settingSteps - 1; }
-            if (difTimeCstAdjustSteps >= settingSteps) { difTimeCstAdjustSteps = settingSteps - 1; }
-
-            ParamsSelectedValuesOrIndexes[paramNo_gainAdjust] = gainAdjustSteps;
-            ParamsSelectedValuesOrIndexes[paramNo_intTimeConstAdjust] = intTimeCstAdjustSteps;
-            ParamsSelectedValuesOrIndexes[paramNo_difTimeConstAdjust] = difTimeCstAdjustSteps;
-
-            saveAndUseParam();  //// alle 3 de waarden updated ? of slechts één ? ik vrees het
-        }
-        break;
-
-        // receive globe vertical position setpoint from wire slave
-        case S_MSG_VERT_POS_SETPOINT:
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            I2C_s_vertPosSetpoint* p = reinterpret_cast<I2C_s_vertPosSetpoint*>(plIn);
-            if (i2cPayloadSizeIn != sizeof(I2C_s_vertPosSetpoint)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-
-            // if not valid, ignore
-            int cnt = paramValueCounts[paramNo_hallmVoltRefs];
-            if ((p->userSet_vertPosIndex >= 0) && (p->userSet_vertPosIndex < cnt)) {
-                paramNo = paramNo_hallmVoltRefs;
-                paramValueOrIndex = p->userSet_vertPosIndex;
-                saveAndUseParam();
-            }
-        }
-        break;
-
-        // receive coil phase adjustment setting from wire slave
-        case  S_MSG_COIL_PHASE_ADJUST:
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            I2C_s_coilPhaseAdjust* p = reinterpret_cast<I2C_s_coilPhaseAdjust*>(plIn);
-            if (i2cPayloadSizeIn != sizeof(I2C_s_coilPhaseAdjust)) { break; }               // inconsistency between master and slave: forget message //// reeds gecheckt in lib ?
-
-            if (p->userSet_coilPhaseAdjust > 179) { p->userSet_coilPhaseAdjust = 179; }     // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
-            paramNo = paramNo_phaseAdjust;
-            paramValueOrIndex = p->userSet_coilPhaseAdjust;
-            saveAndUseParam;
-
-
-        }
-        break;
-
-        default:
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-        }
-        break;
-
-    }
-}
-
-
-void getWireStats() {               //// wanneer ?
-
-    if (ISRevent == eSecond) {
-        static uint32_t lastTime{ 0 };
-        if (lastTime + 10UL < secondData.eventSecond) {
-            lastTime = secondData.eventSecond;
-            Wire_master_interface::I2C_MasterSendStats sendStats; Wire_master_interface::I2C_masterReceiveStats receiveStats;
-            wire_master_interface.getSendStats(sendStats);
-            wire_master_interface.getReceiveStats(receiveStats);
-
-        /*
-            Serial.println(F("======== STATS ========"));
-            Serial.print(F("sent       ")); Serial.println(masterSendStats.I_stats_sent);
-            Serial.print(F("tx_retry   ")); Serial.println(masterSendStats.W_stats_tx_retrying);
-            Serial.print(F("tx_xmitErr ")); Serial.println(masterSendStats.E_stats_tx_wireXmitError);
-            Serial.print(F("tx_full    ")); Serial.println(masterSendStats.E_stats_tx_full);
-            Serial.print(F("received   ")); Serial.println(masterReceiveStats.I_stats_received);
-            Serial.print(F("rx_ch.sum  ")); Serial.println(masterReceiveStats.E_stats_rx_checksum);
-            Serial.print(F("rx_timeout ")); Serial.println(masterReceiveStats.E_stats_rx_timeOut);
-            Serial.print(F("rx_full    ")); Serial.println(masterReceiveStats.E_stats_rx_full);
-            Serial.println();
-        */
-        }
-    }
-}
 #endif
 
 
@@ -1507,7 +1081,7 @@ void processCommand() {
                 case paramNo_intTimeConstAdjust: paramValueOrIndex = intTimeCstAdjustSteps; break;
                 case paramNo_difTimeConstAdjust: paramValueOrIndex = difTimeCstAdjustSteps; break;
                 case paramNo_phaseAdjust: paramValueOrIndex = phaseAdjustSteps; break;
-                default: paramValueOrIndex = ParamsSelectedValuesOrIndexes[paramNo]; break;
+                default: paramValueOrIndex = paramsSelectedValuesOrIndexes[paramNo]; break;
             }
             break;
 
@@ -1583,7 +1157,7 @@ void processCommand() {
                     case paramNo_intTimeConstAdjust: intTimeCstAdjustSteps = paramValueOrIndex; break;
                     case paramNo_difTimeConstAdjust: difTimeCstAdjustSteps = paramValueOrIndex; break;
                     case paramNo_phaseAdjust:        phaseAdjustSteps = paramValueOrIndex; break;
-                    default:                         ParamsSelectedValuesOrIndexes[paramNo] = paramValueOrIndex; break;
+                    default:                         paramsSelectedValuesOrIndexes[paramNo] = paramValueOrIndex; break;
                 }
                 doSaveParams = true;
             }
@@ -1596,7 +1170,7 @@ void processCommand() {
                 case paramNo_intTimeConstAdjust: intTimeCstAdjustSteps = paramValueOrIndex; break;
                 case paramNo_difTimeConstAdjust: difTimeCstAdjustSteps = paramValueOrIndex; break;
                 case paramNo_phaseAdjust:        phaseAdjustSteps = paramValueOrIndex; break;
-                default:                         ParamsSelectedValuesOrIndexes[paramNo] = paramValueOrIndex; break;
+                default:                         paramsSelectedValuesOrIndexes[paramNo] = paramValueOrIndex; break;
             }
             paramChangeMode = false;
             doSaveParams = true;
@@ -1608,7 +1182,7 @@ void processCommand() {
                 case paramNo_intTimeConstAdjust: paramValueOrIndex = intTimeCstAdjustSteps; break;
                 case paramNo_difTimeConstAdjust: paramValueOrIndex = difTimeCstAdjustSteps; break;
                 case paramNo_phaseAdjust: paramValueOrIndex = phaseAdjustSteps; break;
-                default: paramValueOrIndex = ParamsSelectedValuesOrIndexes[paramNo]; break;
+                default: paramValueOrIndex = paramsSelectedValuesOrIndexes[paramNo]; break;
             }
             paramChangeMode = false;
             break;
@@ -1743,7 +1317,7 @@ void writeStatus() {
 
     if (userCommand == uShowAll) {                                                          // Print all parameters to Serial
         for (long paramNo = 0; paramNo < paramCount; paramNo++) {
-            int paramValueOrIndex = ParamsSelectedValuesOrIndexes[paramNo];
+            int paramValueOrIndex = paramsSelectedValuesOrIndexes[paramNo];
             strcpy_P(s150, (char*)pgm_read_word(&(paramLabels[paramNo])));                  // parameter label
             fetchParameterValue(s30, paramNo, paramValueOrIndex);
             strcat(s150, s30);
@@ -1895,7 +1469,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         case 1: {                                               // actual rotation time
             strcpy(s, " --.--s");
             if (statusData.rotationStatus >= rotUnlocked) {     // from latest status change event before write
-                dtostrf(((float)greenwichData.globeRotationTime) / 1000., 6, 2, s);
+                dtostrf(((float)_greenwichData.globeRotationTime) / 1000., 6, 2, s);
                 strcat(s, "s");
             }
             break;
@@ -1904,7 +1478,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         case 2: {                                               // sync error
             strcpy(s, "  -.--s");
             if (statusData.rotationStatus == rotLocked) {       // from latest status change event before write
-                dtostrf(((float)greenwichData.rotationOutOfSyncTime) / 1000., 6, 2, s);
+                dtostrf(((float)_greenwichData.rotationOutOfSyncTime) / 1000., 6, 2, s);
                 strcat(s, "s");
             }
             break;
@@ -1961,7 +1535,7 @@ void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex) {
         case 10: {                                               // average phase measured while locked
             strcpy(s, "  ---deg");
             if (statusData.rotationStatus == rotLocked) {
-                int angle = (greenwichData.greenwichLag * 360) / targetGlobeRotationTime;
+                int angle = (_greenwichData.greenwichLag * 360) / targetGlobeRotationTime;
                 sprintf(s, "%+5ddeg", angle);                   // lag (>180 degrees: lead)
             }
             break;
@@ -2183,26 +1757,26 @@ void readKey(char* keyAscii) {                                  // from Serial i
 
 void saveAndUseParam()
 {
-    ParamsSelectedValuesOrIndexes[paramNo] = paramValueOrIndex;
+    paramsSelectedValuesOrIndexes[paramSettings.paramNo] = paramSettings.paramValueOrIndex;
     // only items that can be changed need to have an entry here 
     int byteNumber{ 4 };
 
-    switch (paramNo) {
+    switch (paramSettings.paramNo) {
         case paramNo_rotTimes: {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                     // interrupts off: interface with ISR and eeprom write
-                setRotationTime(paramValueOrIndex);
+                setRotationTime(paramSettings.paramValueOrIndex);
                 forceStatusEvent = true;                                            // 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
-                eeprom_update_byte((uint8_t*)0, (uint8_t)paramValueOrIndex);        // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+                eeprom_update_byte((uint8_t*)0, (uint8_t)paramSettings.paramValueOrIndex);        // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
             break;
         }
 
         case paramNo_hallmVoltRefs: {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                     // interrupts off: interface with ISR and eeprom write
-                long hallmVoltRef = *(paramValueSets[paramNo] + paramValueOrIndex); // globe vertical position ref in mVolt read by Arduino ADC
+                long hallmVoltRef = *(paramValueSets[paramSettings.paramNo] + paramSettings.paramValueOrIndex); // globe vertical position ref in mVolt read by Arduino ADC
                 targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;
                 forceStatusEvent = true;                                            // will force rewriting serial and LCD
-                eeprom_update_byte((uint8_t*)1, (uint8_t)paramValueOrIndex);        // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+                eeprom_update_byte((uint8_t*)1, (uint8_t)paramSettings.paramValueOrIndex);        // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
             break;
         }
@@ -2215,7 +1789,7 @@ void saveAndUseParam()
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                     // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
                 forceStatusEvent = true;                                            // will force rewriting serial and LCD
-                eeprom_update_byte((uint8_t*)byteNumber, (uint8_t)paramValueOrIndex);    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+                eeprom_update_byte((uint8_t*)byteNumber, (uint8_t)paramSettings.paramValueOrIndex);    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
             break;
         }
@@ -2229,18 +1803,18 @@ void setPIDcontroller()
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                             // interrupts off: interface with ISR and eeprom write
         // multiplication factors must be chosen in relation to order of magnitude of the presets
-        gain = presetGain + gainStepSize * (gainAdjustSteps - centerPointStep);
-        intTimeCst = presetIntTimeCst + intTimeCstStepSize * (intTimeCstAdjustSteps - centerPointStep);
-        difTimeCst = presetDifTimeCst + difTimeStepSize * (difTimeCstAdjustSteps - centerPointStep);
+        pidSettings.gain = presetGain + gainStepSize * (pidSettings.gainAdjustSteps - centerPointStep);
+        pidSettings.intTimeCst = presetIntTimeCst + intTimeCstStepSize * (pidSettings.intTimeCstAdjustSteps - centerPointStep);
+        pidSettings.difTimeCst = presetDifTimeCst + difTimeStepSize * (pidSettings.difTimeCstAdjustSteps - centerPointStep);
 
-        TTTintTimeCst = (intTimeCst * (1 + difTimeCst / intTimeCst));               // TTT integrator time constant
-        TTTdifTimeCst = (difTimeCst / (1 + difTimeCst / intTimeCst));               // TTT differentiator time constant
+        pidSettings.TTTintTimeCst = (pidSettings.intTimeCst * (1 + pidSettings.difTimeCst / pidSettings.intTimeCst));               // TTT integrator time constant
+        pidSettings.TTTdifTimeCst = (pidSettings.difTimeCst / (1 + pidSettings.difTimeCst / pidSettings.intTimeCst));               // TTT differentiator time constant
 
-        TTTgain = (long)(gain * (1. + difTimeCst / intTimeCst) * (1L << gain_BinaryFractionDigits));     // TTT gain
-        TTTintFactor = (long)(samplingPeriod / TTTintTimeCst * (1L << TTTintFactor_BinaryFractionDigits));
-        TTTdifFactor = (long)(TTTdifTimeCst / samplingPeriod * (1L << TTTdifFactor_BinaryFractionDigits));
+        pidSettings.TTTgain = (long)(pidSettings.gain * (1. + pidSettings.difTimeCst / pidSettings.intTimeCst) * (1L << gain_BinaryFractionDigits));     // TTT gain
+        pidSettings.TTTintFactor = (long)(samplingPeriod / pidSettings.TTTintTimeCst * (1L << TTTintFactor_BinaryFractionDigits));
+        pidSettings.TTTdifFactor = (long)(pidSettings.TTTdifTimeCst / samplingPeriod * (1L << TTTdifFactor_BinaryFractionDigits));
 
-        maxTTTallTerms = LONG_MAX / 2 / TTTgain;                                     // for check to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
+        pidSettings.maxTTTallTerms = LONG_MAX / 2 / pidSettings.TTTgain;                                     // for check to prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
     }
 }
 
@@ -2586,21 +2160,21 @@ SIGNAL(ADC_vect) {
         errorSignalPrev = errorSignal;                                                                          // remember previous value of error signal 
         errorSignal = -((hallRef_ADCsteps - hallReading_ADCsteps) << PIDcalculation_BinaryFractionDigits);      // new error signal in ADC steps
 
-        TTTintTerm = TTTintTerm + ((TTTintFactor * errorSignal) >> TTTintFactor_BinaryFractionDigits);          // integrator term
+        TTTintTerm = TTTintTerm + ((pidSettings.TTTintFactor * errorSignal) >> TTTintFactor_BinaryFractionDigits);          // integrator term
         TTTintTerm = max(TTTintTerm, 0L);                                                                       // limit values: positive
         TTTintTerm = min(TTTintTerm, maxTTTintTerm << PIDcalculation_BinaryFractionDigits);                     // (disturbance = weight of object always acts in same direction = downwards)
 
-        TTTdifTerm = (TTTdifFactor * (errorSignal - errorSignalPrev)) >> TTTdifFactor_BinaryFractionDigits;     // differentiator term
+        TTTdifTerm = (pidSettings.TTTdifFactor * (errorSignal - errorSignalPrev)) >> TTTdifFactor_BinaryFractionDigits;     // differentiator term
 
         // controller output becomes magnet duty cycle (0 = magnet completely OFF)
         long TTTallTerms = errorSignal + TTTintTerm + TTTdifTerm;                                               // after multiplying with TTTgain, result can be > LONG_MAX: 
 
-        if (abs(TTTallTerms) > maxTTTallTerms) {                                                                // prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
+        if (abs(TTTallTerms) > pidSettings.maxTTTallTerms) {                                                                // prevent overflow after multiplication (factor 1/2: keep 1 extra bit for safety)
             TTTallTerms = TTTallTerms >> PIDcalc_preliminaryDivisionDigits;                                     // get rid of accuracy in two steps 
-            TTTcontrOut = (int)((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));      // TTT controller output
+            TTTcontrOut = (int)((pidSettings.TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits - PIDcalc_preliminaryDivisionDigits));      // TTT controller output
         }
         else {
-            TTTcontrOut = (int)((TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
+            TTTcontrOut = (int)((pidSettings.TTTgain * TTTallTerms) >> (gain_BinaryFractionDigits + PIDcalculation_BinaryFractionDigits));  // TTT controller output
         }
         TTTcontrOut = max(TTTcontrOut, minMagnetOnCycles);                                                      // limit duty cycle to values within 0 - 100% 
         TTTcontrOut = min(TTTcontrOut, maxMagnetOnCycles);

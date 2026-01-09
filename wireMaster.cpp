@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include "wire_master_interface.h"
+#include "wireMaster.h"
 
 /*
     --- SPSC queues ---
@@ -30,12 +30,12 @@
 #define acquire_barrier() asm volatile ("" ::: "memory")
 
 
-Wire_master_interface::Wire_master_interface() {
+WireMaster::WireMaster() {
     Wire.begin(); // join I2C bus (address optional for master)
     Wire.setClock(I2C_CLOCK);
 }
 
-Wire_master_interface::~Wire_master_interface() {
+WireMaster::~WireMaster() {
 }
 
 
@@ -43,7 +43,7 @@ Wire_master_interface::~Wire_master_interface() {
 
 //  enqueueTx: safe from ISR. Returns true if enqueued, false if queue full.
 
-bool Wire_master_interface::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadType, uint8_t expReplyPayloadSize) {
+bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyPayloadType, uint8_t expReplyPayloadSize) {
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) {                                           // queue full ?
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterSendStats.E_stats_tx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
@@ -76,7 +76,7 @@ bool Wire_master_interface::enqueueTx(uint8_t msgType, uint8_t payloadSize, cons
 
 //  dequeueRx: safe from ISR. Returns true if enqueued, false if queue empty.
 
-bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
+bool WireMaster::dequeueRx(uint8_t& type, uint8_t& payloadSize, void* payload) {
     
     // 8-bit index: atomic access by nature
     if (rxHead == rxTail) { return false; }                         // rx queue empty ?
@@ -105,7 +105,7 @@ bool Wire_master_interface::dequeueRx(uint8_t& type, uint8_t& payloadSize, void*
 
 // must be frequently called from within main loop 
 
-Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage() {
+WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
     static uint8_t expReplyMsgType, expReplyMsgSize{};
 
@@ -263,13 +263,13 @@ Wire_master_interface::WireStatus Wire_master_interface::sendAndReceiveMessage()
 
 // ========== GET master send and receive stats ==========
 
-void Wire_master_interface::getSendStats(I2C_MasterSendStats& sendStatSnapshot) {
+void WireMaster::getSendStats(I2C_MasterSendStats& sendStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         sendStatSnapshot = const_cast<const I2C_MasterSendStats&>(masterSendStats);
     }
 }
 
-void Wire_master_interface::getReceiveStats(I2C_masterReceiveStats& receiveStatSnapshot) {
+void WireMaster::getReceiveStats(I2C_masterReceiveStats& receiveStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         receiveStatSnapshot = const_cast<const I2C_masterReceiveStats&>(masterReceiveStats);
     }
@@ -278,7 +278,7 @@ void Wire_master_interface::getReceiveStats(I2C_masterReceiveStats& receiveStatS
 
 // ================= HELPERS: SEND TX QUEUE TAIL  =================
 
-bool Wire_master_interface::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize) {
+bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize) {
     uint8_t head, tail;
     head = txHead;
     tail = txTail;
@@ -303,7 +303,7 @@ bool Wire_master_interface::copyTXqueueTailToOut(uint8_t* const out, uint8_t& ex
 }
 
 
-bool Wire_master_interface::i2cWriteMessage(const uint8_t* out) {
+bool WireMaster::i2cWriteMessage(const uint8_t* out) {
 
     uint8_t msgLength = HEADER_SIZE + out[1] + 1;                   // message ID, payload length, checksum
     bool ok{ false };
@@ -319,7 +319,7 @@ bool Wire_master_interface::i2cWriteMessage(const uint8_t* out) {
 
 // ========== HELPERS: RECEIVE RX QUEUE HEAD ===========
 
-bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
+bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
     // if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
 
     const uint32_t timeoutValue = 100 + 150 * expReplyMsgSize;     // microseconds; allowed timeout depends on message size  //// check constant and first degree term
@@ -345,7 +345,7 @@ bool Wire_master_interface::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType,
 }
 
 
-Wire_master_interface::WireStatus Wire_master_interface::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
+WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
     // compute next head index in standard SPSC ring-buffer
     uint8_t head = rxHead;
     uint8_t next = (head + 1) % RX_QUEUE_SIZE;

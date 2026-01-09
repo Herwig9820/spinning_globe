@@ -1,0 +1,171 @@
+#ifndef _FLOATINGGLOBESTATE_h
+#define _FLOATINGGLOBESTATE_h
+
+#include <Arduino.h>
+#include <stdlib.h>
+
+#define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
+
+enum rotStatus :uint8_t { rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked };                         // rotNoPosSync: also if rotation OFF or not floating   
+enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMagnetLoad, errTemp };
+// eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
+enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
+enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
+enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
+
+constexpr uint8_t settingSteps{ 32 };                                             // must be even; from -steps/2 to steps/2 - 1  
+constexpr uint8_t centerPointStep = settingSteps / 2;
+
+
+// *** user selectable parameter values ***
+
+constexpr int paramNo_rotTimes{ 0 }, paramNo_hallmVoltRefs{ 7 };
+constexpr int paramNo_gainAdjust{ 13 }, paramNo_intTimeConstAdjust{ 14 }, paramNo_difTimeConstAdjust{ 15 }, paramNo_phaseAdjust{ 16 };      // order in sequence of parameters
+
+constexpr uint8_t LSbrightnessItemCount{ 3 };                                       // max no of brightness values available for color led dimming 
+constexpr uint8_t LSminBrightnessLevel{ 0x00 };                                     // min: 0 (LS off) 
+constexpr uint8_t LSmaxBrightnessLevel{ 0xff };                                     // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
+
+
+
+
+/*v1.0.1 high speed rotation times adapted or created new*/
+constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };           // must be divisible by 12 (steps), 0 means OFF
+#if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
+constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                               // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
+#else
+constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                               // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
+#endif
+
+constexpr int const paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
+    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };       // 0 if no value list for parameter
+constexpr long const parameterEditable{ 0b11110000010000001 };                                                // LSB: first parameter in list
+
+
+const long* const paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+    hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };  // nullptr if no value list for parameter
+
+
+
+
+
+
+
+
+
+
+// *** communication between (1) ISR and main, and (2) between main and message handling ***
+
+struct GreenwichData {                                                              // initialize members, awaiting first event
+    long eventMilliSecond{ 0 }, eventSecond{ 0 };
+    long globeRotationTime{ 0 };
+    long rotationOutOfSyncTime{ 0 };
+    long greenwichLag{ 0 };                                                         // versus (steady) magnetic field rotation (coils), when globe rotation is locked to it
+    long lockedRotations{ 0 };
+};
+
+struct StatusData {                                                                 // initialize members, awaiting first event
+    long eventMilliSecond{ 0 }, eventSecond{ 0 };
+    uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
+    bool isGreenwich{ false };
+    bool isFloating{ false };
+};
+
+struct SecondData {                                                                 // initialize members, awaiting first event
+    long eventSecond{ 0 };
+    long liftingSecond{ 0 }, lockedSecond{ 0 };
+    long realTTTintTerm{ 0 };
+};
+
+struct FastRateData {
+    long sumIdleLoopMicros{ 0 };
+    long sumISRdurations{ 0 };
+    long sumMagnetOnCycles{ 0 };
+    long sumADCtemp{ 0 };
+    long sumErrSignalMagnitude{ 0 };
+};
+
+struct LedstripData {
+    uint8_t LSupdate, LSmaxReached, LSminReached;
+    uint8_t LScolor[LSbrightnessItemCount];
+};
+
+struct StepResponseData {
+    uint16_t count, hallReading_ADCsteps, TTTcontrOut;
+};
+
+struct EventStats {
+    uint8_t* activeMsgPtr{ nullptr };
+    uint8_t activeEventType{ eNoEvent };
+    uint8_t eventsPending{ 0 }, largestEventsPending{ 0 };                          // No of ISR events currently logged for processing in main loop 
+    unsigned int eventBufferBytesUsed{ 0 }, largestEventBufferBytesUsed{ 0 };       // No of ISR events logged for processing in main loop: all-time max
+    long eventsMissed{ 0 };                                                         // keeps track of events missed (not used at this stage)
+};
+
+struct PIDsettings {
+    // User‑adjustable parameters (from EEPROM or UI)
+    uint8_t gainAdjustSteps = 0;
+    uint8_t intTimeCstAdjustSteps = 0;
+    uint8_t difTimeCstAdjustSteps = 0;
+
+    // Derived PID parameters
+    float gain = 0;
+    float intTimeCst = 0;
+    float difTimeCst = 0;
+
+    float TTTintTimeCst = 0;
+    float TTTdifTimeCst = 0;
+
+    // True Three‑Term controller factors
+    long TTTgain = 0;
+    long TTTintFactor = 0;
+    long TTTdifFactor = 0;
+
+    long maxTTTallTerms = 0;
+};
+
+struct ParamSettings {
+    int* pParamsSelectedValuesOrIndexes{};    // pointer initialized during setup
+    bool paramChangeMode{ false };
+    long paramNo{ 0 };
+    int paramValueOrIndex{ 0 };
+};
+
+struct SmoothedMeasurements {
+    float tempSmooth{ 0 };
+    float idleLoopMicrosSmooth{ 0 };
+    float magnetOnCyclesSmooth{ 0 };
+    float ISRdurationSmooth{ 0 };           // values smoothed by first order filter
+    float errSignalMagnitudeSmooth{ 0 };
+};
+
+
+// *** forward declarations ***
+
+void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
+void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
+void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
+void processEvent(uint8_t& msgTypeOut);                                            // process one event, if available
+void processCommand();                                          // process one user command, if available
+void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
+void writeStatus();                                             // print on event or on command
+void writeParamLabelAndValue();                                 // print on event or on command
+
+
+void writeLedStrip();                                           // apply gamma correction and write led strip
+void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
+void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);      // write one led strip led
+void idleLoop();
+
+void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
+void readKey(char* keyAscii);                                   // from Serial interface and on board keys
+void saveAndUseParam();
+void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex);
+void setPIDcontroller();
+void setRotationTime(int paramValueOrIndex);
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
+
+
+
+#endif
+

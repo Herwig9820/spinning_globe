@@ -1,10 +1,15 @@
+
+/* ========== PROTOCOL CONTRACT ========== */
+/* ========== THIS IS A COMMON HEADER BETWEEN WIRE MASTER AND WIRE SLAVE ========== */
+
 #ifndef _WIRE_COMMON_h
 #define _WIRE_COMMON_h
+
+#include "wireMaster.h"
 
 #define IS_WIRE_MASTER 1     // wire master 
 
 
-/* ========== THIS SECTION IS COMMON BETWEEN WIRE MASTER AND WIRE SLAVE ========== */
 
 /*
 *   spinning globe WiFi / MQTT extension with Arduino nano esp32
@@ -119,11 +124,11 @@ using I2C_m_vertPosSetpoint = I2C_vertPosSetpoint;
 
 #if IS_WIRE_MASTER
 struct __attribute__((packed)) I2C_m_sendStats {               // '_m_': message from >m<aster to slave
-    Wire_master_interface::I2C_MasterSendStats sendStats;
+    WireMaster::I2C_MasterSendStats sendStats;
 };
 
 struct __attribute__((packed)) I2C_m_receiveStats {              // '_m_': message from >m<aster to slave
-    Wire_master_interface::I2C_masterReceiveStats receiveStats;
+    WireMaster::I2C_masterReceiveStats receiveStats;
 };
 
 #else
