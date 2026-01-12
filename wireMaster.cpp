@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include "roles/wireMaster.h"
+#include "wireMaster.h"
 
 /*
     --- SPSC queues ---
