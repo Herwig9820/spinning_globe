@@ -17,7 +17,7 @@ private:
     static constexpr uint32_t I2C_CLOCK = 100000UL;                 // 100 or 400 kHz
 
     // Packet (message) sizing
-    static constexpr uint8_t HEADER_SIZE = 3;                       // message type and length
+    static constexpr uint8_t HEADER_SIZE = 2;                       // message type and length
 
     // Ring queue
     static constexpr uint8_t TX_QUEUE_SIZE = 4;                     // queue depths     
@@ -36,11 +36,12 @@ private:
 /* ================= TX: RING BUFFER, RX: RING BUFFER ================= */
 
 private:
+    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
     volatile uint8_t txExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index
     volatile uint8_t txExpReplyMsgSize[TX_QUEUE_SIZE];              // paired with txQueue slot index
 
     volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_IN_MAX + 1];  // message type + payload size + payload + checksum
-    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
+    volatile uint8_t rxExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index
 
     // producer owned (SPSC)
     volatile uint8_t rxHead = 0;                                    // next free slot (main or ISR will write here)
@@ -74,10 +75,11 @@ public:
         I_idle,
         I_waitForCue,                                               // counting time until next cue
         I_xmitOK,                                                   // sent/receive went OK
-        E_tx_WireXmitError,
+        E_tx_wireXmitError,
         E_rx_checksum,
         E_rx_timeOut,
         E_rx_full
+        //// nog ???
     };
 
     // keep track of master send & receive stats
@@ -88,7 +90,7 @@ public:
         uint32_t E_stats_tx_full = 0;                          // errors: counts
     };
 
-    struct I2C_masterReceiveStats {
+    struct I2C_MasterReceiveStats {
         uint32_t I_stats_received = 0;
         uint32_t E_stats_rx_checksum = 0;
         uint32_t E_stats_rx_timeOut = 0;
@@ -96,7 +98,7 @@ public:
     };
 
     volatile I2C_MasterSendStats masterSendStats{};
-    volatile I2C_masterReceiveStats masterReceiveStats{};
+    volatile I2C_MasterReceiveStats masterReceiveStats{};
 
     
     /* ========== METHODS ========== */
@@ -113,7 +115,7 @@ public:
     WireStatus sendAndReceiveMessage();
 
     void getSendStats(I2C_MasterSendStats& sendStatSnapshot);
-    void getReceiveStats(I2C_masterReceiveStats& receiveStatSnapshot);
+    void getReceiveStats(I2C_MasterReceiveStats& receiveStatSnapshot);
 
 private:
     // helpers: called from sendAndReceiveMessage()

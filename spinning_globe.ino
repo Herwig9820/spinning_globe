@@ -1,3 +1,4 @@
+#define ROLE_MASTER
 /*
     Name:       spinning_globe.ino
     Created:    10/08/2019 - 11/02/2025
@@ -22,19 +23,18 @@
 
 */
 
+
 #include <LiquidCrystal.h>                                  // LCD
 #include <util/atomic.h>                                    // atomic operations
 #include <avr/wdt.h>                                        // watchdog timer
 #include <limits.h>                                         // specific constants
 
 #include "floatingGlobeState.h"
-#include "messageHandling.h""
+#include "messageHandling.h"
 
 #define boardVersion 101                                    // board version: 100 = hardware v1, 101 = v1 rev A and B
 
 #define test_showEventStats 0                               // only for testing (event message mechanism)
-
-#define IS_WIRE_MASTER 1
 
 // testing
 #define WITH_WIRE_COMM 1
@@ -785,6 +785,7 @@ void loop()
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
     uint8_t messageStatus = messageHandling.transmit();         // return master or slave message in error
+    //// wat te doen met return value message status (hierboven) ?
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestMsgTypeOut);                           // if incoming i2c message available, dequeue
 
 

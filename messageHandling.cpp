@@ -1,5 +1,5 @@
-#include "messageHandling.h"
 #include "floatingGlobeState.h"
+#include "messageHandling.h"
 
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
     SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, ParamSettings& paramSettings) :
@@ -73,8 +73,8 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         // send master send stats to wire slave
         case MsgType::M_MSG_SEND_STATS:
         {
-            I2C_m_sendStats p{};
-            wireMaster.getSendStats(p.sendStats);
+            I2C_m_masterSendStats p{};
+            wireMaster.getSendStats(p);
             wireMaster.enqueueTx(M_MSG_SEND_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -82,8 +82,8 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         // send master receive stats to wire slave
         case MsgType::M_MSG_RECEIVE_STATS:
         {
-            I2C_m_receiveStats p{};
-            wireMaster.getReceiveStats(p.receiveStats);
+            I2C_m_masterReceiveStats p{};
+            wireMaster.getReceiveStats(p);
             wireMaster.enqueueTx(M_MSG_RECEIVE_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -299,7 +299,7 @@ void MessageHandling::getWireStats() {
     static uint32_t lastTime{ 0 };
     if (lastTime + 10UL < _secondData.eventSecond) {
         lastTime = _secondData.eventSecond;
-        WireMaster::I2C_MasterSendStats sendStats; WireMaster::I2C_masterReceiveStats receiveStats;
+        WireMaster::I2C_MasterSendStats sendStats; WireMaster::I2C_MasterReceiveStats receiveStats;
         wireMaster.getSendStats(sendStats);
         wireMaster.getReceiveStats(receiveStats);
 

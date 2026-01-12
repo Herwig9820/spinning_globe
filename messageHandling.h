@@ -1,9 +1,10 @@
 #ifndef _MESSAGEHANDLING_h
 #define _MESSAGEHANDLING_h
 
-#include "messages_common.h"
-#include "wireMaster.h"
 #include "floatingGlobeState.h"
+#include "messages_common.h"
+
+#include "roles/wireMaster.h"               // or master slave 
 
 class MessageHandling {
 
@@ -17,6 +18,10 @@ class MessageHandling {
 
     WireMaster wireMaster;
 
+    using I2C_m_masterSendStats = WireMaster::I2C_MasterSendStats;
+    using I2C_m_masterReceiveStats = WireMaster::I2C_MasterReceiveStats;
+
+        
     /* ========== METHODS ========== */
 
 public:

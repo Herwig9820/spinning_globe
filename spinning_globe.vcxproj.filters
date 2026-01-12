@@ -4,10 +4,10 @@
     <ClCompile Include="messageHandling.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="spinning_globe.ino" />
     <ClCompile Include="wireMaster.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="spinning_globe.ino" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.spinning_globe.vsarduino.h">
@@ -16,14 +16,14 @@
     <ClInclude Include="messageHandling.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="messages_common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="wireMaster.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="floatingGlobeState.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="roles\wireMaster.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\libraries\spinning_globe_shared\messages_common.h">
+      <Filter>messages common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -32,6 +32,9 @@
     </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{8435493e-02ce-4a4b-aa76-0175567de358}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="messages common">
+      <UniqueIdentifier>{c76ef846-220e-49f8-bd35-f1b4d9d3dea2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

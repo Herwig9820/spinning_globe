@@ -1,5 +1,5 @@
 #include <Wire.h>
-#include "wireMaster.h"
+#include "roles/wireMaster.h"
 
 /*
     --- SPSC queues ---
@@ -149,7 +149,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
             if (++sendRetryCount < MAX_RETRIES_PER_PACKET) {          // max. retries was reached before ?
                 // stay in SEND state: max. tries not yet attempted
                 ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterSendStats.W_stats_tx_retrying++; } // warning only: count retries
-                return WireStatus::E_tx_WireXmitError;
+                return WireStatus::E_tx_wireXmitError;
             }
 
             state = MasterState::MS_IDLE;                    // go back to IDLE
@@ -159,7 +159,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
                 txTail = (txTail + 1) % TX_QUEUE_SIZE;              // advance tx tail (even with 8-bit length, operation  is not atomic)
                 masterSendStats.E_stats_tx_wireXmitError++;               // after max retries: error
             }
-            return WireStatus::E_tx_WireXmitError;
+            return WireStatus::E_tx_wireXmitError;
         }
 
 
@@ -265,13 +265,15 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
 void WireMaster::getSendStats(I2C_MasterSendStats& sendStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        // constant cast needed because it removes 'volatile' implicitly (can not assign volatile to non-volatile)
         sendStatSnapshot = const_cast<const I2C_MasterSendStats&>(masterSendStats);
     }
 }
 
-void WireMaster::getReceiveStats(I2C_masterReceiveStats& receiveStatSnapshot) {
+void WireMaster::getReceiveStats(I2C_MasterReceiveStats& receiveStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        receiveStatSnapshot = const_cast<const I2C_masterReceiveStats&>(masterReceiveStats);
+        // constant cast needed because it removes 'volatile' implicitly (can not assign volatile to non-volatile)
+        receiveStatSnapshot = const_cast<const I2C_MasterReceiveStats&>(masterReceiveStats);
     }
 }
 
