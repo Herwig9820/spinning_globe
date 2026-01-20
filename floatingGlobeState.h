@@ -1,3 +1,48 @@
+/*
+==================================================================================================
+Floating and spinning earth globe
+---------------------------------
+Copyright 2019, 2026 Herwig Taveirne
+
+Program written and tested for classic (8-bit) Arduino Nano.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of this project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+---------------------------------------------------------------------------------------------------
+An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+over WiFi, e.g. using MQTT.
+
+Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
+...will be inoperable (switches are still functioning). USB terminal is not used except for a welcome message.
+
+===============================================================================================
+*/
+
+
+/*
+===============================================================================
+Spinning globe declarations shared with messageHandling library 
+===============================================================================
+*/
+
 #ifndef _FLOATINGGLOBESTATE_h
 #define _FLOATINGGLOBESTATE_h
 
@@ -6,55 +51,57 @@
 
 #define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
-enum rotStatus :uint8_t { rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked };                         // rotNoPosSync: also if rotation OFF or not floating   
+enum rotStatus :uint8_t { rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked };              // rotNoPosSync: also if rotation OFF or not floating   
 enum errStatus :uint8_t { errNoError = 0, errDroppedGlobe, errStickyGlobe, errMagnetLoad, errTemp };
 // eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
 enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
-constexpr uint8_t settingSteps{ 32 };                                             // must be even; from -steps/2 to steps/2 - 1  
+constexpr uint8_t settingSteps{ 32 };                       // must be even; from -steps/2 to steps/2 - 1  
 constexpr uint8_t centerPointStep = settingSteps / 2;
 
 
-// *** user selectable parameter values ***
+// ========== indexes in globe attributes list: attributes with user selectable values ==========
 
-constexpr int paramNo_rotTimes{ 0 }, paramNo_hallmVoltRefs{ 7 };
-constexpr int paramNo_gainAdjust{ 13 }, paramNo_intTimeConstAdjust{ 14 }, paramNo_difTimeConstAdjust{ 15 }, paramNo_phaseAdjust{ 16 };      // order in sequence of parameters
+constexpr int attributeIndex_rotTimes{ 0 };
+constexpr int attributeIndex_hallmVoltRefs{ 7 };
+constexpr int attributeIndex_gainAdjust{ 13 };
+constexpr int  attributeIndex_intTimeConstAdjust{ 14 };
+constexpr int  attributeIndex_difTimeConstAdjust{ 15 };
+constexpr int  attributeIndex_coilPhaseAdjust{ 16 };
 
-constexpr uint8_t LSbrightnessItemCount{ 3 };                                       // max no of brightness values available for color led dimming 
-constexpr uint8_t LSminBrightnessLevel{ 0x00 };                                     // min: 0 (LS off) 
-constexpr uint8_t LSmaxBrightnessLevel{ 0xff };                                     // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
-
+constexpr uint8_t LSbrightnessItemCount{ 3 };               // max no of brightness values available for color led dimming 
+constexpr uint8_t LSminBrightnessLevel{ 0x00 };             // min: 0 (LS off) 
+constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
 
 
 
 /*v1.0.1 high speed rotation times adapted or created new*/
-constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };           // must be divisible by 12 (steps), 0 means OFF
-#if highAnalogGain                                                                      // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
-constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                               // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
+constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };   // must be divisible by 12 (steps), 0 means OFF
+#if highAnalogGain                                                                              // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
+constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #else
-constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                               // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
+constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                       // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
 #endif
 
-constexpr int const paramValueCounts[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
-    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };       // 0 if no value list for parameter
-constexpr long const parameterEditable{ 0b11110000010000001 };                                                // LSB: first parameter in list
+
+// globe attributes: a list of basic settings (e.g.: set rotation time) and calculated values (e.g.: current rotation time)
+// array 'globeAttributes_label' contains the corresponding labels 
+
+// globe attributes: '1': editable setting / '0': calculated value
+constexpr long const globeAttributes_editable{ 0b11110000010000001 };                           // LSB: first globe selectedAttribute in list
+
+// globe attributes: lengths of individual value lists (0 if no value list (value range) or not a setting
+constexpr int const globeAttributes_valueListLength[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
+    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };               // 0 if no value list for selectedAttribute
+
+// globe selectedAttribute: pointers to value lists for individual attributes
+const long* const globeAttributes_valueList[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+    hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };  // nullptr if no value list for globe selectedAttribute
 
 
-const long* const paramValueSets[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
-    hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };  // nullptr if no value list for parameter
-
-
-
-
-
-
-
-
-
-
-// *** communication between (1) ISR and main, and (2) between main and message handling ***
+// ========== communication between (1) ISR and main, and (2) between main and message handling ==========
 
 struct GreenwichData {                                                              // initialize members, awaiting first event
     long eventMilliSecond{ 0 }, eventSecond{ 0 };
@@ -86,7 +133,7 @@ struct FastRateData {
 };
 
 struct LedstripData {
-    uint8_t LSupdate, LSmaxReached, LSminReached;
+    uint8_t LSupdate, LSmaxReached, LSminReached;                                   // operational data
     uint8_t LScolor[LSbrightnessItemCount];
 };
 
@@ -94,12 +141,17 @@ struct StepResponseData {
     uint16_t count, hallReading_ADCsteps, TTTcontrOut;
 };
 
-struct EventStats {
+struct EventData {
     uint8_t* activeMsgPtr{ nullptr };
     uint8_t activeEventType{ eNoEvent };
     uint8_t eventsPending{ 0 }, largestEventsPending{ 0 };                          // No of ISR events currently logged for processing in main loop 
     unsigned int eventBufferBytesUsed{ 0 }, largestEventBufferBytesUsed{ 0 };       // No of ISR events logged for processing in main loop: all-time max
-    long eventsMissed{ 0 };                                                         // keeps track of events missed (not used at this stage)
+    uint32_t eventsMissed{ 0 };                                                     // keeps track of events missed (not used at this stage)
+};
+
+struct LedStripSettings {
+    volatile uint8_t ledEffect;                                                     // led strip settings
+    volatile uint8_t ledCycleSpeed;
 };
 
 struct PIDsettings {
@@ -124,23 +176,22 @@ struct PIDsettings {
     long maxTTTallTerms = 0;
 };
 
-struct ParamSettings {
-    int* pParamsSelectedValuesOrIndexes{};    // pointer initialized during setup
-    bool paramChangeMode{ false };
-    long paramNo{ 0 };
-    int paramValueOrIndex{ 0 };
+struct GlobeAttribute {
+    bool attributeChangeMode{ false };
+    long attributeIndex{ 0 };                                   // index of a particular selectedAttribute
+    int attributeValue{ 0 };                                    // value of that same selectedAttribute
 };
 
 struct SmoothedMeasurements {
     float tempSmooth{ 0 };
     float idleLoopMicrosSmooth{ 0 };
     float magnetOnCyclesSmooth{ 0 };
-    float ISRdurationSmooth{ 0 };           // values smoothed by first order filter
+    float ISRdurationSmooth{ 0 };                               // values smoothed by first order filter
     float errSignalMagnitudeSmooth{ 0 };
 };
 
 
-// *** forward declarations ***
+// ========== forward declarations ==========
 
 void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
@@ -149,7 +200,7 @@ void processEvent(uint8_t& msgTypeOut);                                         
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
 void writeStatus();                                             // print on event or on command
-void writeParamLabelAndValue();                                 // print on event or on command
+void writeAttributeLabelAndValue();                             // print on event or on command
 
 
 void writeLedStrip();                                           // apply gamma correction and write led strip
@@ -159,10 +210,10 @@ void idleLoop();
 
 void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
 void readKey(char* keyAscii);                                   // from Serial interface and on board keys
-void saveAndUseParam();
-void fetchParameterValue(char* s, long paramNo, int paramValueOrIndex);
+void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue);
+void fetchAttributeValue(char* s, long attributeIndex, int attributeValue);
 void setPIDcontroller();
-void setRotationTime(int paramValueOrIndex);
+void setRotationTime(int attributeValue);
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
 
 
