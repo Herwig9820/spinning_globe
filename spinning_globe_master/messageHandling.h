@@ -47,13 +47,12 @@ Wire master: message handling layer
 #define _MESSAGEHANDLING_h
 
 #include "floatingGlobeState.h"
-#include "messages_common.h"
-
-#include "roles/wireMaster.h"               // or master slave 
+#include "messages_common.h"                      
+#include "wireMaster.h"             // or master slave 
 
 class MessageHandling {
 
-    I2C_messageStats _msgStats{};                       // message level stats
+    I2C_messageStats _msgStats{};   // message level stats
 
     GreenwichData& _greenwichData;
     StatusData& _statusData;

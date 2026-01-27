@@ -740,7 +740,7 @@ void setup()
         checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
 
         /* not used but could be used for a 3-second cue
-        eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                    // flag that reset took place
+        eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
         */
     }
 
@@ -801,36 +801,36 @@ void loop()
 {
 #if WITH_WIRE_COMM
 
-    static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };       // master message type requested by slave
+    static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
     static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
 
     if (slaveRequestNextMsgTypeOut != M_MSG_NONE) {
         nextMsgTypeOut = slaveRequestNextMsgTypeOut;
     }
     else {
-        getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
-        nextMsgTypeOut = processEvent();                                         // process event, if available
+        getEventOrUserCommand();                                        // get ONE event or assembled user command, exit anyway if none available
+        nextMsgTypeOut = processEvent();                                // process event, if available
     }
 
-    messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);                                // if outgoing i2c message available, enqueue
-    uint8_t messageStatus = messageHandling.transmit();         // return master or slave message in error
+    messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
+    uint8_t messageStatus = messageHandling.transmit();         // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
-    checkSwitches();                                        // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
+    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #else
-    getEventOrUserCommand();                                // get ONE event or assembled user command, exit anyway if none available
+    getEventOrUserCommand();                        // get ONE event or assembled user command, exit anyway if none available
     processEvent();
-    processCommand();                                       // process command, if available
-    checkSwitches();                                        // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
-    writeStatus();                                          // print status to Serial and LCD (if connected)
-    writeAttributeLabelAndValue();                              // print selectedAttribute label and value to Serial and LCD (if connected)
+    processCommand();                               // process command, if available
+    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
+    writeStatus();                                  // print status to Serial and LCD (if connected)
+    writeAttributeLabelAndValue();                      // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
 
-    writeLedStrip();                                        // write led strip on event      
-    globeEvents.removeOldestChunk(ISRevent != eNoEvent);       // has an event been processed now ? remove from message queue
+    writeLedStrip();                                // write led strip on event      
+    globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 
-    wdt_reset();                                            // reset watchdog timer
-    resetHWwatchDog = true;                                 // allow ISR to set ISR-IN-EXEC signal high then low (set low again in ISR). Tmax around 400mS                                                  
-    idleLoop();                                             // only for idle time measuring. Results in slight jitter on start of ISR (+/- 10 micros)
+    wdt_reset();                                    // reset watchdog timer
+    resetHWwatchDog = true;                         // allow ISR to set ISR-IN-EXEC signal high then low (set low again in ISR). Tmax around 400mS                                                  
+    idleLoop();                                     // only for idle time measuring. Results in slight jitter on start of ISR (+/- 10 micros)
 }
 
 
@@ -859,8 +859,8 @@ void getISRevent() {
     // select an ISR event (greenwich, status change, second cue, blink, fast rate data events, ...) for processing
     // note that pressing and releasing HW buttons results in updating a character buffer, NOT in setting an event
 
-    globeEvents.takeSnapshot(&globeEventSnapshot);                            // current event status (active event data & statistics)
-    ISRevent = globeEventSnapshot.activeEventType;                               // event type to process now (oldest), if any
+    globeEvents.takeSnapshot(&globeEventSnapshot);                          // current event status (active event data & statistics)
+    ISRevent = globeEventSnapshot.activeEventType;                          // event type to process now (oldest), if any
 
     if (ISRevent == eNoEvent) {                                             // do nothing 
     }
