@@ -206,17 +206,17 @@ Protocol-level determinism
 ===============================================================================
 */
 
-#ifndef _WIRE_COMMON_h
-#define _WIRE_COMMON_h
+#ifndef _WIRE_MESSAGES_COMMON_h
+#define _WIRE_MESSAGES_COMMON_h
 
-
+#include <stdint.h>    
 /*
 ===============================================================================
 Declarations common to the wire master (classic nano) and wire slave (nano ESP32)
 ============================================================================== =
 */
 
-enum MsgType : uint8_t {
+enum MsgType: uint8_t {
     // ========== 0x00-0x1F RESERVED for CONTROL SIGNALS between master and slave libraries ==========
 
 

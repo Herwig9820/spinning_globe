@@ -1,9 +1,16 @@
 #ifndef _SECRETS_h
 #define _SECRETS_h
 
-// SSID and password
-    #define SERVER_SSID "Mathurot"
-    #define SERVER_PASS "ikbennietgeborenop9augustus"
+    // WiFi: SSID and password
+    #define WIFI_SSID "Mathurot"
+    #define WIFI_PASS "ikbennietgeborenop9augustus"
+
+    // MQTT
+    #define MQTT_SERVER "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"
+    #define MQTT_PORT 8883
+    #define MQTT_USER "spinning_globe"
+    #define MQTT_PASS "*8*twtttj^AG@R79"
+
 
 /*
     AANPASSEN in deze secrets.h file : WiFi SSID en paswoord voor MERELBEKE

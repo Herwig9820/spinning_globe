@@ -16,23 +16,41 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="spinning_globe_slave.ino" />
-    <ClCompile Include="messageHandling.h">
+    <ClCompile Include="debug.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="json_helpers.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="messages_common.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MQTT_messages.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MQTT_messages.h">
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave.cpp">
+    <ClCompile Include="sharedData.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="wireSlave_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave.h">
+    <ClCompile Include="wireSlave_messages.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="wireSlave_transport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="wireSlave_transport.h">
       <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\spinning_globe_shared\messages_common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="__vm\.spinning_globe_slave.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
