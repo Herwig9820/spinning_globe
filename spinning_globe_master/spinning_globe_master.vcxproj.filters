@@ -36,5 +36,8 @@
     <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\spinning_globe_shared\messages_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
