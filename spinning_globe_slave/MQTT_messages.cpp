@@ -19,10 +19,7 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext):_client(_espClient), _s
 
     _instance = this;
 
-    WiFiClientSecure espClient;
-    PubSubClient client(espClient);
-
-    espClient.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
+    _espClient.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
     _client.setServer(MQTT_SERVER, MQTT_PORT);
     _client.setCallback(mqttCallback);
     reconnectMQTT();
@@ -30,6 +27,8 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext):_client(_espClient), _s
 
 void MQTTmessages::loop(){
     if(!_client.connected()){reconnectMQTT(); }
+
+    
     _client.loop();
 }
 
@@ -69,7 +68,7 @@ void MQTTmessages::reconnectMQTT() {
             Serial.println("connected.");
             // Subscribe or publish here if needed
             _client.subscribe("globe/led");
-
+            
         }
         else {
             Serial.print("failed, rc=");

@@ -1,4 +1,3 @@
-//#include "shared.h"
 #include "secrets.h"
 
 // wire slave 
@@ -11,10 +10,11 @@
 // debugging 
 #include "debug.h"
 
-
 SharedContext sharedContext;
-MQTTmessages mqttMessages(sharedContext);
 WireSlaveMessages wireSlaveMessages(sharedContext);
+//MQTTmessages mqttMessages(sharedContext);
+MQTTmessages* mqttMessages = nullptr;
+
 
 
 // ============================================================================
@@ -29,6 +29,8 @@ void setup()
     Serial.println(__DATE__);
     Serial.println(__TIME__);
 
+    mqttMessages = new MQTTmessages(sharedContext);
+
     pinMode(13, OUTPUT);
 
 }
@@ -38,7 +40,10 @@ void setup()
 // ============================================================================
 void loop()
 {
-    mqttMessages.loop();
+    //mqttMessages.loop();
+    if (mqttMessages)
+        mqttMessages->loop();
+
     wireSlaveMessages.loop();
 }
 

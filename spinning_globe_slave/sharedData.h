@@ -83,11 +83,17 @@ struct MsgToMQTT {
     //bool retain;
 };
 
+struct MsgToWire {
+    char msgType;
+    char msgSize;
+    char payload[128];
+};
+
 
 struct SharedContext {
     // Queues
     SPSCQueue<MsgToMQTT, 16> queueToMQTT;
-    ////SPSCQueue<MsgToWire, 16> queueToWire;
+    SPSCQueue<MsgToWire, 16> queueToWire;
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;
