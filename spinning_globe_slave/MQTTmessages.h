@@ -5,6 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include "sharedData.h"
+#include "WiFiConnection.h"
 
 class MQTTmessages {
 
@@ -42,19 +43,29 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
 
+    static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
+    static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
+
+    enum ConnectionState {
+        MQTT_notConnected,                                       // MQTT not yet connected
+        MQTT_waitForConnecton,                                   // waiting for MQTT to connect
+        MQTT_connected                                           // MQTT connected
+    };
+
+    ConnectionState _mqttState{ MQTT_notConnected };
+
+    uint32_t _lastMqttMaintenanceTime{ millis() };
+    uint32_t _lastMqttWaitReportedAt{ _lastMqttMaintenanceTime };
 
     SharedContext& _sharedContext;
 
-public:
-
-    MQTTmessages(SharedContext& sharedContext);
-    void loop();
-    void reconnectMQTT();
-    void handleMQTTmessage(char* topic, byte* payload, unsigned int length);
-
-private:
+    WiFiConnection _wifiConnection;
     WiFiClientSecure _espClient;
     PubSubClient     _client;
+
+
+    // ========== methods ==========
+    bool maintainMQTT(bool WiFiConnected);
 
     // --- Callback plumbing ---
     static MQTTmessages* _instance;
@@ -62,6 +73,12 @@ private:
 
     // --- Real handler ---
     void handleMQTTMessage(char* topic, byte* payload, unsigned int length);
+
+public:
+
+    MQTTmessages(SharedContext& sharedContext);
+    void loop();
+    void handleMQTTmessage(char* topic, byte* payload, unsigned int length);
 
 };
 

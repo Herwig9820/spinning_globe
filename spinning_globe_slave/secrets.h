@@ -8,9 +8,11 @@
     // MQTT
     #define MQTT_SERVER "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"
     #define MQTT_PORT 8883
+    
     #define MQTT_USER "spinning_globe"
     #define MQTT_PASS "*8*twtttj^AG@R79"
 
+    #define MQTT_DEVICE_ID "floating_globe_esp32_B59J4NF4865L"
 
 /*
     AANPASSEN in deze secrets.h file : WiFi SSID en paswoord voor MERELBEKE

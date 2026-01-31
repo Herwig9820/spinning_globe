@@ -1,8 +1,6 @@
 #ifndef _JSON_HELPERS_h
 #define _JSON_HELPERS_h
 
-#endif // !_JSON_HELPERS_h
-
 namespace JsonUtil {
 // A tiny helper to append a JSON key/value pair into a buffer.
 // Always safe: never writes past bufferSize, always null-terminates.
@@ -48,3 +46,5 @@ namespace JsonUtil {
         strlcat(buffer, "]", bufferSize);
     }
 }
+
+#endif 

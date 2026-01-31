@@ -1,3 +1,4 @@
+#include "WiFiConnection.h"
 #include "secrets.h"
 
 // wire slave 
@@ -5,7 +6,7 @@
 #include "wireSlave_transport.h"
 
 // WiFi and MQTT
-#include "MQTT_messages.h"
+#include "MQTTmessages.h"
 
 // debugging 
 #include "debug.h"
@@ -25,7 +26,7 @@ void setup()
     Serial.begin(115200);
     delay(5000);
 
-    Serial.println("=== NEW BUILD ===");
+    Serial.println("=== BUILD DATE AND TIME ===");
     Serial.println(__DATE__);
     Serial.println(__TIME__);
 
@@ -40,7 +41,6 @@ void setup()
 // ============================================================================
 void loop()
 {
-    //mqttMessages.loop();
     if (mqttMessages)
         mqttMessages->loop();
 

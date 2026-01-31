@@ -22,13 +22,13 @@
     <ClCompile Include="json_helpers.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="messages_common.h">
+    <ClCompile Include="wireMessages_common.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="MQTT_messages.cpp">
+    <ClCompile Include="MQTTmessages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MQTT_messages.h">
+    <ClCompile Include="MQTTmessages.h">
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="secrets.h">
@@ -49,9 +49,15 @@
     <ClCompile Include="wireSlave_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="WiFiConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.spinning_globe_slave.vsarduino.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WiFiConnection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

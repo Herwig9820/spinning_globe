@@ -1,7 +1,7 @@
 #ifndef _WIRE_SLAVE_MESSAGES_h
 #define _WIRE_SLAVE_MESSAGES_h
 
-#include "messages_common.h"
+#include "wireMessages_common.h"
 #include "sharedData.h"
 #include "wireSlave_transport.h"
 

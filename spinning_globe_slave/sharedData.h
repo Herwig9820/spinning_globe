@@ -61,6 +61,10 @@ public:
         return true;
     }
 
+    T* front(){
+        return &buffer[tail];
+    }
+
     bool empty() const {
         return head == tail;
     }
@@ -79,8 +83,6 @@ private:
 struct MsgToMQTT {
     char topic[48];
     char payload[128];
-    //uint8_t qos;
-    //bool retain;
 };
 
 struct MsgToWire {
@@ -98,9 +100,6 @@ struct SharedContext {
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;
     uint32_t wireMessagesSent = 0;
-
-    // Optional: shared configuration
-    bool verboseLogging = false;
 
     // Optional: timestamps
     uint32_t lastMQTTpublish = 0;
