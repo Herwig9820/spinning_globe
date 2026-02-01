@@ -53,8 +53,9 @@ bool WireSlaveMessages::loop() {
         {
             Serial.println("\n\rSecond received");
             I2C_m_secondCue* pSecondCue = reinterpret_cast<I2C_m_secondCue*>(plIn);
+            Serial.println(pSecondCue->tempSmooth);
+            
             convertSecondCueToMQTT(pSecondCue);
-            Serial.println("Second converted to MQTT");
 
             I2C_s_ack p;
             p.ack = 0x0; //// seq low byte //// 0; //dummy

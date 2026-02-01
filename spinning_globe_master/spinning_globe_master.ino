@@ -49,10 +49,10 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #include "messageHandling.h"
 #endif
 
-#define boardVersion 101                                    // board version: 100 = hardware v1, 101 = v1 rev A and B
+#define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B
+#define SPINNING_GLOBE_VERSION 2.00
 
-#define test_showEventStats 0                               // only for testing (event message mechanism)
-
+#define TEST_SHOW_STATS 0                                   // only for testing (event message mechanism)
 
 // ========== enumerations ==========
 
@@ -75,7 +75,7 @@ constexpr uint8_t A1_temperaturePin{ A1 };                      // port A analog
 // port B                                                       
 constexpr uint8_t B1_OC1Apin{ 9 };                              // port B bit 1 (Nano pin D9): output pin for 16-bit timer 1 channel A (drives magnet)  
 
-#if (boardVersion == 100)                                       
+#if (BOARD_VERSION == 100)                                       
 constexpr uint8_t B2_LCDenablePin{ 13 };                        // port B bit 5 (Nano pin D13): LCD enable  
 
 constexpr uint8_t portB_IOchannelSelectBitMask{ B00011100 };    // port B bits 432: I/O channel select (74HCT138 decoder)
@@ -106,7 +106,7 @@ constexpr uint8_t D3_LCDregSelPin{ 3 };                         // port D bit 3 
 
 constexpr uint8_t portD_redStatusLedbit{ B00001000 };           // port D bit 3: red status led bit mask
 constexpr uint8_t portD_greenStatusLedBit{ B00010000 };         // port D bit 4: green status led bit mask
-#if (boardVersion == 100)                                       
+#if (BOARD_VERSION == 100)                                       
 constexpr uint8_t portD_interruptInProgressBit{ B00100000 };    // port D bit 5: interrupt in progress bit mask
 constexpr uint8_t portD_blueStatusLedBit{ B01000000 };          // port D bit 6: blue status led bit mask
 #else                                                           
@@ -124,7 +124,7 @@ uint8_t portDbuffer{ 0 }, dataInBuffer{ 0 };
 
 
 // port depending on board version
-#if (boardVersion == 100)
+#if (BOARD_VERSION == 100)
 constexpr uint8_t A3_ledstripDataPin{ A3 };                     // port C bit 3 (Nano pin A3): led strip data
 constexpr uint8_t portC_ledstripDataBit{ B00001000 };           // port C bit 3 
 
@@ -135,7 +135,8 @@ constexpr uint8_t ledstripDataBits{ B11000000 };                // port D bits 7
 
 // ========== flash memory constants ==========
 
-const char str_build[] PROGMEM = "***spinning globe v2.0.0 ***\n";
+const char str_build_start[] PROGMEM = "===== Spinning Globe v";
+const char str_build_end[] PROGMEM = " =====\r\n";
 
 const char str_empty16[] PROGMEM = "                ";
 const char str_rotationOff[] PROGMEM = "rotation off";
@@ -187,7 +188,7 @@ const char str_fmt3unsignedInteger[] PROGMEM = "%u;%u;%u";
 const char str_fmtDayHour[] PROGMEM = "%3ldd%2ldh";
 const char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
 
-#if test_showEventStats 
+#if TEST_SHOW_STATS 
 const char str_eventMaxStats[] PROGMEM = "event max stats: events pending %d, mem size %d";
 #endif
 
@@ -206,7 +207,11 @@ constexpr char microSecSymbol[] = { 'u', 's', 0 };                              
 
 // ========== general purpose character buffers ==========
 
-char s150[150], s30[30];                                                            // general purpose long and short character strings
+#if WITH_WIRE_COMM
+char longText[50], s30[30];                                                         // general purpose long and short character string
+#else
+char longText[150], s30[30];                                                        // general purpose long and short character strings
+#endif
 
 
 // ========== time and other measurements ==========
@@ -527,21 +532,21 @@ bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** me
             *messagePtrPtr = newestMessageStartPtr + 4;                                             // oldest event (next event to process): pointer to optional event message (NOT to the 4-byte header)
 
             eventData.activeMsgPtr = oldestMessageStartPtr + 4;
-            eventData.activeEventType = *oldestMessageStartPtr;                               // oldest event: event type
+            eventData.activeEventType = *oldestMessageStartPtr;                                     // oldest event: event type
             eventData.eventsPending++;
             // update statistics
             eventData.largestEventsPending = max(eventData.largestEventsPending, eventData.eventsPending);
             eventData.eventBufferBytesUsed += newChunkSize;
             eventData.largestEventBufferBytesUsed = max(eventData.largestEventBufferBytesUsed, eventData.eventBufferBytesUsed);
 
-        #if test_showEventStats 
+        #if TEST_SHOW_STATS 
             Serial.println(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
         #endif
         }
 
         else {
             eventData.eventsMissed++;
-        #if test_showEventStats 
+        #if TEST_SHOW_STATS 
             Serial.println(); Serial.println(F("missed"));
         #endif
         }
@@ -557,16 +562,16 @@ bool GlobeEvents::removeOldestChunk(bool remove) {
         if ((oldestMessageStartPtr == nullptr) || (!remove)) { return false; }                                                      // nothing to remove: is empty
 
         eventData.eventsPending--;
-        eventData.eventBufferBytesUsed -= *(oldestMessageStartPtr + 1);                                                       // before pointer update
+        eventData.eventBufferBytesUsed -= *(oldestMessageStartPtr + 1);                                                             // before pointer update
 
-    #if test_showEventStats 
+    #if TEST_SHOW_STATS 
         Serial.println(); Serial.print(F("- ;"));  Serial.println((int)oldestMessageStartPtr);
     #endif
 
         if (oldestMessageStartPtr == newestMessageStartPtr) { oldestMessageStartPtr = nullptr; newestMessageStartPtr = nullptr; }   // remove last remaining
         else { oldestMessageStartPtr = *(uint8_t**)(oldestMessageStartPtr + 2); }                                                   // remove oldest (which is not the last remaining)
 
-        eventData.activeMsgPtr = (oldestMessageStartPtr == nullptr) ? nullptr : oldestMessageStartPtr + 4;                    // pointer to optional structure; after pointer update
+        eventData.activeMsgPtr = (oldestMessageStartPtr == nullptr) ? nullptr : oldestMessageStartPtr + 4;                          // pointer to optional structure; after pointer update
         eventData.activeEventType = (oldestMessageStartPtr == nullptr) ? eNoEvent : *oldestMessageStartPtr;
 
     }
@@ -578,8 +583,8 @@ bool GlobeEvents::removeOldestChunk(bool remove) {
 
 bool GlobeEvents::isEventsWaiting() {
     bool eventsArePending{ false };
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // prevent interference with addChunk() - which may be called from ISR;
-        eventsArePending = (eventData.eventsPending > 0);      // (8-bit variable: operation is already atomic)
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // prevent interference with addChunk() - which may be called from ISR;
+        eventsArePending = (eventData.eventsPending > 0);       // (8-bit variable: operation is already atomic)
     }
     return eventsArePending;
 }
@@ -588,7 +593,7 @@ bool GlobeEvents::isEventsWaiting() {
 // ========== take a snapshot of the current globe event status ==========
 
 void GlobeEvents::takeSnapshot(EventData* eventSnapshotPtr) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // prevent interference with addChunk() - which may be called from ISR;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // prevent interference with addChunk() - which may be called from ISR;
         *eventSnapshotPtr = eventData;
     }
 }
@@ -634,7 +639,7 @@ void setup()
     pinMode(A1_temperaturePin, INPUT);                          // A1: temperature sensor analog input pin
     pinMode(A2_IONotEnablePin, OUTPUT);                         // port C bit 2 (Nano pin A2): I/O channel not enable (74HCT138 decoder)  
 
-#if (boardVersion == 100)
+#if (BOARD_VERSION == 100)
     pinMode(A3_ledstripDataPin, OUTPUT);
 #else
     pinMode(A3, INPUT_PULLUP);                                  // not used
@@ -720,9 +725,9 @@ void setup()
         ledstripTiming = eepromValue >> 4;
         ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
         ledstripTiming = ((ledstripTiming < cLedstripVeryFast) || (ledstripTiming > cLedStripVerySlow)) ? cLedstripVeryFast : ledstripTiming;
-        
+
         // wait a little before accessing ports (not sure why, but writing initial ledstrip data may not work)
-        delay(100);                                                                         
+        delay(100);
         setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set led strip cycle and timing and store in eeprom
 
         /* not used but could be used for a 3-second cue
@@ -751,7 +756,7 @@ void setup()
 
     // ========== do a first temp reading here and assign it to temperature filter output, to avoid slow temperature ramp up ==========
 
-    tempSmooth = (((long)analogRead(A1_temperaturePin) * 50000L - (5000L << 10)) >> 10);// convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
+    tempSmooth = (((long)analogRead(A1_temperaturePin) * 50000L - (5000L << 10)) >> 10);    // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
 
 
     // ========== init serial and LCD ==========
@@ -759,18 +764,22 @@ void setup()
     while (!Serial);
     Serial.println();
 
-    Serial.println(strcpy_P(s150, str_build));
-
+    Serial.print(strcpy_P(longText, str_build_start));
+    Serial.print(SPINNING_GLOBE_VERSION);
+    Serial.print(strcpy_P(longText, str_build_end));
+    Serial.print(F("Build date: "));
+    Serial.print(__DATE__); Serial.print("  "); Serial.println(__TIME__);
+    Serial.println();
     if (programMode) {
-        Serial.println(strcpy_P(s150, str_programMode));
+        Serial.println(strcpy_P(longText, str_programMode));
         Serial.println();
     }
 
 #if WITH_WIRE_COMM
-    Serial.println(F("Communication using I2C: hardware buttons, LCD and USB terminal disabled\n"));
+    Serial.println(F("Communication using I2C: hardware buttons, LCD and USB input\n"));
 #else
-    Serial.println(strcpy_P(s150, str_help1));
-    Serial.println(strcpy_P(s150, str_help2));
+    Serial.println(strcpy_P(longText, str_help1));
+    Serial.println(strcpy_P(longText, str_help2));
     lcd.clear();
     lcd.noAutoscroll();
 #endif
@@ -813,7 +822,7 @@ void loop()
     }
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
-    uint8_t messageStatus = messageHandling.transmit();         // return 0 or master or slave message error number
+    uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
     checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #else
@@ -822,9 +831,10 @@ void loop()
     processCommand();                               // process command, if available
     checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
     writeStatus();                                  // print status to Serial and LCD (if connected)
-    writeAttributeLabelAndValue();                      // print selectedAttribute label and value to Serial and LCD (if connected)
+    writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
 
+    writeStatus();
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 
@@ -1054,8 +1064,9 @@ uint8_t processEvent() {
             // feed temp. sensor reading to smoothing filter
             // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
             long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                        // tempSmooth is passed back to ISR for safety check high temperature
-                tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
+                smoothedMeasurements.tempSmooth =                       //   
+                    tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
             }
 
             partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
@@ -1075,14 +1086,12 @@ uint8_t processEvent() {
         case eSecond:
         {
         #if WITH_WIRE_COMM
-            msgTypeOut = MsgType::M_MSG_SECOND;
+            uint8_t clockDividerBitMask = 0b11;       // 0b0011 divides frequency by 4
+            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
         #endif
-            /*
-            uint8_t clockDividerBitMask = 0b0000;       // example: 0b0011 divides frequency by 4
-            if (!(_secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
-            */
 
             /*
+            // 3 seconds after reset 
             if (secondData.eventSecond == 3) {
                 cli();                                                                      // interrupts off: interface with ISR and eeprom write
                 eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
@@ -1322,9 +1331,106 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
 }
 
 
-#if !WITH_WIRE_COMM
-// ========== write status and other info to LCD and Serial ==========
+#if WITH_WIRE_COMM
 
+// ========== write status and other info to LCD and Serial ==========
+void writeStatus() {
+    if (ISRevent != eSecond) { return; }
+
+    long sec{ 0 };
+    long mS = globeTime.millis(&sec);
+    formatTime(s30, sec, mS);
+    Serial.println();
+    Serial.println(s30);                                                               // time stamp line
+
+    if (statusData.errorCondition == errNoError) {
+        switch (statusData.rotationStatus) {
+            case rotNoPosSync: strcpy_P(s30, statusData.isFloating ? ((targetGlobeRotationTime == 0) ? str_rotationOff : str_noPosSync) : str_notFloating); break;
+            case rotFreeRunning: strcpy_P(s30, str_freeRunning); break;
+            case rotMeasuring: strcpy_P(s30, str_measuring); break;
+            case rotUnlocked: strcpy_P(s30, str_notLocked); break;
+            case rotLocked: strcpy_P(s30, str_locked); break;
+        }
+    }
+
+    else {
+        switch (statusData.errorCondition) {
+            case errDroppedGlobe: strcpy_P(s30, str_ErrDroppedGlobe); break;
+            case errStickyGlobe: strcpy_P(s30, str_ErrStickyGlobe); break;
+            case errMagnetLoad: strcpy_P(s30, str_ErrOverload); break;
+            case errTemp: strcpy_P(s30, str_ErrTemp); break;
+        }
+    }
+
+    strcat(strcat(strcpy(longText, "++ "), s30), " ++");
+    if (ISRevent == eStatusChange) {
+        Serial.println();
+        formatTime(s30, statusData.eventSecond, statusData.eventMilliSecond);           // time of this status change (which is a little earlier than globeTime.millis(), giving the current time)
+        strcat(strcat(longText, s30), ") ++");
+    }
+    Serial.println(longText);
+
+    for (long attributeIndex = 0; attributeIndex < globeAttributeCount; attributeIndex++) {
+        int attributeValue = attributes_currentValues[attributeIndex];
+        strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[attributeIndex]))); // selectedAttribute label
+        fetchAttributeValue(s30, attributeIndex, attributeValue);
+        strcat(longText, s30);
+        Serial.println(longText);
+    }
+
+    sprintf(s30, "%u", ledStripSettings.ledEffect);
+    Serial.print(strcat(strcpy(longText, "led effect "), s30));
+    if (ledStripSettings.ledEffect >= cWhiteBlue) {
+        sprintf(s30, "%u", ledStripSettings.ledCycleSpeed + 1);
+        Serial.println(strcat(strcpy(longText, "led timing "), s30));
+    }
+
+    Serial.println();
+}
+
+
+// ========== write an selectedAttribute label and its value to LCD and Serial ==========
+
+void writeAttributeLabelAndValue() {
+
+    // selectedAttribute value type ?
+    bool isSetValue = (globeAttributes_editable & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
+    bool isRotationValue = ((selectedAttribute.attributeIndex == 1) || (selectedAttribute.attributeIndex == 2) || (selectedAttribute.attributeIndex == 10)); // value to print is provided by last Greenwich event
+    bool isLiveValue = !(isSetValue || isRotationValue);                                    // all other values
+
+    // refresh Serial ?
+    bool SerialWriteValue = ((ISRevent == eStatusChange) && !(isRotationValue && statusData.isGreenwich))   // if linked Greenwich event, do not write rotation value now
+        || (showLiveValues && ((ISRevent == eGreenwich) && isRotationValue))
+        || (showLiveValues && ((ISRevent == eSecond) && isLiveValue));
+
+    if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
+
+    strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[selectedAttribute.attributeIndex])));                           // selectedAttribute label
+
+    fetchAttributeValue(s30, selectedAttribute.attributeIndex, selectedAttribute.attributeValue);                                   // selectedAttribute value
+
+    if (SerialWriteValue) {
+        Serial.print(longText);
+        strcpy_P(longText, (selectedAttribute.attributeIndex > attributeIndex_gainAdjust) ? str_editValueWithDefault : str_editValue);
+        Serial.println(selectedAttribute.attributeChangeMode ? longText : "");
+
+        if (globeEventSnapshot.eventsMissed > 0) {
+            sprintf(longText, "%ld ", globeEventSnapshot.eventsMissed);
+            strcat_P(longText, str_eventsMissed);
+            Serial.println(longText);
+        }
+
+    #if TEST_SHOW_STATS
+        sprintf_P(longText, str_eventMaxStats, globeEventSnapshot.largestEventsPending, globeEventSnapshot.largestEventBufferBytesUsed);
+        Serial.println(longText);
+    #endif
+    }
+
+}
+
+
+#else
+// ========== write status and other info to LCD and Serial ==========
 void writeStatus() {
     if ((ISRevent == eNoEvent) && (userCommand == uNoCmd)) { return; }
 
@@ -1332,9 +1438,9 @@ void writeStatus() {
         long sec{ 0 };
         long mS = globeTime.millis(&sec);
         formatTime(s30, sec, mS);
-        strcat(strcpy_P(s150, str_timeStamp), s30);
+        strcat(strcpy_P(longText, str_timeStamp), s30);
         Serial.println();
-        Serial.println(s150);                                                               // time stamp line
+        Serial.println(longText);                                                           // time stamp line
     }
 
     bool refreshStatus = ((ISRevent == eStatusChange) || (userCommand == uShowAll));        // user command Show all: print status as well  
@@ -1364,22 +1470,22 @@ void writeStatus() {
         lcd.setCursor(0, 0);
         lcd.print(s30);
 
-        strcat(strcat(strcpy(s150, "++ "), s30), ((userCommand == uShowAll) ? " ++" : " ("));
+        strcat(strcat(strcpy(longText, "++ "), s30), ((userCommand == uShowAll) ? " ++" : " ("));
         if (ISRevent == eStatusChange) {
             Serial.println();
             formatTime(s30, statusData.eventSecond, statusData.eventMilliSecond);           // time of this status change (which is a little earlier than globeTime.millis(), giving the current time)
-            strcat(strcat(s150, s30), ") ++");
+            strcat(strcat(longText, s30), ") ++");
         }
-        Serial.println(s150);
+        Serial.println(longText);
     }
 
     if (userCommand == uShowAll) {                                                          // Print all attributes to Serial
         for (long attributeIndex = 0; attributeIndex < globeAttributeCount; attributeIndex++) {
             int attributeValue = attributes_currentValues[attributeIndex];
-            strcpy_P(s150, (char*)pgm_read_word(&(globeAttributes_label[attributeIndex]))); // selectedAttribute label
+            strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[attributeIndex]))); // selectedAttribute label
             fetchAttributeValue(s30, attributeIndex, attributeValue);
-            strcat(s150, s30);
-            Serial.println(s150);
+            strcat(longText, s30);
+            Serial.println(longText);
         }
         Serial.println();
     }
@@ -1388,17 +1494,17 @@ void writeStatus() {
         if ((userCommand == uLedstripSettings) || (forceWriteLedstripSpecs && (ISRevent != eStatusChange))) { Serial.println(); }
         forceWriteLedstripSpecs = false;
         sprintf(s30, "%u", ledStripSettings.ledEffect);
-        Serial.print(strcat(strcpy_P(s150, str_colorCycle), (ledStripSettings.ledEffect == cLedstripOff) ? "Off" : s30));
+        Serial.print(strcat(strcpy_P(longText, str_colorCycle), (ledStripSettings.ledEffect == cLedstripOff) ? "Off" : s30));
         if (ledStripSettings.ledEffect >= cWhiteBlue) {
             sprintf(s30, "%u", ledStripSettings.ledCycleSpeed + 1);
-            Serial.println(strcat(strcpy(s150, ", timing "), s30));
+            Serial.println(strcat(strcpy(longText, ", timing "), s30));
         }
         else { Serial.println(); }
     }
 
     else if (userCommand == uLive) {                                                        // show or stop printing live values
         Serial.println();
-        Serial.println(strcpy_P(s150, showLiveValues ? str_showLive : str_stopLive));
+        Serial.println(strcpy_P(longText, showLiveValues ? str_showLive : str_stopLive));
     }
 
     else if (userCommand == uTimeStamp) {                                                   // write time stamp (actual time)
@@ -1407,36 +1513,36 @@ void writeStatus() {
 
     else if (userCommand == uHelp) {                                                        // print help string
         Serial.println();
-        Serial.println(strcpy_P(s150, str_help1));
-        Serial.println(strcpy_P(s150, str_help2));
+        Serial.println(strcpy_P(longText, str_help1));
+        Serial.println(strcpy_P(longText, str_help2));
         Serial.println();
     }
 
     else if (userCommand == uMeasure) {
         Serial.println();
-        Serial.println(strcpy_P(s150, str_stepResponse));
+        Serial.println(strcpy_P(longText, str_stepResponse));
     }
 
     else if (userCommand == uUnknownCmd) {                                                  // signal unrecognized command
         /*
         Serial.println();
-        Serial.println(strcpy_P(s150, str_cmdError));
+        Serial.println(strcpy_P(longText, str_cmdError));
         */
     }
 
     // step response test (note that if printing a lot of data every millisecond, and combining with other commands: risk of missing events)
     else if (ISRevent == eStepResponseData) {
         if (stepResponseDataPtr->count <= printPIDperiod) {
-            sprintf_P(s150, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, (stepResponseDataPtr->count == 1) ? 0 : stepResponseDataPtr->TTTcontrOut);
+            sprintf_P(longText, str_fmt3unsignedInteger, stepResponseDataPtr->count, stepResponseDataPtr->hallReading_ADCsteps, (stepResponseDataPtr->count == 1) ? 0 : stepResponseDataPtr->TTTcontrOut);
             if (stepResponseDataPtr->count == 1) {
                 sprintf(s30, ";%lu", firstFullAccIntTerm);
-                strcat(s150, s30);
+                strcat(longText, s30);
             }
-            Serial.println(s150);
+            Serial.println(longText);
         }
         else {
             Serial.println();
-            Serial.println(strcpy_P(s150, str_stepResponseEnd));
+            Serial.println(strcpy_P(longText, str_stepResponseEnd));
         }
     }
 }
@@ -1473,38 +1579,39 @@ void writeAttributeLabelAndValue() {
 
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
 
-    strcpy_P(s150, (char*)pgm_read_word(&(globeAttributes_label[selectedAttribute.attributeIndex])));                               // selectedAttribute label
+    strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[selectedAttribute.attributeIndex])));                           // selectedAttribute label
 
     fetchAttributeValue(s30, selectedAttribute.attributeIndex, selectedAttribute.attributeValue);                                   // selectedAttribute value
-    strcat(s150, LCDeraseValue ? "       " : s30);                                           // blink: spaces instead of value
+    strcat(longText, LCDeraseValue ? "       " : s30);                                      // blink: spaces instead of value
 
-    if (LCDeraseValue) {                                                                     // blink
+    if (LCDeraseValue) {                                                                    // blink
         lcd.setCursor(0, 1);
-        lcd.print(s150);
+        lcd.print(longText);
     }
     if (LCDwriteValue) {
         lcd.setCursor(0, 1);
-        lcd.print(s150);
+        lcd.print(longText);
     }
 
     if (SerialWriteValue) {
-        Serial.print(s150);
-        strcpy_P(s150, (selectedAttribute.attributeIndex > attributeIndex_gainAdjust) ? str_editValueWithDefault : str_editValue);
-        Serial.println(selectedAttribute.attributeChangeMode ? s150 : "");
+        Serial.print(longText);
+        strcpy_P(longText, (selectedAttribute.attributeIndex > attributeIndex_gainAdjust) ? str_editValueWithDefault : str_editValue);
+        Serial.println(selectedAttribute.attributeChangeMode ? longText : "");
 
         if (globeEventSnapshot.eventsMissed > 0) {
-            sprintf(s150, "%ld ", globeEventSnapshot.eventsMissed);
-            strcat_P(s150, str_eventsMissed);
-            Serial.println(s150);
+            sprintf(longText, "%ld ", globeEventSnapshot.eventsMissed);
+            strcat_P(longText, str_eventsMissed);
+            Serial.println(longText);
         }
 
-    #if test_showEventStats
-        sprintf_P(s150, str_eventMaxStats, globeEventSnapshot.largestEventsPending, globeEventSnapshot.largestEventBufferBytesUsed);
-        Serial.println(s150);
+    #if TEST_SHOW_STATS
+        sprintf_P(longText, str_eventMaxStats, globeEventSnapshot.largestEventsPending, globeEventSnapshot.largestEventBufferBytesUsed);
+        Serial.println(longText);
     #endif
     }
 
 }
+#endif
 
 
 // ========== fetch an selectedAttribute value ==========
@@ -1637,7 +1744,6 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
 }
 
 
-#endif
 
 // ========== write to led strip ==========
 
@@ -1700,7 +1806,7 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {                              
     for (uint8_t ledNo = 0; ledNo <= 7; ledNo++, ledstripMasks[0] >>= 1, ledstripMasks[1] >>= 1, ledstripMasks[2] >>= 1) {      // For each led
         LSoneLedOut(holdPortC, led, (ledstripMasks[2] & B1) | ((ledstripMasks[1] & B1) << 1) | ((ledstripMasks[0] & B1) << 2));
     }
-    LSoneLedOut(holdPortC, colorOffAndEndFrame); 
+    LSoneLedOut(holdPortC, colorOffAndEndFrame);
 }
 
 
@@ -1714,7 +1820,7 @@ void LSoneLedOut(uint8_t holdPortC, uint8_t* ledStrip4Bytes, uint8_t ledMask /* 
         b8 = (ledMask & B1) ? *ledStrip4Bytes : (uint8_t)0x00;                                  // 1 byte
         for (int8_t i = 7; i >= 0; i--, b8 <<= 1) {                                             // shift out 8 bits
 
-        #if (boardVersion == 100)
+        #if (BOARD_VERSION == 100)
             if (b8 & (uint8_t)0x80) { holdPortC |= portC_ledstripDataBit; }
             else { holdPortC &= ~portC_ledstripDataBit; }
         #else
@@ -2752,7 +2858,7 @@ SIGNAL(ADC_vect) {
     bool blink = (milliSecond == blinkTimeCount);
     bool spareEvent = false;                                                                    // disabled -> if needed, you can create more time cues, for example: bool spareEvent = (milliSecond == spareTimeCount);
     if (blink || spareEvent) {                                                                  // only one event can occur at the same time
-        globeEvents.addChunk(blink ? eBlink : eSpareNoDataEvent1, 0, &messagePtr);                 // cue only, no data
+        globeEvents.addChunk(blink ? eBlink : eSpareNoDataEvent1, 0, &messagePtr);              // cue only, no data
     }
 
     // status change event 
@@ -2824,7 +2930,7 @@ SIGNAL(ADC_vect) {
     if (greenLedOn) { portDbuffer = portDbuffer | portD_greenStatusLedBit; }
     else { portDbuffer = portDbuffer & ~portD_greenStatusLedBit; }
 
-#if (boardVersion == 101)                                                                       // no red led prior to board version 101
+#if (BOARD_VERSION == 101)                                                                      // no red led prior to board version 101
     if (redLedOn) { portDbuffer = portDbuffer & ~portD_redStatusLedbit; }                       // red led: negative logic
     else { portDbuffer = portDbuffer | portD_redStatusLedbit; }
 #endif

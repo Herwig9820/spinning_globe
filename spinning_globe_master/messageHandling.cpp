@@ -72,7 +72,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         // ========== message type requesting a hello acknowledge from slave ==========
 
-        case MsgType::M_MSG_HELLO:
+        case MsgType::M_MSG_HELLO: //not yet implemented !                                                    
         {
             _wireMaster.enqueueTx(M_MSG_HELLO, 0, nullptr, S_MSG_HELLO_ACK, 0);         // no payload
         }
@@ -160,11 +160,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.userSet_ledEffect = _ledStripSettings.ledEffect;
             p.userSet_ledCycleSpeed = _ledStripSettings.ledCycleSpeed;
             _wireMaster.enqueueTx(M_MSG_GLOBE_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-
-            Serial.println(F("Globe settings (sent):"));
-            Serial.print(F("    rotation period ")); Serial.println(p.userSet_rotationPeriod);
-            Serial.print(F("    led effect      ")); Serial.println(p.userSet_ledEffect);
-            Serial.print(F("    led cycle speed ")); Serial.println(p.userSet_ledCycleSpeed);
         }
         break;
 
@@ -176,11 +171,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.intTimeCstAdjustSteps = _pidSettings.intTimeCstAdjustSteps;
             p.difTimeCstAdjustSteps = _pidSettings.difTimeCstAdjustSteps;
             _wireMaster.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-
-            Serial.println(F("PID controller adjust steps (sent):"));
-            Serial.print(F("    gain          ")); Serial.println(p.gainAdjustSteps);
-            Serial.print(F("    int. time cst ")); Serial.println(p.intTimeCstAdjustSteps);
-            Serial.print(F("    dif. time cst ")); Serial.println(p.difTimeCstAdjustSteps);
         }
         break;
 
@@ -262,7 +252,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     switch (msgTypeIn) {
 
         // answer to hello message
-        case S_MSG_HELLO_ACK:
+        case S_MSG_HELLO_ACK:   // not yet implemented !
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
         }
@@ -272,6 +262,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         case S_MSG_ACK:
         {
             I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
+            
             // next requested message type     
             nextMsgTypeOut = p->requestMasterMsgType;
         }
@@ -285,10 +276,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_globeSettings* p = reinterpret_cast<I2C_s_globeSettings*>(plIn);
-
-            Serial.print(F("== rot. time idx ")); Serial.print(p->userSet_rotationPeriod);
-            Serial.print(F(", leds ")); Serial.print(p->userSet_ledEffect);
-            Serial.print(F(", ")); Serial.println(p->userSet_ledCycleSpeed);
 
             // set rotation time is stored in globe attributes array, not in a struct
             int rotTimesCount = globeAttributes_valueListLength[attributeIndex_rotTimes];
@@ -310,10 +297,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_PIDsettings* p = reinterpret_cast<I2C_s_PIDsettings*>(plIn);
-
-            Serial.print(F("== PID gain ")); Serial.print(p->gainAdjustSteps);
-            Serial.print(F(", int.cst ")); Serial.print(p->intTimeCstAdjustSteps);
-            Serial.print(F(", dif.cst ")); Serial.println(p->difTimeCstAdjustSteps);
 
             // setting steps: positive values (preset value = mid point) 
             _pidSettings.gainAdjustSteps = (uint8_t)p->gainAdjustSteps;                  // preset gain corresponds to gainAdjustSteps mid value   
@@ -337,8 +320,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
 
             I2C_s_vertPosSetpoint* p = reinterpret_cast<I2C_s_vertPosSetpoint*>(plIn);
 
-            Serial.print(F("== vertical position ")); Serial.println(p->userSet_vertPosIndex);
-
             // vertical position (in mVolt) is stored in the globe attributes array, not in a struct
             int vertPosCount = globeAttributes_valueListLength[attributeIndex_hallmVoltRefs];
             if ((p->userSet_vertPosIndex >= 0) && (p->userSet_vertPosIndex < vertPosCount)) {
@@ -354,8 +335,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_coilPhaseAdjust* p = reinterpret_cast<I2C_s_coilPhaseAdjust*>(plIn);
-
-            Serial.print(F("== coil phase adjust ")); Serial.println(p->userSet_coilPhaseAdjust);
 
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             // phase adjustment in 2-degree increments (0 to 358 degrees)

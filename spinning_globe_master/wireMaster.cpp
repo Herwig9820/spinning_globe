@@ -98,7 +98,6 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) {                                           // queue full ?
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterSendStats.E_stats_tx_full++; }
-        //Serial.println(F("!! Enqueue: tx full"));
         return false;
     }
 
@@ -114,8 +113,6 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
     // remember REPLY MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
     txExpReplyMsgType[txHead] = expReplyMsgType;
     txExpReplyMsgSize[txHead] = (expReplyPayloadSize == 0xff) ? 0xff : HEADER_SIZE + expReplyPayloadSize + 1;
-
-    //Serial.print(F("\r\n\r\nENQUEUE-seq ")); Serial.print(txQueue[txHead][HEADER_SIZE], HEX); Serial.print(F(" - msg type ")); Serial.println(msgType, HEX);
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                              // ensure data is visible before updating head
@@ -134,8 +131,6 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     acquire_barrier();                                              // ensure we see latest tail before reading data
-
-    //Serial.print(F("DEQUEUE-seq ")); Serial.println(rxQueue[rxTail][HEADER_SIZE], HEX);
 
     msgType = rxQueue[rxTail][0];
     payloadSize = rxQueue[rxTail][1];
@@ -179,7 +174,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
         state = MasterState::MS_SEND;                                           // change status to MS_SEND 
-        //Serial.println(F("-> SEND"));
     }
 
 
@@ -207,7 +201,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
             // write retries exhausted: advance txTail (pop the packet), increment error counter and go back to idle
             state = MasterState::MS_IDLE;
-            //Serial.println(F("-> IDLE-write error"));
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 txTail = (txTail + 1) % TX_QUEUE_SIZE;                          // advance tx tail (even with 8-bit length, operation  is not atomic)
                 masterSendStats.E_stats_tx_wireXmitError++;                     // after max retries: error
@@ -223,7 +216,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         }
 
         state = MasterState::MS_WAIT_BEFORE_POLLING;
-        //Serial.println(F("-> WAIT BEFORE POLL"));
     }
 
 
@@ -237,7 +229,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         lastTaskTime_millis = now_millis;
 
         state = MasterState::MS_WAIT_FOR_SLAVE_READY;
-        //Serial.println(F("-> WAIT SLAVE READY"));
     }
 
 
@@ -249,7 +240,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         if (timePassed > MAX_RECEIVE_CYCLE_MILLIS) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; }
             state = MasterState::MS_IDLE;
-            //Serial.println(F("-> IDLE-no slave"));
             return WireStatus::E_rx_timeOut;                                    // reply did not arrive in time
         }
 
@@ -257,7 +247,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         timePassed = now_micros - lastPollTime_micros;         // unsigned integer subtraction: modulo 2^32
         if (timePassed < SLAVE_POLL_INTERVAL_micros) { return WireStatus::I_waitForCue; }
         lastPollTime_micros = now_micros;
-        //Serial.println(F("poll now"));
 
         // start polling
         constexpr uint8_t request = (uint8_t)WireTransport::M_CTRL_POLL;
@@ -274,11 +263,9 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
             }
             else { reply = (uint8_t)WireTransport::S_CTRL_BUSY; }               // reading busy/ready reply timeout error (although nothing is done with it)
         }
-        //Serial.print(F("slave ready ? ")); Serial.println(reply == (uint8_t)WireTransport::S_CTRL_READY);      // slave ready to send ?
 
         if (reply == (uint8_t)WireTransport::S_CTRL_READY) {
             state = MasterState::MS_RECEIVE;
-            //Serial.println(F("-> RECEIVE"));
         }
     }
 
@@ -299,13 +286,10 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
             state = MasterState::MS_IDLE;
-            //Serial.println(F("-> IDLE-read error"));
             return WireStatus::E_rx_timeOut;
         }
-        //else { Serial.print(F("Wire in-seq ")); Serial.println(rxInBuffer[2], HEX); }
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
         state = MasterState::MS_IDLE;
-        //Serial.println(F("-> IDLE-receive success"));
         return wireStatus;
     }
 
@@ -347,12 +331,6 @@ bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgTy
     expReplyMsgType = txExpReplyMsgType[tail];
     expReplyMsgSize = txExpReplyMsgSize[tail];                      // copy as well (0xff: no reply expected)
 
-    //Serial.print(F("txQueue to OUT-seq ")); Serial.print(out[HEADER_SIZE], HEX); Serial.print(F("/msg: "));
-    for (int i = 0; i < msgLength; i++) {
-        //Serial.print(txQueue[tail][i], HEX); Serial.write(' ');   // last is checksum as received
-    }
-    //Serial.write('('), Serial.print(millis()); Serial.println(F(")"));
-
     return true;
 }
 
@@ -366,7 +344,6 @@ bool WireMaster::i2cWriteMessage(const uint8_t* out) {
     uint8_t err = Wire.endTransmission();                           // 0 == success
     ok = (err == 0);
 
-    //Serial.print(F("Wire out-seq ")); Serial.println(out[2], HEX);
     return ok;
 }
 
@@ -421,15 +398,6 @@ WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
         return WireStatus::E_rx_checksum;
     };
-
-    //Serial.print(F("IN to rxQueue-seq ")); Serial.print(in[HEADER_SIZE], HEX); Serial.print(F("/msg: "));
-    for (int i = 0; i < expReplyMsgSize - 1; i++) {
-        //Serial.print(rxQueue[head][i], HEX); Serial.write(' '); // last is checksum as received
-    }
-    //Serial.print(rxQueue[head][expReplyMsgSize - 1], HEX); Serial.write(':'), Serial.print(sum, HEX);
-    //Serial.write('('), Serial.print(millis()); Serial.println(F(")"));
-
-
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                                          // ensure data is visible before updating head
