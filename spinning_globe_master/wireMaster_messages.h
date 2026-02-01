@@ -47,8 +47,8 @@ Wire master: message handling layer
 #define _MESSAGEHANDLING_h
 
 #include "floatingGlobeState.h"
-#include "messages_common.h"                      
-#include "wireMaster.h"             // or master slave 
+#include "wireCommon_messages.h"                      
+#include "wireMaster_transport.h"             // or master slave 
 
 class MessageHandling {
 

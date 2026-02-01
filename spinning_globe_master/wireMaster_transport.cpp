@@ -71,7 +71,7 @@ Note on AVR MCU's
 */
 
 #include <Wire.h>
-#include "wireMaster.h"
+#include "wireMaster_transport.h"
 
 #define release_barrier() asm volatile ("" ::: "memory")
 #define acquire_barrier() asm volatile ("" ::: "memory")

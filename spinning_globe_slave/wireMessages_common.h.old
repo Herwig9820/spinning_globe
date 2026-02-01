@@ -206,17 +206,17 @@ Protocol-level determinism
 ===============================================================================
 */
 
-#ifndef _WIRE_COMMON_h
-#define _WIRE_COMMON_h
+#ifndef _WIRE_MESSAGES_COMMON_h
+#define _WIRE_MESSAGES_COMMON_h
 
-
+#include <stdint.h>    
 /*
 ===============================================================================
 Declarations common to the wire master (classic nano) and wire slave (nano ESP32)
 ============================================================================== =
 */
 
-enum MsgType : uint8_t {
+enum MsgType: uint8_t {
     // ========== 0x00-0x1F RESERVED for CONTROL SIGNALS between master and slave libraries ==========
 
 
@@ -347,6 +347,7 @@ using I2C_m_msgStats = I2C_messageStats;
 
 struct /* __attribute__((packed)) */ I2C_s_ack {
     uint8_t ack;                                    // currently not used 
+    
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
     uint8_t requestMasterMsgType;                   // slave requests master to send message type

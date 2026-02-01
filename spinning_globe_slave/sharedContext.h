@@ -19,13 +19,14 @@ enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
 
-constexpr const char str_rotationOff[] = "rotation off";
-constexpr const char str_freeRunning[] = "free running";
 constexpr const char str_noPosSync[] = "wait for pos sync";
+constexpr const char str_freeRunning[] = "free running";
 constexpr const char str_measuring[] = "measuring";
 constexpr const char str_notLocked[] = "not locked";
 constexpr const char str_locked[] = "locked";
+constexpr const char str_rotationOff[] = "rotation off";
 constexpr const char str_notFloating[] = "not floating";
+
 constexpr const char str_ErrDroppedGlobe[] = "E! dropped globe";
 constexpr const char str_ErrStickyGlobe[] = "E! sticky globe";
 constexpr const char str_ErrOverload[] = "E! overload";
@@ -36,7 +37,9 @@ constexpr const char str_ErrTemp[] = "E! temp too high";
 
 #include <stddef.h>
 
-constexpr const char* TOPIC_TELEMETRY = "telemetry";
+constexpr const char* TOPIC_STATUS = "globe/status";
+constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
+constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
 
 
 template<typename T, size_t N>

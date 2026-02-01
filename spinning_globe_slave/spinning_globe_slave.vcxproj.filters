@@ -22,9 +22,6 @@
     <ClCompile Include="json_helpers.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireMessages_common.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="MQTTmessages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -34,7 +31,7 @@
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="sharedData.h">
+    <ClCompile Include="sharedContext.h">
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="wireSlave_messages.h">
@@ -58,6 +55,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="WiFiConnection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spinning_globe_shared\wireCommon_messages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

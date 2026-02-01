@@ -1,8 +1,8 @@
 #ifndef _WIRE_SLAVE_MESSAGES_h
 #define _WIRE_SLAVE_MESSAGES_h
 
-#include "wireMessages_common.h"
-#include "sharedData.h"
+#include "wireCommon_messages.h"
+#include "sharedContext.h"
 #include "wireSlave_transport.h"
 
 
@@ -28,6 +28,8 @@ class WireSlaveMessages {
 
     SharedContext& _sharedContext;
 
+    void convertGlobeStatusToMQTT(I2C_m_status* p);
+    void convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p);
     void convertSecondCueToMQTT(I2C_m_secondCue* p);
 
     //bool processMsgIn_second(uint8_t payloadSizeIn, void* ppl);

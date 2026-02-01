@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "sharedData.h"
+#include "sharedContext.h"
 #include "WiFiConnection.h"
 
 class MQTTmessages {

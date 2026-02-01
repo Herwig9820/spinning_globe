@@ -46,7 +46,7 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 
 #include "floatingGlobeState.h"
 #if WITH_WIRE_COMM                                          // 0: earlier floating globe version without WiFi
-#include "messageHandling.h"
+#include "wireMaster_messages.h"
 #endif
 
 #define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B
@@ -139,13 +139,15 @@ const char str_build_start[] PROGMEM = "===== Spinning Globe v";
 const char str_build_end[] PROGMEM = " =====\r\n";
 
 const char str_empty16[] PROGMEM = "                ";
-const char str_rotationOff[] PROGMEM = "rotation off";
-const char str_freeRunning[] PROGMEM = "free running";
+
 const char str_noPosSync[] PROGMEM = "wait for pos sync";
+const char str_freeRunning[] PROGMEM = "free running";
 const char str_measuring[] PROGMEM = "measuring";
 const char str_notLocked[] PROGMEM = "not locked";
 const char str_locked[] PROGMEM = "locked";
+const char str_rotationOff[] PROGMEM = "rotation off";
 const char str_notFloating[] PROGMEM = "not floating";
+
 const char str_ErrDroppedGlobe[] PROGMEM = "E! dropped globe";
 const char str_ErrStickyGlobe[] PROGMEM = "E! sticky globe";
 const char str_ErrOverload[] PROGMEM = "E! overload";
@@ -786,7 +788,6 @@ void setup()
     // ========== enable watchdog timer (2 seconds) ==========
 
     wdt_enable(WDTO_2S);                                    // watchdog reset after 2 seconds
-
 
     // ========== setup timer 1 (16 bit) for phase correct PWM 1 Khz and enable overflow interrupt ==========
 

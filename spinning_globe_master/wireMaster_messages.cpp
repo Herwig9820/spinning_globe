@@ -44,7 +44,7 @@ Wire master: message handling layer
 */
 
 #include "floatingGlobeState.h"
-#include "messageHandling.h"
+#include "wireMaster_messages.h"
 
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
     SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* pGobeAttributes,
@@ -96,9 +96,15 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case  MsgType::M_MSG_GREENWICH:
         {
             I2C_m_greenwich p{};
-            p.actualRotationTime = _greenwichData.globeRotationTime;
-            p.rotationOutOfSyncTime = _greenwichData.rotationOutOfSyncTime;
-            p.greenwichLag = _greenwichData.greenwichLag;
+            // globe status: only states not locked and locked are relevant
+            p.status = (int8_t)((_statusData.errorCondition == errNoError) ? _statusData.rotationStatus : (_statusData.errorCondition | 0x10));
+            if ((p.status == rotUnlocked) || (p.status == rotLocked)) {
+                p.actualRotationTime = _greenwichData.globeRotationTime;
+            }
+            if (p.status == rotLocked) {
+                p.rotationOutOfSyncTime = _greenwichData.rotationOutOfSyncTime;
+                p.greenwichLag = (int32_t)((_greenwichData.greenwichLag * 360) / 6000.);//// target rot. time invullen 
+            }
             _wireMaster.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -107,6 +113,12 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         {
             I2C_m_status p{};
             p.status = (int8_t)((_statusData.errorCondition == errNoError) ? _statusData.rotationStatus : (_statusData.errorCondition | 0x10));
+            if (p.status == rotNoPosSync) {
+                if (_statusData.isFloating) {
+                    if (_pGlobeAttributes[attributeIndex_rotTimes] == 0) { p.status == wire_rotOff; }
+                }
+                else { p.status = wire_notFloating; }
+            }
             _wireMaster.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -262,7 +274,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         case S_MSG_ACK:
         {
             I2C_s_ack* p = reinterpret_cast<I2C_s_ack*>(plIn);
-            
+
             // next requested message type     
             nextMsgTypeOut = p->requestMasterMsgType;
         }

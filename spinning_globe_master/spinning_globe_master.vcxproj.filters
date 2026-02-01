@@ -19,21 +19,21 @@
     <ClCompile Include="floatingGlobeState.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="messageHandling.cpp">
+    <ClCompile Include="wireMaster_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="messageHandling.h">
+    <ClCompile Include="wireMaster_messages.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireMaster.cpp">
+    <ClCompile Include="wireMaster_transport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireMaster.h">
+    <ClCompile Include="wireMaster_transport.h">
       <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\spinning_globe_shared\messages_common.h">
+    <ClInclude Include="..\spinning_globe_shared\wireCommon_messages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">

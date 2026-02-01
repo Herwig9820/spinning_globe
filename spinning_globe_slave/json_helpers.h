@@ -31,7 +31,7 @@ namespace JsonUtil {
     }
 
     inline void startJson(char* buffer, size_t bufferSize) {
-        strlcat(buffer, "[", bufferSize);
+        strlcpy(buffer, "[", bufferSize);
     }
 
     inline void closeJson(char* buffer, size_t bufferSize) {
