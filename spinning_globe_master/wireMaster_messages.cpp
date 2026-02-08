@@ -47,10 +47,10 @@ Wire master: message handling layer
 #include "wireMaster_messages.h"
 
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
-    SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* pGobeAttributes,
+    SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
     LedStripSettings& ledStripSettings, EventData& globeEventSnapshot) :
     _greenwichData(greenwichData), _statusData(statusData), _secondData(secondData),
-    _smoothedMeasurements(smoothedMeasurements), _pidSettings(pidSettings), _pGlobeAttributes(pGobeAttributes),
+    _smoothedMeasurements(smoothedMeasurements), _pidSettings(pidSettings), _globeMetrics(globeMetrics),
     _ledStripSettings(ledStripSettings), _globeEventSnapshot(globeEventSnapshot) {
 };
 
@@ -81,15 +81,19 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         // ========== message types SENDING DATA to slave after a globe event ==========
 
-        case  MsgType::M_MSG_SECOND:
+        case MsgType::M_MSG_STATUS:
         {
-            I2C_m_secondCue p{};
-            p.tempSmooth = _smoothedMeasurements.tempSmooth;                            // raw input for wire slave
-            p.magnetOnCyclesSmooth = _smoothedMeasurements.magnetOnCyclesSmooth;
-            p.ISRdurationSmooth = _smoothedMeasurements.ISRdurationSmooth;
-            p.idleLoopMicrosSmooth = _smoothedMeasurements.idleLoopMicrosSmooth;
-            p.errSignalMagnitudeSmooth = _smoothedMeasurements.errSignalMagnitudeSmooth;
-            _wireMaster.enqueueTx(M_MSG_SECOND, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+            I2C_m_status p{};
+            p.status = (int8_t)((_statusData.errorCondition == errNoError) ? _statusData.rotationStatus : (_statusData.errorCondition | 0x10));
+            if (p.status == rotNoPosSync) {
+                if (_statusData.isFloating) {
+                    uint8_t rotTimeIndex = _globeMetrics[attributeIndex_rotTimes];  // index into list of rotation times
+                    int setRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + rotTimeIndex);
+                    if (setRotationTime == 0) { p.status == wire_rotOff; }
+                }
+                else { p.status = wire_notFloating; }
+            }
+            _wireMaster.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
@@ -101,25 +105,27 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             if ((p.status == rotUnlocked) || (p.status == rotLocked)) {
                 p.actualRotationTime = _greenwichData.globeRotationTime;
             }
-            if (p.status == rotLocked) {
+            if (p.status == rotLocked) {  // this status does not occur when rotation is OFF
                 p.rotationOutOfSyncTime = _greenwichData.rotationOutOfSyncTime;
-                p.greenwichLag = (int32_t)((_greenwichData.greenwichLag * 360) / 6000.);//// target rot. time invullen 
+                // multiply by 360 degrees and divide by time of 1 rotation (ms)
+                uint8_t rotTimeIndex = _globeMetrics[attributeIndex_rotTimes];
+                int setRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + rotTimeIndex);
+                p.greenwichLag = (int32_t)((_greenwichData.greenwichLag * 360) / setRotationTime);
             }
             _wireMaster.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
-        case MsgType::M_MSG_STATUS:
+        case  MsgType::M_MSG_SECOND:
         {
-            I2C_m_status p{};
-            p.status = (int8_t)((_statusData.errorCondition == errNoError) ? _statusData.rotationStatus : (_statusData.errorCondition | 0x10));
-            if (p.status == rotNoPosSync) {
-                if (_statusData.isFloating) {
-                    if (_pGlobeAttributes[attributeIndex_rotTimes] == 0) { p.status == wire_rotOff; }
-                }
-                else { p.status = wire_notFloating; }
-            }
-            _wireMaster.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+            I2C_m_secondCue p{};
+            p.tempSmooth = _smoothedMeasurements.tempSmooth;                            // raw input for wire slave
+            p.magnetOnCyclesSmooth = _smoothedMeasurements.magnetOnCyclesSmooth;
+            p.ISRdurationSmooth = _smoothedMeasurements.ISRdurationSmooth;
+            p.idleLoopMicrosSmooth = _smoothedMeasurements.idleLoopMicrosSmooth;
+            p.errSignalMagnitudeSmooth = _smoothedMeasurements.errSignalMagnitudeSmooth;
+            p.realTTTintegrationTerm = _secondData.realTTTintegrationTerm;
+            _wireMaster.enqueueTx(M_MSG_SECOND, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
@@ -168,9 +174,9 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         {
             I2C_m_globeSettings p{};
             // set rotation time is stored in globe attributes array, not in a struct
-            p.userSet_rotationPeriod = _pGlobeAttributes[attributeIndex_rotTimes];    // (set, not actual)
-            p.userSet_ledEffect = _ledStripSettings.ledEffect;
-            p.userSet_ledCycleSpeed = _ledStripSettings.ledCycleSpeed;
+            p.rotationPeriodIndex = _globeMetrics[attributeIndex_rotTimes];      // index
+            p.ledEffect = _ledStripSettings.ledEffect;
+            p.ledCycleSpeed = _ledStripSettings.ledCycleSpeed;
             _wireMaster.enqueueTx(M_MSG_GLOBE_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -191,8 +197,8 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case MsgType::M_MSG_VERT_POS_SETPOINT:
         {
             I2C_m_vertPosSetpoint p{};
-            // vertical position (in mVolt) is stored in the globe attributes array, not in a struct
-            p.userSet_vertPosIndex = _pGlobeAttributes[attributeIndex_hallmVoltRefs];
+            // vertical position (in mVolt) is stored in the globe metrics array, not in a struct
+            p.vertPosIndex = _globeMetrics[attributeIndex_rotTimes];
             _wireMaster.enqueueTx(M_MSG_VERT_POS_SETPOINT, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -202,7 +208,8 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         {
             I2C_m_coilPhaseAdjust p{};
             // set coil phase adjust is stored in the globe attributes array, not in a struct
-            p.userSet_coilPhaseAdjust = _pGlobeAttributes[attributeIndex_coilPhaseAdjust];
+            p.coilPhaseAdjust = (_globeMetrics[attributeIndex_coilPhaseAdjust] << 1);               // 0 to 355
+            if (p.coilPhaseAdjust > 180) { p.coilPhaseAdjust -= 360; }                      // -179 to +180 degrees
             _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -210,27 +217,27 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         // ========== message types REQUESTING DATA from slave ==========
 
-        case MsgType::M_MSG_REQ_GLOBE_SETTINGS:
+        case MsgType::M_MSG_GLOBE_SETTINGS_REQ:
         {
-            _wireMaster.enqueueTx(M_MSG_REQ_GLOBE_SETTINGS, 0, nullptr, S_MSG_GLOBE_SETTINGS, sizeof(I2C_s_globeSettings));
+            _wireMaster.enqueueTx(M_MSG_GLOBE_SETTINGS_REQ, 0, nullptr, S_MSG_GLOBE_SETTINGS_SET, sizeof(I2C_s_globeSettings_set));
         }
         break;
 
-        case MsgType::M_MSG_REQ_PID_SETTINGS:
+        case MsgType::M_MSG_PID_SETTINGS_REQ:
         {
-            _wireMaster.enqueueTx(M_MSG_REQ_PID_SETTINGS, 0, nullptr, S_MSG_PID_SETTINGS, sizeof(I2C_s_PIDsettings));
+            _wireMaster.enqueueTx(M_MSG_PID_SETTINGS_REQ, 0, nullptr, S_MSG_PID_SETTINGS_SET, sizeof(I2C_s_PIDsettings_set));
         }
         break;
 
-        case MsgType::M_MSG_REQ_VERT_POS_SETPOINT:
+        case MsgType::M_MSG_VERT_POS_SETPOINT_REQ:
         {
-            _wireMaster.enqueueTx(M_MSG_REQ_VERT_POS_SETPOINT, 0, nullptr, S_MSG_VERT_POS_SETPOINT, sizeof(I2C_s_vertPosSetpoint));
+            _wireMaster.enqueueTx(M_MSG_VERT_POS_SETPOINT_REQ, 0, nullptr, S_MSG_VERT_POS_SETPOINT_SET, sizeof(I2C_s_vertPosSetpoint_set));
         }
         break;
 
-        case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
+        case MsgType::M_MSG_COIL_PHASE_ADJUST_REQ:
         {
-            _wireMaster.enqueueTx(M_MSG_REQ_COIL_PHASE_ADJUST, 0, nullptr, S_MSG_COIL_PHASE_ADJUST, sizeof(I2C_s_coilPhaseAdjust));
+            _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST_REQ, 0, nullptr, S_MSG_COIL_PHASE_ADJUST_SET, sizeof(I2C_s_coilPhaseAdjust_set));
         }
         break;
     }
@@ -244,7 +251,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };                   // message type received from slave
     uint8_t i2cPayloadSizeIn{ 0 };                              // payload size as reported by slave
-    uint8_t plIn[WireMaster::PAYLOAD_IN_MAX];
+    uint8_t plIn[SLAVE_PAYLOAD_MAX];
     uint8_t expMsgType{};
 
     // message available  ?
@@ -258,6 +265,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     // (note that, if the message type is correct, then the message size is as well (handled in WireMaster library) 
     if (msgTypeIn != expMsgType) {
         _msgStats.E_stats_lockStepError++;
+        Serial.println("!!!! message received is not as expected !");
         return;
     }
 
@@ -281,34 +289,41 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         break;
 
         // receive user settings from wire slave
-        case S_MSG_GLOBE_SETTINGS:
+        case S_MSG_GLOBE_SETTINGS_SET:
         #if 0
         #endif
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
-            I2C_s_globeSettings* p = reinterpret_cast<I2C_s_globeSettings*>(plIn);
+            Serial.print("dequeue incoming 'globe settings set' wire msg: ");
+            for (int i = 0; i < sizeof(I2C_s_globeSettings_set); ++i) {
+                Serial.print(plIn[i], HEX); Serial.print(' ');////
+            }
+            Serial.println();
+
+
+            I2C_s_globeSettings_set* p = reinterpret_cast<I2C_s_globeSettings_set*>(plIn);
 
             // set rotation time is stored in globe attributes array, not in a struct
-            int rotTimesCount = globeAttributes_valueListLength[attributeIndex_rotTimes];
-            if ((p->userSet_rotationPeriod >= 0) && (p->userSet_rotationPeriod < rotTimesCount)) {
-                saveAndUseGlobeAttribute(attributeIndex_rotTimes, p->userSet_rotationPeriod);
+            int rotTimesCount = globeMetrics_listLengths[attributeIndex_rotTimes];
+            if ((p->rotationPeriodIndex >= 0) && (p->rotationPeriodIndex < rotTimesCount)) {
+                saveAndUseGlobeAttribute(attributeIndex_rotTimes, p->rotationPeriodIndex);
             }
 
             // digital LED settings
-            bool valid = ((p->userSet_ledEffect >= cLedstripOff) && (p->userSet_ledEffect <= cRedGreenBlue)
-                && (p->userSet_ledCycleSpeed >= cLedstripVeryFast) && (p->userSet_ledCycleSpeed <= cLedStripVerySlow));
-            if (valid) { setColorCycle(p->userSet_ledEffect, p->userSet_ledCycleSpeed); }
+            bool valid = ((p->ledEffect >= cLedstripOff) && (p->ledEffect <= cRedGreenBlue)
+                && (p->ledCycleSpeed >= cLedstripVeryFast) && (p->ledCycleSpeed <= cLedStripVerySlow));
+            if (valid) { setColorCycle(p->ledEffect, p->ledCycleSpeed); }
 
         }
         break;
 
         // receive PID settings from wire slave
-        case S_MSG_PID_SETTINGS:
+        case S_MSG_PID_SETTINGS_SET:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
-            I2C_s_PIDsettings* p = reinterpret_cast<I2C_s_PIDsettings*>(plIn);
+            I2C_s_PIDsettings_set* p = reinterpret_cast<I2C_s_PIDsettings_set*>(plIn);
 
             // setting steps: positive values (preset value = mid point) 
             _pidSettings.gainAdjustSteps = (uint8_t)p->gainAdjustSteps;                  // preset gain corresponds to gainAdjustSteps mid value   
@@ -326,32 +341,32 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         break;
 
         // receive globe vertical position setpoint from wire slave
-        case S_MSG_VERT_POS_SETPOINT:
+        case S_MSG_VERT_POS_SETPOINT_SET:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
-            I2C_s_vertPosSetpoint* p = reinterpret_cast<I2C_s_vertPosSetpoint*>(plIn);
+            I2C_s_vertPosSetpoint_set* p = reinterpret_cast<I2C_s_vertPosSetpoint_set*>(plIn);
 
             // vertical position (in mVolt) is stored in the globe attributes array, not in a struct
-            int vertPosCount = globeAttributes_valueListLength[attributeIndex_hallmVoltRefs];
-            if ((p->userSet_vertPosIndex >= 0) && (p->userSet_vertPosIndex < vertPosCount)) {
-                saveAndUseGlobeAttribute(attributeIndex_hallmVoltRefs, p->userSet_vertPosIndex);
+            int vertPosCount = globeMetrics_listLengths[attributeIndex_hallmVoltRefs];
+            if ((p->vertPosIndex >= 0) && (p->vertPosIndex < vertPosCount)) {
+                saveAndUseGlobeAttribute(attributeIndex_hallmVoltRefs, p->vertPosIndex);
             }
         }
         break;
 
 
         // receive coil phase adjustment setting from wire slave
-        case  S_MSG_COIL_PHASE_ADJUST:
+        case  S_MSG_COIL_PHASE_ADJUST_SET:
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
-            I2C_s_coilPhaseAdjust* p = reinterpret_cast<I2C_s_coilPhaseAdjust*>(plIn);
+            I2C_s_coilPhaseAdjust_set* p = reinterpret_cast<I2C_s_coilPhaseAdjust_set*>(plIn);
 
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             // phase adjustment in 2-degree increments (0 to 358 degrees)
-            if (p->userSet_coilPhaseAdjust > 179) { p->userSet_coilPhaseAdjust = 179; }
-            saveAndUseGlobeAttribute(attributeIndex_coilPhaseAdjust, p->userSet_coilPhaseAdjust);
+            if (p->coilPhaseAdjust > 179) { p->coilPhaseAdjust = 179; }
+            saveAndUseGlobeAttribute(attributeIndex_coilPhaseAdjust, p->coilPhaseAdjust);
         }
         break;
 

@@ -31,13 +31,19 @@ class WireSlaveMessages {
     void convertGlobeStatusToMQTT(I2C_m_status* p);
     void convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p);
     void convertSecondCueToMQTT(I2C_m_secondCue* p);
+    void convertGlobeSettingsToMQTT(I2C_m_globeSettings* p);
+    void convertPIDsettingsToMQTT(I2C_m_PIDsettings* p);
 
+    void replyAndFlagSlaveDataAvailable();             // naming
+
+    //// ???
     //bool processMsgIn_second(uint8_t payloadSizeIn, void* ppl);
     //void formatFloat(char* out, size_t outSize, float value, uint8_t decimals);
 
 public:
     WireSlaveMessages(SharedContext& sharedContext);
     bool  loop();
+
 
 };
 

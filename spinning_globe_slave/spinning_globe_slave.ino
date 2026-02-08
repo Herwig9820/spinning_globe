@@ -27,8 +27,7 @@ void setup()
     delay(5000);
 
     Serial.println("=== BUILD DATE AND TIME ===");
-    Serial.println(__DATE__);
-    Serial.println(__TIME__);
+    Serial.print(__DATE__); Serial.print(' '); Serial.println(__TIME__);
 
     mqttMessages = new MQTTmessages(sharedContext);
 

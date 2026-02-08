@@ -114,14 +114,11 @@ incoming wire data in method 'i2cReadMessage()'.
 
 #include "arduino.h"
 #include <util/atomic.h>                                            // atomic operations
+#include "wireCommon_messages.h"
 
 class  WireMaster {
 
 /* ================= CONSTANTS ================= */
-
-public:
-    static constexpr uint8_t PAYLOAD_IN_MAX = 10;                   // max. payload sizes in bytes 
-    static constexpr uint8_t PAYLOAD_OUT_MAX = 20;
 
 private:
     static constexpr  uint8_t I2C_SLAVE_ADDR = 9;
@@ -147,11 +144,11 @@ private:
 /* ================= TX: RING BUFFER, RX: RING BUFFER ================= */
 
 private:
-    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
+    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
     volatile uint8_t txExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index
     volatile uint8_t txExpReplyMsgSize[TX_QUEUE_SIZE];              // paired with txQueue slot index
 
-    volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + PAYLOAD_IN_MAX + 1];  // message type + payload size + payload + checksum
+    volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];  // message type + payload size + payload + checksum
     volatile uint8_t rxExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index  
 
     // producer owned (SPSC)
@@ -168,8 +165,8 @@ private:
     enum MasterState { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
     MasterState state = MasterState::MS_IDLE;
 
-    uint8_t rxInBuffer[HEADER_SIZE + PAYLOAD_IN_MAX + 1];
-    uint8_t txOutBuffer[HEADER_SIZE + PAYLOAD_OUT_MAX + 1];
+    uint8_t rxInBuffer[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];
+    uint8_t txOutBuffer[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
 
 
     // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!

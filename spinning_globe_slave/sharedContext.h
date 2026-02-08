@@ -1,6 +1,8 @@
 #ifndef _SHARED_DATA_h
 #define _SHARED_DATA_h
 
+#include "wireCommon_messages.h"
+
 // ----- shared with spinning globe master ----- //// moeten identiek zijn, maar zijn nu niet shared
 
 constexpr long spinningGlobeNano_timer1ClockFreq{ 2000000L };
@@ -37,9 +39,17 @@ constexpr const char str_ErrTemp[] = "E! temp too high";
 
 #include <stddef.h>
 
+// to MQTT
 constexpr const char* TOPIC_STATUS = "globe/status";
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
+constexpr const char* TOPIC_GLOBE_SETTINGS = "globe/settings";
+constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
+
+// to Wire
+constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";
+constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
+
 
 
 template<typename T, size_t N>
@@ -85,20 +95,21 @@ private:
 
 struct MsgToMQTT {
     char topic[48];
-    char payload[128];
+    char payload[160];
 };
 
-struct MsgToWire {
-    char msgType;
-    char msgSize;
-    char payload[128];
+struct MQTTmsgToWire {
+    char topic[48];
+    char payload[160];
 };
 
 
 struct SharedContext {
-    // Queues
+
+    // ---------- Queues ----------
+
     SPSCQueue<MsgToMQTT, 16> queueToMQTT;
-    SPSCQueue<MsgToWire, 16> queueToWire;
+    SPSCQueue<MQTTmsgToWire, 16> queueToWire;
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;
@@ -107,8 +118,27 @@ struct SharedContext {
     // Optional: timestamps
     uint32_t lastMQTTpublish = 0;
     uint32_t lastWireActivity = 0;
-};
 
+
+    // ---------- wire slave requests data from wire master ----------
+
+    MsgType requestMsgType{M_MSG_NONE};
+
+
+    // ---------- wire slave has data for wire master ----------
+
+    I2C_s_globeSettings_set pendingGlobeSettings;
+    I2C_s_globeSettings_set committedGlobeSettings;
+
+    I2C_s_PIDsettings_set pendingPIDsettings;
+    I2C_s_PIDsettings_set committedPIDsettings;
+
+    I2C_s_coilPhaseAdjust_set pendingCoilPhaseAdjust;
+    I2C_s_coilPhaseAdjust_set committedCoilPhaseAdjust;
+
+    I2C_s_vertPosSetpoint_set pendingVertPosSetpoint;
+    I2C_s_vertPosSetpoint_set committedVertPosSetpoint;
+};
 
 #endif
 

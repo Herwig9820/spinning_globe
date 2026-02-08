@@ -34,17 +34,16 @@ WireSlave::~WireSlave() {
 };
 
 void WireSlave::wireReceiveEvent(int byteCount) {
-    if (instance) instance->handleReceive(byteCount);
+    if (instance) instance->pushIncomingWireMsg(byteCount);
 }
 
 void WireSlave::wireRequestEvent() {
-    if (instance) instance->handleRequest();
+    if (instance) instance->popOutgoingWireMsg();
 }
 
 // ========== enqueue message out to wire master: producer ==========
 
-bool WireSlave::enqueueTx(uint8_t messageType, void* payload, uint8_t payloadSize) {
-    Serial.print("message type: "); Serial.println(messageType, HEX);
+bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize) {
     // Lockstep SPSC with acquire / release fences
 
     bool empty = txEmpty;                   // atomic read (8 bit)
@@ -63,6 +62,12 @@ bool WireSlave::enqueueTx(uint8_t messageType, void* payload, uint8_t payloadSiz
     }
     txQueue[HEADER_SIZE + payloadSize] = sum;
 
+    Serial.print("within push outgoing wire msg: ");
+    for (int i = 0; i < HEADER_SIZE + payloadSize + 1; ++i) {
+        Serial.print(txQueue[i], HEX); Serial.print(' ');////
+    }
+    Serial.println();
+
     RELEASE_BARRIER();                      // Ensure packet bytes are visible BEFORE publishing
 
     txEmpty = false;
@@ -72,7 +77,7 @@ bool WireSlave::enqueueTx(uint8_t messageType, void* payload, uint8_t payloadSiz
 
 // ========== dequeue message in from wire master: consumer ==========
 
-bool WireSlave::dequeueRx(uint8_t& messageType, void* payload, uint8_t& payloadSize) {
+bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t& payloadSize) {
 
     // Lockstep SPSC with acquire / release fences
 
@@ -85,12 +90,10 @@ bool WireSlave::dequeueRx(uint8_t& messageType, void* payload, uint8_t& payloadS
     messageType = rxQueue[0];
     payloadSize = rxQueue[1];
     // Make sure payloadSize is sane before memcpy
-    if (payloadSize > PAYLOAD_IN_MAX) payloadSize = 0;
+    if (payloadSize > MASTER_PAYLOAD_MAX) payloadSize = 0;
     if (payloadSize > 0) {
         memcpy((uint8_t*)payload, ((uint8_t*)(rxQueue)+HEADER_SIZE), payloadSize);
     }
-
-    Serial.print("dequeue: payload size ");Serial.println(payloadSize);
 
     rxEmpty = true;
     return true;
@@ -107,9 +110,9 @@ void WireSlave::getCommStats(I2C_slaveCommStats& commStatSnapshot) {
 }
 
 
-// ========== handle (enqueue) message in from wire master: producer ==========
+// ========== ISR: handle (enqueue) message in from wire master: producer ==========
 
-void WireSlave::handleReceive(int byteCount) {
+void WireSlave::pushIncomingWireMsg(int byteCount) {
 
     //---------- 1. Test for valid packet lengths and for WireTransport::M_CTRL_POLL control messages ---------- 
 
@@ -164,9 +167,9 @@ void WireSlave::handleReceive(int byteCount) {
 }
 
 
-// ========== handle (dequeue) message out to wire master: consumer ==========
+// ========== ISR: handle (dequeue) message out to wire master: consumer ==========
 
-void WireSlave::handleRequest() {
+void WireSlave::popOutgoingWireMsg() {
 
     // Lockstep SPSC with acquire / release fences
 
@@ -181,7 +184,7 @@ void WireSlave::handleRequest() {
         return;
     }
 
-    if (empty) {return; }                      // buffer is empty
+    if (empty) { return; }                      // buffer is empty
 
     ACQUIRE_BARRIER();                          // Ensure we see fully published packet
 

@@ -218,6 +218,9 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 
 #include <stdint.h> 
 
+static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;                   // max. payload sizes in bytes 
+static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
+
 enum MsgType : uint8_t {
     // ========== 0x00-0x1F RESERVED for CONTROL SIGNALS between master and slave libraries ==========
 
@@ -245,10 +248,10 @@ enum MsgType : uint8_t {
     M_MSG_COIL_PHASE_ADJUST = 0x2C,     // globe rotation controller: phase adjust between coils magnetic field and globe Greenwich meridian
 
     // master requests slave to send data. Slave reply: message types with the requested slave data
-    M_MSG_REQ_GLOBE_SETTINGS = 0x30,    // master requests globe settings as maintained / known by slave
-    M_MSG_REQ_PID_SETTINGS = 0x31,      // master requests PID settings as maintained / known by slave
-    M_MSG_REQ_VERT_POS_SETPOINT = 0x32, // master requests vertical position setpoint as maintained / known by slave
-    M_MSG_REQ_COIL_PHASE_ADJUST = 0x33, // master requests coil phase adjustment as maintained / known by slave
+    M_MSG_GLOBE_SETTINGS_REQ = 0x30,    // master requests globe settings as maintained / known by slave
+    M_MSG_PID_SETTINGS_REQ = 0x31,      // master requests PID settings as maintained / known by slave
+    M_MSG_VERT_POS_SETPOINT_REQ = 0x32, // master requests vertical position setpoint as maintained / known by slave
+    M_MSG_COIL_PHASE_ADJUST_REQ = 0x33, // master requests coil phase adjustment as maintained / known by slave
 
 
     // ========== 0x40–0x5F: not used ==========
@@ -263,10 +266,10 @@ enum MsgType : uint8_t {
     S_MSG_ACK = 0x62,
 
     // the following slave messages types are only sent in response to specific master message types
-    S_MSG_GLOBE_SETTINGS = 0x70,        // send globe settings to master:             response to msg type M_MSG_REQ_GLOBE_SETTINGS
-    S_MSG_PID_SETTINGS = 0x71,          // send PID settings to master:               response to msg type M_MSG_REQ_PID_SETTINGS 
-    S_MSG_VERT_POS_SETPOINT = 0x72,     // send vertical position setpoint to master: response to msg type M_MSG_REQ_VERT_POS_SETPOINT
-    S_MSG_COIL_PHASE_ADJUST = 0x73,     // send coil phase adjustment to master:      response to msg type M_MSG_REQ_COIL_PHASE_ADJUST  
+    S_MSG_GLOBE_SETTINGS_SET = 0x70,        // send globe settings to master:             response to msg type M_MSG_GLOBE_SETTINGS_REQ
+    S_MSG_PID_SETTINGS_SET = 0x71,          // send PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
+    S_MSG_VERT_POS_SETPOINT_SET = 0x72,     // send vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
+    S_MSG_COIL_PHASE_ADJUST_SET = 0x73,     // send coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
 
 
     // ========== 0x80–0xFE: not used ==========
@@ -280,49 +283,54 @@ enum MsgType : uint8_t {
 
 // ========== I2C message payloads: common messages exchanged between master and slave; in two directions ==========
 
-struct /* __attribute__((packed)) */ I2C_globeSettings {
-    uint8_t userSet_rotationPeriod;                 // index into array with defined rotation periods 
-    uint8_t userSet_ledEffect;
-    uint8_t userSet_ledCycleSpeed;
+struct __attribute__((packed)) I2C_globeSettings {
+    uint8_t rotationPeriodIndex;                // index into array with defined rotation periods 
+    uint8_t ledEffect;                          // led effect number
+    uint8_t ledCycleSpeed;                      // led effect speed number
+    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
 };
 
-struct /* __attribute__((packed)) */ I2C_PIDsettings {
-    int8_t gainAdjustSteps;                         // positive or negative
+struct __attribute__((packed)) I2C_PIDsettings {
+    int8_t gainAdjustSteps;                     // positive or negative
     int8_t intTimeCstAdjustSteps;
     int8_t difTimeCstAdjustSteps;
+    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
 };
 
-struct /* __attribute__((packed)) */ I2C_vertPosSetpoint {
-    uint8_t userSet_vertPosIndex = 0;               // index into array with vert. positions (in mV)
+struct __attribute__((packed)) I2C_vertPosSetpoint {
+    uint8_t vertPosIndex = 0;                   // index into array with vert. positions (in mV)
+    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
 };
 
-struct /* __attribute__((packed)) */ I2C_coilPhaseAdjust {
-    uint8_t userSet_coilPhaseAdjust = 0;            // index into array with vert. positions (in mV)
+struct __attribute__((packed)) I2C_coilPhaseAdjust {
+    int8_t coilPhaseAdjust = 0;                 // -90 to 90 degrees
+    uint8_t slaveHasData {0};                    // slave=>master only: the slave data requested is available
 };
 
 
 // ========== I2C message payloads: messages from master to slave ==========
 
-struct /* __attribute__((packed)) */ I2C_m_status {
+struct __attribute__((packed)) I2C_m_status {
     uint8_t status;
 };
 
-struct /* __attribute__((packed)) */ I2C_m_greenwich {
+struct __attribute__((packed)) I2C_m_greenwich {
     uint32_t actualRotationTime;
     int32_t rotationOutOfSyncTime;      // can be negative
     int32_t greenwichLag;               // can be negative
     uint8_t status;
 };
 
-struct /* __attribute__((packed)) */ I2C_m_secondCue {
-    uint32_t tempSmooth;
+struct __attribute__((packed)) I2C_m_secondCue {
+    int32_t tempSmooth;
     float magnetOnCyclesSmooth;
     float ISRdurationSmooth;
     float idleLoopMicrosSmooth;
     float errSignalMagnitudeSmooth;
+    int32_t realTTTintegrationTerm;
 };
 
-struct I2C_m_GlobeStats {
+struct __attribute__((packed))I2C_m_GlobeStats {
     uint8_t largestEventsPending{ 0 };              // No of ISR events currently logged for processing in main loop 
     uint16_t largestEventBufferBytesUsed{ 0 };      // No of ISR events logged for processing in main loop: all-time max
     uint32_t eventsMissed{ 0 };                     // keeps track of events missed (not used at this stage)    
@@ -330,7 +338,7 @@ struct I2C_m_GlobeStats {
 };
 
 // ensure consistency between master and slave
-using I2C_m_globeSettings = I2C_globeSettings;
+using I2C_m_globeSettings = I2C_globeSettings;      // '_m_': data flows from wire master to wire slave 
 using I2C_m_PIDsettings = I2C_PIDsettings;
 using I2C_m_coilPhaseAdjust = I2C_coilPhaseAdjust;
 using I2C_m_vertPosSetpoint = I2C_vertPosSetpoint;
@@ -339,16 +347,16 @@ using I2C_m_vertPosSetpoint = I2C_vertPosSetpoint;
 
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
-struct I2C_messageStats {
+struct __attribute__((packed))I2C_messageStats {
     uint32_t I_stats_replyReceived{ 0 };     // reply message received
     uint32_t E_stats_lockStepError{ 0 };     // this is not a wire level error but a message level error
 };
-using I2C_m_msgStats = I2C_messageStats; 
+using I2C_m_msgStats = I2C_messageStats;
 
 
 // ========== I2C message payloads: messages from slave to master ==========
 
-struct /* __attribute__((packed)) */ I2C_s_ack {
+struct __attribute__((packed)) I2C_s_ack {
     uint8_t ack;                                    // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
@@ -357,10 +365,10 @@ struct /* __attribute__((packed)) */ I2C_s_ack {
 };
 
 // ensure consistency between master and slave
-using I2C_s_globeSettings = I2C_globeSettings;
-using I2C_s_PIDsettings = I2C_PIDsettings;
-using I2C_s_coilPhaseAdjust = I2C_coilPhaseAdjust;
-using I2C_s_vertPosSetpoint = I2C_vertPosSetpoint;
+using I2C_s_globeSettings_set = I2C_globeSettings;  // '_s_': data flows from wire slave to wire master 
+using I2C_s_PIDsettings_set = I2C_PIDsettings;
+using I2C_s_coilPhaseAdjust_set = I2C_coilPhaseAdjust;
+using I2C_s_vertPosSetpoint_set = I2C_vertPosSetpoint;
 
 /* ========== END OF COMMON SECTION BETWEEN WIRE MASTER AND WIRE SLAVE ========== */
 

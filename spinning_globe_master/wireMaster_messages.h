@@ -47,7 +47,6 @@ Wire master: message handling layer
 #define _MESSAGEHANDLING_h
 
 #include "floatingGlobeState.h"
-#include "wireCommon_messages.h"                      
 #include "wireMaster_transport.h"             // or master slave 
 
 class MessageHandling {
@@ -63,7 +62,7 @@ class MessageHandling {
     LedStripSettings& _ledStripSettings;
     EventData& _globeEventSnapshot;
 
-    int* _pGlobeAttributes;
+    int* _globeMetrics;
 
     WireMaster _wireMaster;
 
@@ -75,7 +74,7 @@ class MessageHandling {
 
 public:
     MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
-        SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* pGobeAttributes,
+        SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
         LedStripSettings& ledStripSettings, EventData& globeEventSnapshot);
 
     ~MessageHandling();

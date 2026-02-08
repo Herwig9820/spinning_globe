@@ -134,7 +134,7 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
 
     msgType = rxQueue[rxTail][0];
     payloadSize = rxQueue[rxTail][1];
-    if (payloadSize > PAYLOAD_IN_MAX) payloadSize = 0;
+    if (payloadSize > SLAVE_PAYLOAD_MAX) payloadSize = 0;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         ((uint8_t*)payload)[i] = rxQueue[rxTail][HEADER_SIZE + i];
     }

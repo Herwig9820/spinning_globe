@@ -72,13 +72,13 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
     static void mqttCallback(char* topic, byte* payload, unsigned int length);
 
     // --- Real handler ---
-    void handleMQTTMessage(char* topic, byte* payload, unsigned int length);
+    void pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int length);
 
 public:
 
     MQTTmessages(SharedContext& sharedContext);
     void loop();
-    void handleMQTTmessage(char* topic, byte* payload, unsigned int length);
+    bool convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire);
 
 };
 

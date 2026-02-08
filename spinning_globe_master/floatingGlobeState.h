@@ -88,17 +88,17 @@ constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };       
 
 
 // globe attributes: a list of basic settings (e.g.: set rotation time) and calculated values (e.g.: current rotation time)
-// array 'globeAttributes_label' contains the corresponding labels 
+// array 'globeMetricsLabels' contains the corresponding labels 
 
 // globe attributes: '1': editable setting / '0': calculated value
-constexpr long const globeAttributes_editable{ 0b11110000010000001 };                           // LSB: first globe selectedAttribute in list
+constexpr long const globeMetrics_editableFlags{ 0b11110000010000001 };                           // LSB: first globe selectedAttribute in list
 
 // globe attributes: lengths of individual value lists (0 if no value list (value range) or not a setting
-constexpr int const globeAttributes_valueListLength[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
+constexpr int const globeMetrics_listLengths[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
     sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };               // 0 if no value list for selectedAttribute
 
 // globe selectedAttribute: pointers to value lists for individual attributes
-const long* const globeAttributes_valueList[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
+const long* const globeMetrics_valueListsPointers[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
     hallMilliVolts, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };  // nullptr if no value list for globe selectedAttribute
 
 
@@ -122,7 +122,7 @@ struct StatusData {                                                             
 struct SecondData {                                                                 // initialize members, awaiting first event
     long eventSecond{ 0 };
     long liftingSecond{ 0 }, lockedSecond{ 0 };
-    long realTTTintTerm{ 0 };
+    long realTTTintegrationTerm{ 0 };
 };
 
 struct FastRateData {
@@ -184,7 +184,7 @@ struct GlobeAttribute {
 };
 
 struct SmoothedMeasurements {
-    float tempSmooth{ 0 };
+    int32_t tempSmooth{ 0 };
     float idleLoopMicrosSmooth{ 0 };
     float magnetOnCyclesSmooth{ 0 };
     float ISRdurationSmooth{ 0 };                               // values smoothed by first order filter

@@ -1,6 +1,7 @@
 #include "MQTTmessages.h"
 #include "secrets.h"
 #include "debug.h"
+#include "json_helpers.h"
 
 MQTTmessages* MQTTmessages::_instance = nullptr;
 
@@ -17,14 +18,33 @@ void MQTTmessages::loop() {
     // first, maintain WiFi and MQTT connections
     bool WiFiConnected = _wifiConnection.maintainWiFi();
     bool MQTTconnected = maintainMQTT(WiFiConnected);
-    
+    unsigned int tmp;
+
     // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
     if (MQTTconnected) {
-        MsgToMQTT* pMsg{};
+        MsgToMQTT* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
-            pMsg = _sharedContext.queueToMQTT.front();
-            _client.publish(pMsg->topic, pMsg->payload);
-            _sharedContext.queueToMQTT.pop(*pMsg);
+            pMsgToMQTT = _sharedContext.queueToMQTT.front();
+            _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload);
+            _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
+        }
+
+        MQTTmsgToWire* pMsgToWire{};
+        if (!_sharedContext.queueToWire.empty()) {
+            pMsgToWire = _sharedContext.queueToWire.front();
+
+            // switch() requires integral type
+
+            // MQTT has data available: OVERWRITE pending settings slot for that particular data
+            if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {
+                convertMQTTtoGlobeSettings(pMsgToWire);
+            }
+
+            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {
+                // MSTT requests globe settings
+            }
+
+            _sharedContext.queueToWire.pop(*pMsgToWire);
         }
     }
 
@@ -32,6 +52,25 @@ void MQTTmessages::loop() {
     _client.loop(); // placed at the end, after all states machines ran, after an eventual publish that was just queued                                    
 }
 
+// ============================================================================================
+// MQTT globe settings message - PHASE 1: parse payload into 'pending' globe settings structure
+// [Phases 2 and 3: in wireSlaveMessages.loop()]
+// ============================================================================================
+bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
+    bool ok{ false };
+    unsigned int tmp{};
+
+    uint8_t& rotationPeriodIndex = _sharedContext.pendingGlobeSettings.rotationPeriodIndex;
+    ok = JsonParse::getUInt(pMsgToWire->payload, "setRotTime", &tmp);
+    _sharedContext.pendingGlobeSettings.rotationPeriodIndex = tmp;
+    ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffect", &tmp);
+    _sharedContext.pendingGlobeSettings.ledEffect = tmp;
+    ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffectSpeed", &tmp);
+    _sharedContext.pendingGlobeSettings.ledCycleSpeed = tmp;
+    _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
+    Serial.print("PHASE 1: MQTT convert to wire: set rot time index: "); Serial.println(_sharedContext.pendingGlobeSettings.rotationPeriodIndex);
+    return ok;
+}
 
 // ============================================================================
 // MQTT CALLBACK
@@ -42,18 +81,24 @@ void MQTTmessages::loop() {
 void MQTTmessages::mqttCallback(char* topic, byte* payload, unsigned int length)
 {
     if (_instance) {
-        _instance->handleMQTTmessage(topic, payload, length);
+        _instance->pushIncomingMQTTmsg(topic, payload, length);
     }
 }
-void MQTTmessages::handleMQTTmessage(char* topic, byte* payload, unsigned int length)
-{
-    String msg;
-    for (unsigned int i = 0; i < length; i++)
-        msg += (char)payload[i];
 
-    Serial.print("MQTT received: ");
-    Serial.println(msg);
+
+void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int length)
+{
+    // do not loose time here decoding the topic to wire msgType en msgLen
+
+    if (_sharedContext.queueToWire.full()) { return; }
+    MQTTmsgToWire msg;
+    strlcpy(msg.topic, topic, sizeof(msg.topic));
+    if(length < sizeof(msg.payload)){
+        strlcpy((char*)msg.payload, (const char*)payload, length+1);
+    }
+    _sharedContext.queueToWire.push(msg);
 }
+
 
 // ============================================================================
 // MQTT RECONNECT
@@ -98,6 +143,7 @@ bool MQTTmessages::maintainMQTT(bool WiFiConnected) {
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
                 if (_client.connected()) {                                        // MQTT is now connected ?
                     _mqttState = MQTT_connected;
+                    _client.subscribe("globe/settings/set");
                     if (DEBUG) {
                         char s[120]; sprintf(s, "-- at %11.3fs: MQTT connected", now / 1000.);
                         DEBUG_PRINTLN(s);

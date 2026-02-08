@@ -8,21 +8,21 @@ bool WireSlaveMessages::loop() {
 
     uint8_t messageTypeIn{};          // as received
     uint8_t payloadSizeIn{};          // as received
-    uint8_t payloadIn[WireSlave::PAYLOAD_IN_MAX];
+    uint8_t payloadIn[MASTER_PAYLOAD_MAX];
 
-    bool msgAvailable = wireSlave.dequeueRx(messageTypeIn, payloadIn, payloadSizeIn);
+    bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn);
     if (!msgAvailable) { return false; }
-
-    Serial.print("message: "); Serial.println(messageTypeIn, HEX);// for now
 
     switch (messageTypeIn)
     {
+        // hello message: not yet implemented
+        /*  
         case MsgType::M_MSG_HELLO:  // not yet implemented
         {
-            wireSlave.enqueueTx(MsgType::S_MSG_HELLO_ACK, nullptr, 0);             // no payload
+            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_HELLO_ACK, nullptr, 0);             // no payload
         }
         break;
-
+        */
 
        // ========== message types in: RECEIVE DATA from wire master after an event ==========
 
@@ -31,10 +31,7 @@ bool WireSlaveMessages::loop() {
             I2C_m_status* pStatus = reinterpret_cast<I2C_m_status*>(payloadIn);
             convertGlobeStatusToMQTT(pStatus);
 
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
@@ -43,10 +40,7 @@ bool WireSlaveMessages::loop() {
             I2C_m_greenwich* pGreenwich = reinterpret_cast<I2C_m_greenwich*>(payloadIn);
             convertGlobeGreenwichCueToMQTT(pGreenwich);
 
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
@@ -55,10 +49,7 @@ bool WireSlaveMessages::loop() {
             I2C_m_secondCue* pSecondCue = reinterpret_cast<I2C_m_secondCue*>(payloadIn);
             convertSecondCueToMQTT(pSecondCue);
 
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
@@ -68,143 +59,103 @@ bool WireSlaveMessages::loop() {
         // receive wire master library tx stats 
         case MsgType::M_MSG_SEND_STATS:
         {
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
         // receive wire master library rx stats
         case MsgType::M_MSG_RECEIVE_STATS:
         {
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
         // receive wire master message library stats
         case MsgType::M_MSG_MESSAGE_STATS:
         {
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
         // receive spinning globe event stats
         case MsgType::M_MSG_GLOBE_STATS:
         {
-
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
-        // receive globe settings (changeable globe attributes)
+        // receive globe settings from master (changeable globe attributes)
         case MsgType::M_MSG_GLOBE_SETTINGS:
         {
-            I2C_s_globeSettings* globeIn = reinterpret_cast<I2C_s_globeSettings*>(payloadIn);
-            if (payloadSizeIn != sizeof(*globeIn)) { Serial.println("PAYLOAD SIZE <<<<<<"); return false; }               // inconsistency between master and slave: forget message
-            Serial.println("Globe settings: adjust steps (received):");
-            Serial.print("    rotation time   "); Serial.println(globeIn->userSet_rotationPeriod);
-            Serial.print("    led effect      "); Serial.println(globeIn->userSet_ledEffect);
-            Serial.print("    led cycle speed "); Serial.println(globeIn->userSet_ledCycleSpeed);
+            I2C_m_globeSettings* pGlobeIn = reinterpret_cast<I2C_m_globeSettings*>(payloadIn);
+            convertGlobeSettingsToMQTT(pGlobeIn);
+            replyAndFlagSlaveDataAvailable();
 
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
         }
         break;
 
-        // receive PID controller settings
+        // receive PID controller settings from master
         case MsgType::M_MSG_PID_SETTINGS:
         {
-            I2C_s_PIDsettings* PIDin = reinterpret_cast<I2C_s_PIDsettings*>(payloadIn);
-            if (payloadSizeIn != sizeof(*PIDin)) { Serial.println("PAYLOAD SIZE <<<<<<"); return false; }               // inconsistency between master and slave: forget message
-            Serial.println("PID controller: adjust steps (received):");
-            Serial.print("    gain          "); Serial.println(PIDin->gainAdjustSteps);
-            Serial.print("    int. time cst "); Serial.println(PIDin->intTimeCstAdjustSteps);
-            Serial.print("    dif. time cst "); Serial.println(PIDin->difTimeCstAdjustSteps);
-
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            I2C_m_PIDsettings* pPIDin = reinterpret_cast<I2C_m_PIDsettings*>(payloadIn);
+            convertPIDsettingsToMQTT(pPIDin);
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
-        // receive vertical position setpoint (mV)
+        // receive vertical position setpoint (mV) from master
         case MsgType::M_MSG_VERT_POS_SETPOINT:
         {
-            I2C_s_vertPosSetpoint* vertPosIn = reinterpret_cast<I2C_s_vertPosSetpoint*>(payloadIn);
-            if (payloadSizeIn != sizeof(*vertPosIn)) { Serial.println("PAYLOAD SIZE <<<<<<"); return false; }               // inconsistency between master and slave: forget message
-            Serial.print("vert. pos. setpoint "); Serial.println(vertPosIn->userSet_vertPosIndex);
-
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            I2C_m_vertPosSetpoint* pVertPosIn = reinterpret_cast<I2C_m_vertPosSetpoint*>(payloadIn);
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
-        // receive coil phase adjust (degrees)
+        // receive coil phase adjust (degrees) from master
         case MsgType::M_MSG_COIL_PHASE_ADJUST:
         {
-            I2C_s_coilPhaseAdjust* coilPhaseIn = reinterpret_cast<I2C_s_coilPhaseAdjust*>(payloadIn);
-            if (payloadSizeIn != sizeof(*coilPhaseIn)) { Serial.println("PAYLOAD SIZE <<<<<<"); return false; }               // inconsistency between master and slave: forget message
-            Serial.print("coil phase adjust: "); Serial.println(coilPhaseIn->userSet_coilPhaseAdjust);
-
-            I2C_s_ack p;
-            p.ack = 0x0;
-            p.requestMasterMsgType = MsgType::M_MSG_NONE;
-            wireSlave.enqueueTx(MsgType::S_MSG_ACK, &p, sizeof(p));
+            I2C_m_coilPhaseAdjust* pCoilPhaseIn = reinterpret_cast<I2C_m_coilPhaseAdjust*>(payloadIn);
+            replyAndFlagSlaveDataAvailable();
         }
         break;
 
-        // ========== message types in: RECEIVE REQUEST from master to send data ==========
+        // ========== message types in: RECEIVE REQUEST from master to send data to master ==========
 
-        case MsgType::M_MSG_REQ_GLOBE_SETTINGS:
+        case MsgType::M_MSG_GLOBE_SETTINGS_REQ:
         {
-            I2C_s_globeSettings p{};
-            p.userSet_rotationPeriod = 5;      // test
-            p.userSet_ledEffect = 5;
-            p.userSet_ledCycleSpeed = 0;
             // but master needs to observe a delay between this message it sent and the response expected, because this response will only be enqueued now
-            // and must be ready in the queue when 'handleRequest()' is triggered  
-            wireSlave.enqueueTx(MsgType::S_MSG_GLOBE_SETTINGS, &p, sizeof(p));
+            // and must be ready in the queue when 'popOutgoingWireMsg()' is triggered  
+            Serial.print("Phase 3: master requests globe settings. MQTT settings to be sent are valid: "); Serial.println(_sharedContext.committedGlobeSettings.slaveHasData);
+            Serial.print("         MQTT globe settings now committed: set rot time index: "); Serial.println(_sharedContext.committedGlobeSettings.rotationPeriodIndex);
+            Serial.print("         has slave data ?"); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);
+            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_GLOBE_SETTINGS_SET, &_sharedContext.committedGlobeSettings, sizeof(I2C_s_globeSettings_set));
+            _sharedContext.committedGlobeSettings.slaveHasData = 0;
         }
         break;
 
-        case MsgType::M_MSG_REQ_PID_SETTINGS:
+        case MsgType::M_MSG_PID_SETTINGS_REQ:
         {
-            I2C_s_PIDsettings p{};
+            I2C_s_PIDsettings_set p{};
             p.gainAdjustSteps = 16;      // test
             p.intTimeCstAdjustSteps = 16;
             p.difTimeCstAdjustSteps = 16;
-            wireSlave.enqueueTx(S_MSG_PID_SETTINGS, &p, sizeof(p));
+            wireSlave.pushOutgoingWireMsg(S_MSG_PID_SETTINGS_SET, &p, sizeof(p));
         }
         break;
 
-        case MsgType::M_MSG_REQ_VERT_POS_SETPOINT:
+        case MsgType::M_MSG_VERT_POS_SETPOINT_REQ:
         {
-            I2C_s_vertPosSetpoint p{};
-            p.userSet_vertPosIndex = 0;      // test
-            wireSlave.enqueueTx(S_MSG_VERT_POS_SETPOINT, &p, sizeof(p));
+            I2C_s_vertPosSetpoint_set p{};
+            p.vertPosIndex = 0;      // test
+            wireSlave.pushOutgoingWireMsg(S_MSG_VERT_POS_SETPOINT_SET, &p, sizeof(p));
         }
         break;
 
-        case MsgType::M_MSG_REQ_COIL_PHASE_ADJUST:
+        case MsgType::M_MSG_COIL_PHASE_ADJUST_REQ:
         {
-            I2C_s_coilPhaseAdjust p{};
-            p.userSet_coilPhaseAdjust = 0;      // test
-            wireSlave.enqueueTx(S_MSG_COIL_PHASE_ADJUST, &p, sizeof(p));
+            I2C_s_coilPhaseAdjust_set p{};
+            p.coilPhaseAdjust = 0;      // test
+            wireSlave.pushOutgoingWireMsg(S_MSG_COIL_PHASE_ADJUST_SET, &p, sizeof(p));
         }
         break;
 
@@ -221,37 +172,27 @@ void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
     MsgToMQTT msg{};
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_STATUS);
     snprintf(msg.payload, sizeof(msg.payload), "%u", p->status);
-
-    _sharedContext.queueToMQTT.push(msg);
-
-    snprintf(msg.topic, sizeof(msg.topic), TOPIC_GREENWICH);
-    JsonUtil::startJson(msg.payload, sizeof(msg.payload));
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "actRotTime", "--.-- s");
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "rotSyncError", "--.-- s");
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "greenwichLag", "--- degrees");
-    JsonUtil::closeJson(msg.payload, sizeof(msg.payload));
-
     _sharedContext.queueToMQTT.push(msg);
 };
 
 void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
-
     MsgToMQTT msg{};
-
-    // JSON serialization into fixed buffer
+    // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GREENWICH);
-    JsonUtil::startJson(msg.payload, sizeof(msg.payload));
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "actRotTime", "%.2f s", p->actualRotationTime/1000.);
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    if ((p->status == rotUnlocked) || (p->status == rotLocked)) {
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"%.2f s\"", p->actualRotationTime / 1000.);
+    }
+    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); }
     if (p->status == rotLocked) {
-        JsonUtil::add(msg.payload, sizeof(msg.payload), "rotSyncError", "%.2f s", p->rotationOutOfSyncTime/1000.);
-        JsonUtil::add(msg.payload, sizeof(msg.payload), "greenwichLag", "%.2ld degrees", p->greenwichLag);
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"%.2ld degrees\"", p->greenwichLag);      // already in degrees
     }
     else {
-        JsonUtil::add(msg.payload, sizeof(msg.payload), "rotSyncError", "--.-- s");
-        JsonUtil::add(msg.payload, sizeof(msg.payload), "greenwichLag", "--- degrees");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"--.-- \"s");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"--- degrees\"");
     }
-    JsonUtil::closeJson(msg.payload, sizeof(msg.payload));
-
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     _sharedContext.queueToMQTT.push(msg);
 };
 
@@ -264,18 +205,91 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     float vertPosAvgError = (p->errSignalMagnitudeSmooth / spinningGlobeNano_fastDataRateSamplingPeriods) * spinningGlobeNano_ADCmVperStep;
 
     MsgToMQTT msg{};
-
-    // JSON serialization into fixed buffer
+    // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_TELEMETRY);
-    JsonUtil::startJson(msg.payload, sizeof(msg.payload));
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "temp", "%.1f deg.C", tempC);
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "magnetDutyCycle", "%.1f%%", magnetDutyCycle);
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "ISRduration", "%.0f us", isrDuration);
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "load", "%.1f%%", load);
-    JsonUtil::add(msg.payload, sizeof(msg.payload), "vertPosError", "%.1f mV", vertPosAvgError);
-    JsonUtil::closeJson(msg.payload, sizeof(msg.payload));
-
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "heatsinkTemp", "\"%.1f deg.C\"", tempC);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "magnetDutyCycle", "\"%.1f%%\"", magnetDutyCycle);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "ISRduration", "\"%.0f us\"", isrDuration);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "load", "\"%.1f%%\"", load);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "vertPosError", "\"%.1f mV\"", vertPosAvgError);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "TTTintegrTerm", "\"%6ld\"", p->realTTTintegrationTerm);
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     _sharedContext.queueToMQTT.push(msg);
+}
+
+void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn) {
+    MsgToMQTT msg{};
+    // JSON
+    snprintf(msg.topic, sizeof(msg.topic), TOPIC_GLOBE_SETTINGS);
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setRotTime", "\"%1u\"", pGlobeIn->rotationPeriodIndex);    // rotation speed
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffect", "\"%1u\"", pGlobeIn->ledEffect);            // led effect
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffectSpeed", "\"%1u\"", pGlobeIn->ledCycleSpeed);   // led effect speed
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    _sharedContext.queueToMQTT.push(msg);
+};
+
+void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
+    MsgToMQTT msg{};
+    // JSON
+    snprintf(msg.topic, sizeof(msg.topic), TOPIC_PID_SETTINGS);
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "gainAdjust", "%1d", pPIDIn->gainAdjustSteps);              // gain adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "difTimeAdjust", "%1d", pPIDIn->difTimeCstAdjustSteps);     // diff. time constant adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), "intTimeAdjust", "%1d", pPIDIn->intTimeCstAdjustSteps);     // int. time constant adjustment
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    _sharedContext.queueToMQTT.push(msg);
+};
+
+
+// ============================================================================================
+// Reply to wire master with an 'ACK' message
+// If an MQTT message is pending and NO MQTT message is committed to be sent to wire master:
+//   MQTT message - PHASE 2: commit pending message and lag 'message is committed' 
+//   (next phase: phase 3: answer to wire master requesting data)
+// ============================================================================================
+void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
+
+    MsgType msgType{ M_MSG_NONE };        // init: no message req
+
+    if (_sharedContext.pendingGlobeSettings.slaveHasData && !_sharedContext.committedGlobeSettings.slaveHasData) {
+        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingGlobeSettings.slaveHasData = 0;       // was just committed
+        msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;        // inform master: should request globe settings
+        Serial.print("Phase 2: MQTT globe settings now committed: set rot time index: ");Serial.println(_sharedContext.committedGlobeSettings.rotationPeriodIndex);
+        Serial.print("         has slave data ?"); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);
+    }
+
+    /* later ////
+    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
+        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
+        _sharedContext.pendingGlobeSettingsFull = false;
+        _sharedContext.committedGlobeSettingsFull = true;
+        msgType = ;
+    }
+
+    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
+        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
+        _sharedContext.pendingGlobeSettingsFull = false;
+        _sharedContext.committedGlobeSettingsFull = true;
+        msgType = ;
+    }
+
+    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
+        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
+        _sharedContext.pendingGlobeSettingsFull = false;
+        _sharedContext.committedGlobeSettingsFull = true;
+        msgType = ;
+    }
+    */
+
+    I2C_s_ack p;
+    p.ack = 0x0;        // not used
+    p.requestMasterMsgType = msgType;
+    if(p.requestMasterMsgType == MsgType::M_MSG_GLOBE_SETTINGS_REQ) {Serial.print("(start)  MQTT globe settings now committed: "); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);}
+    wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
+    if (p.requestMasterMsgType == MsgType::M_MSG_GLOBE_SETTINGS_REQ) { Serial.print("(end)    MQTT globe settings now committed: "); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData); }
 }
 
 

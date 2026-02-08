@@ -69,7 +69,7 @@ Polling does not advance protocol state
 #define _WIRE_SLAVE_TRANSPORT_h
 
 #include <arduino.h>
-
+#include "wireCommon_messages.h"
 
 // Full memory fence for ESP32 / GCC
 #define MEMORY_BARRIER() __sync_synchronize()
@@ -94,18 +94,16 @@ class  WireSlave {
 public:
     // Packet sizing
     static constexpr uint8_t HEADER_SIZE = 3;                                       // message type and length, (not currently used) version byte
-    static constexpr uint8_t PAYLOAD_IN_MAX = 20;
-    static constexpr uint8_t PAYLOAD_OUT_MAX = 10;
-    static constexpr uint8_t PACKET_IN_MAX = HEADER_SIZE + PAYLOAD_IN_MAX + 1;      // type + len + payload + checksum: length max. 32
-    static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + PAYLOAD_OUT_MAX + 1;    // type + len + payload + checksum: length max. 32
+    static constexpr uint8_t PACKET_IN_MAX = HEADER_SIZE + MASTER_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
+    static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1;    // type + len + payload + checksum: length max. 32
 
 
 /* ================= Lockstep SPSC with acquire / release fences ================= */
 
 private:
     // SPSC buffers (single producer single consumer)
-    alignas(4) volatile uint8_t rxQueue[HEADER_SIZE + PAYLOAD_IN_MAX + 1];          // type + len + payload + checksum
-    alignas(4) volatile uint8_t txQueue[HEADER_SIZE + PAYLOAD_OUT_MAX + 1];         // type + len + payload + checksum
+    alignas(4) volatile uint8_t rxQueue[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];          // type + len + payload + checksum
+    alignas(4) volatile uint8_t txQueue[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];         // type + len + payload + checksum
 
     alignas(4) volatile bool rxEmpty = true;
     alignas(4) volatile bool txEmpty = true;
@@ -140,8 +138,8 @@ private:
     static void wireReceiveEvent(int byteCount);
     static void wireRequestEvent();
 
-    void handleReceive(int byteCount);
-    void handleRequest();
+    void pushIncomingWireMsg(int byteCount);
+    void popOutgoingWireMsg();
 
     static WireSlave* instance;   // global pointer to our our object
 
@@ -150,8 +148,8 @@ public:
     WireSlave();
     ~WireSlave();
 
-    bool dequeueRx(uint8_t& msgType, void* payload, uint8_t& payloadSize);
-    bool enqueueTx(uint8_t messageType, void* payload, uint8_t payloadSize);
+    bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize);
+    bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize);
     void getCommStats(I2C_slaveCommStats& commStatSnapshot);
 };
 

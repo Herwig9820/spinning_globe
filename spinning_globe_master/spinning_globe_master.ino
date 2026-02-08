@@ -194,10 +194,10 @@ const char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
 const char str_eventMaxStats[] PROGMEM = "event max stats: events pending %d, mem size %d";
 #endif
 
-const char* const globeAttributes_label[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
+const char* const globeMetricsLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
     str_vertPos, str_errSigVar, str_intTerm, str_avgPhase, str_isrTime, str_procLoad, str_gain, str_intTimeCst, str_difTimeCst, str_phaseAdj };
 
-constexpr int globeAttributeCount = sizeof(globeAttributes_label) / sizeof(globeAttributes_label[0]);
+constexpr int globeMetricsCount = sizeof(globeMetricsLabels) / sizeof(globeMetricsLabels[0]);
 
 
 // ========== unit strings ==========
@@ -299,7 +299,7 @@ volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };                    
 volatile bool applyStep{ false };                                                   // apply step when measuring (step) response
 
 // -1 if display only (no changeable globe selectedAttribute); otherwise default value - needed in case the eeprom is not used to 
-int attributes_currentValues[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };
+int globeMetrics[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };
 
 // retain values from event message buffer
 GreenwichData greenwichData;
@@ -613,7 +613,7 @@ GlobeEvents globeEvents;
 EventData globeEventSnapshot;
 
 #if WITH_WIRE_COMM
-MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, attributes_currentValues, ledStripSettings, globeEventSnapshot);
+MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, globeMetrics, ledStripSettings, globeEventSnapshot);
 #endif
 
 
@@ -683,17 +683,17 @@ void setup()
 
         // read rotation time from eeprom and set
         eepromValue = eeprom_read_byte((uint8_t*)0);                                    // restore globe rotation time from eeprom
-        cnt = globeAttributes_valueListLength[attributeIndex_rotTimes];                 // No of defined rotation times 
+        cnt = globeMetrics_listLengths[attributeIndex_rotTimes];                 // No of defined rotation times 
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-        attributes_currentValues[attributeIndex_rotTimes] = eepromValue;
+        globeMetrics[attributeIndex_rotTimes] = eepromValue;
         setRotationTime(eepromValue);                                                   // set rotation time and store in eeprom
 
 
         // read globe vertical position setpoint from eeprom 
         eepromValue = eeprom_read_byte((uint8_t*)1);
-        cnt = globeAttributes_valueListLength[attributeIndex_hallmVoltRefs];            // No of defined hall setpoints in millivolt
+        cnt = globeMetrics_listLengths[attributeIndex_hallmVoltRefs];            // No of defined hall setpoints in millivolt
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
-        attributes_currentValues[attributeIndex_hallmVoltRefs] = eepromValue;
+        globeMetrics[attributeIndex_hallmVoltRefs] = eepromValue;
         long hallmVoltRef = hallMilliVolts[eepromValue];                                // globe vertical position ref in mVolt (after analog amplification)
         targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                     // globe vertical position ref in ADC steps
         hallRef_ADCsteps = targetHallRef_ADCsteps;
@@ -702,15 +702,15 @@ void setup()
         // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
         pidSettings.gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;           // preset gain corresponds to gainAdjustSteps mid value   
-        attributes_currentValues[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps;
+        globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)5);
         pidSettings.intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
-        attributes_currentValues[attributeIndex_intTimeConstAdjust] = pidSettings.intTimeCstAdjustSteps;
+        globeMetrics[attributeIndex_intTimeConstAdjust] = pidSettings.intTimeCstAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)6);
         pidSettings.difTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to difTimeCstAdjustSteps mid value 
-        attributes_currentValues[attributeIndex_difTimeConstAdjust] = pidSettings.difTimeCstAdjustSteps;
+        globeMetrics[attributeIndex_difTimeConstAdjust] = pidSettings.difTimeCstAdjustSteps;
 
         setPIDcontroller();
 
@@ -718,7 +718,7 @@ void setup()
         // NEW version 1.0.3: read phase adjustment for coils rotation start delay (non-locked rotation) from eeprom and store in memory     
         eepromValue = eeprom_read_byte((uint8_t*)7);
         phaseAdjustSteps = (eepromValue >= 179) ? 179 : eepromValue;                        // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
-        attributes_currentValues[attributeIndex_coilPhaseAdjust] = phaseAdjustSteps;
+        globeMetrics[attributeIndex_coilPhaseAdjust] = phaseAdjustSteps;
 
 
         // read led strip cycle & timing from eeprom and set 
@@ -753,7 +753,7 @@ void setup()
 
     // initial setting to display: rotation time, except if currently in program mode
     selectedAttribute.attributeIndex = switchesSetHallmVoltRef ? attributeIndex_hallmVoltRefs : attributeIndex_rotTimes;
-    selectedAttribute.attributeValue = attributes_currentValues[selectedAttribute.attributeIndex];
+    selectedAttribute.attributeValue = globeMetrics[selectedAttribute.attributeIndex];
 
 
     // ========== do a first temp reading here and assign it to temperature filter output, to avoid slow temperature ramp up ==========
@@ -813,11 +813,20 @@ void loop()
 
     static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
     static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
+    const uint8_t initialMessages[2]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS };
 
+    static uint8_t initialMsg{ 0 };
+
+    // priority 1: answer slave request (requested in last (slave reply) MSG_ACK message) by sending a message
     if (slaveRequestNextMsgTypeOut != M_MSG_NONE) {
         nextMsgTypeOut = slaveRequestNextMsgTypeOut;
     }
-    else {
+    
+    // priority 2: messages after startup
+    else if(initialMsg < sizeof(initialMessages)){nextMsgTypeOut = initialMessages[initialMsg++];}
+    
+    // priority 3: messages in response to an ISR event (or user command, but none are available in 'wire comm' mode)
+    else{
         getEventOrUserCommand();                                        // get ONE event or assembled user command, exit anyway if none available
         nextMsgTypeOut = processEvent();                                // process event, if available
     }
@@ -825,6 +834,7 @@ void loop()
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
+
     checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #else
     getEventOrUserCommand();                        // get ONE event or assembled user command, exit anyway if none available
@@ -835,7 +845,7 @@ void loop()
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
 
-    writeStatus();
+ //   writeStatus();
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 
@@ -1064,7 +1074,8 @@ uint8_t processEvent() {
 
             // feed temp. sensor reading to smoothing filter
             // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
-            long temp = ((fastRateDataPtr->sumADCtemp * 50000L - (5000L << 10)) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
+            // tempSmooth: in °C * 100
+            long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - (5000L << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
                 smoothedMeasurements.tempSmooth =                       //   
                     tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
@@ -1092,7 +1103,7 @@ uint8_t processEvent() {
         #endif
 
             /*
-            // 3 seconds after reset 
+            // 3 seconds after reset
             if (secondData.eventSecond == 3) {
                 cli();                                                                      // interrupts off: interface with ISR and eeprom write
                 eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
@@ -1133,21 +1144,21 @@ void processCommand() {
     switch (userCommand) {
         // zero-parameter commands
         case uEdit:                                                     // edit item
-            selectedAttribute.attributeChangeMode = (globeAttributes_editable & (1L << selectedAttribute.attributeIndex));
+            selectedAttribute.attributeChangeMode = (globeMetrics_editableFlags & (1L << selectedAttribute.attributeIndex));
             if (!selectedAttribute.attributeChangeMode) { break; }      // item is not editable
 
         case uPrevious:                                                 // previous item
         case uNext:                                                     // next item
             if (userCommand == uPrevious) { selectedAttribute.attributeIndex--; }
             else if (userCommand == uNext) { selectedAttribute.attributeIndex++; }
-            selectedAttribute.attributeIndex = (selectedAttribute.attributeIndex + globeAttributeCount) % globeAttributeCount;
+            selectedAttribute.attributeIndex = (selectedAttribute.attributeIndex + globeMetricsCount) % globeMetricsCount;
 
             switch (selectedAttribute.attributeIndex) {
                 case attributeIndex_gainAdjust: selectedAttribute.attributeValue = pidSettings.gainAdjustSteps; break;
                 case attributeIndex_intTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.intTimeCstAdjustSteps; break;
                 case attributeIndex_difTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.difTimeCstAdjustSteps; break;
                 case attributeIndex_coilPhaseAdjust: selectedAttribute.attributeValue = phaseAdjustSteps; break;
-                default: selectedAttribute.attributeValue = attributes_currentValues[selectedAttribute.attributeIndex]; break;
+                default: selectedAttribute.attributeValue = globeMetrics[selectedAttribute.attributeIndex]; break;
             }
             break;
 
@@ -1192,7 +1203,7 @@ void processCommand() {
             bool down = (userCommand == uDown) || (userCommand == (uDown + 20)) || (userCommand == (uPrevious + 20));
             bool immediateSave = ((userCommand == uDown) || (userCommand == uUp));
 
-            if (!(globeAttributes_editable & (1L << selectedAttribute.attributeIndex))) { break; }; // if item is not editable, break
+            if (!(globeMetrics_editableFlags & (1L << selectedAttribute.attributeIndex))) { break; }; // if item is not editable, break
 
            // only for PID & rotation controller settings
             switch (selectedAttribute.attributeIndex) {
@@ -1212,7 +1223,7 @@ void processCommand() {
                         if (selectedAttribute.attributeValue > 0) { selectedAttribute.attributeValue--; }
                     }
                     else {
-                        if (selectedAttribute.attributeValue < globeAttributes_valueListLength[selectedAttribute.attributeIndex] - 1) { selectedAttribute.attributeValue++; }
+                        if (selectedAttribute.attributeValue < globeMetrics_listLengths[selectedAttribute.attributeIndex] - 1) { selectedAttribute.attributeValue++; }
                     }
                     break;
             }
@@ -1223,7 +1234,7 @@ void processCommand() {
                     case attributeIndex_intTimeConstAdjust: pidSettings.intTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                     case attributeIndex_difTimeConstAdjust: pidSettings.difTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                     case attributeIndex_coilPhaseAdjust:        phaseAdjustSteps = selectedAttribute.attributeValue; break;
-                    default:                         attributes_currentValues[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
+                    default:                         globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
                 }
                 doSaveParams = true;
             }
@@ -1236,7 +1247,7 @@ void processCommand() {
                 case attributeIndex_intTimeConstAdjust: pidSettings.intTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                 case attributeIndex_difTimeConstAdjust: pidSettings.difTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                 case attributeIndex_coilPhaseAdjust:        phaseAdjustSteps = selectedAttribute.attributeValue; break;
-                default:                         attributes_currentValues[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
+                default:                         globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
             }
             selectedAttribute.attributeChangeMode = false;
             doSaveParams = true;
@@ -1248,7 +1259,7 @@ void processCommand() {
                 case attributeIndex_intTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.intTimeCstAdjustSteps; break;
                 case attributeIndex_difTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.difTimeCstAdjustSteps; break;
                 case attributeIndex_coilPhaseAdjust: selectedAttribute.attributeValue = phaseAdjustSteps; break;
-                default: selectedAttribute.attributeValue = attributes_currentValues[selectedAttribute.attributeIndex]; break;
+                default: selectedAttribute.attributeValue = globeMetrics[selectedAttribute.attributeIndex]; break;
             }
             selectedAttribute.attributeChangeMode = false;
             break;
@@ -1324,7 +1335,7 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
             // signal SW3 to SW0: set rotation time according to values stored
             uint8_t sw = (currentSwitchStates >> 2) & (uint8_t)0x0F;
             selectedAttribute.attributeIndex = switchesSetRotationTime ? attributeIndex_rotTimes : attributeIndex_hallmVoltRefs;    // parameter = rotation time or hall mV ref ?
-            int cnt = globeAttributes_valueListLength[selectedAttribute.attributeIndex];                                            // No of defined rotation times 
+            int cnt = globeMetrics_listLengths[selectedAttribute.attributeIndex];                                            // No of defined rotation times 
             selectedAttribute.attributeValue = (sw >= cnt) ? 0 : sw;                                                                // if not in valid range, take first in list
             saveAndUseGlobeAttribute(selectedAttribute.attributeIndex, selectedAttribute.attributeValue);
         }
@@ -1371,9 +1382,9 @@ void writeStatus() {
     }
     Serial.println(longText);
 
-    for (long attributeIndex = 0; attributeIndex < globeAttributeCount; attributeIndex++) {
-        int attributeValue = attributes_currentValues[attributeIndex];
-        strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[attributeIndex]))); // selectedAttribute label
+    for (long attributeIndex = 0; attributeIndex < globeMetricsCount; attributeIndex++) {
+        int attributeValue = globeMetrics[attributeIndex];
+        strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[attributeIndex]))); // selected attribute label
         fetchAttributeValue(s30, attributeIndex, attributeValue);
         strcat(longText, s30);
         Serial.println(longText);
@@ -1395,7 +1406,7 @@ void writeStatus() {
 void writeAttributeLabelAndValue() {
 
     // selectedAttribute value type ?
-    bool isSetValue = (globeAttributes_editable & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
+    bool isSetValue = (globeMetrics_editableFlags & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
     bool isRotationValue = ((selectedAttribute.attributeIndex == 1) || (selectedAttribute.attributeIndex == 2) || (selectedAttribute.attributeIndex == 10)); // value to print is provided by last Greenwich event
     bool isLiveValue = !(isSetValue || isRotationValue);                                    // all other values
 
@@ -1406,7 +1417,7 @@ void writeAttributeLabelAndValue() {
 
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
 
-    strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[selectedAttribute.attributeIndex])));                           // selectedAttribute label
+    strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[selectedAttribute.attributeIndex])));                           // selectedAttribute label
 
     fetchAttributeValue(s30, selectedAttribute.attributeIndex, selectedAttribute.attributeValue);                                   // selectedAttribute value
 
@@ -1481,9 +1492,9 @@ void writeStatus() {
     }
 
     if (userCommand == uShowAll) {                                                          // Print all attributes to Serial
-        for (long attributeIndex = 0; attributeIndex < globeAttributeCount; attributeIndex++) {
-            int attributeValue = attributes_currentValues[attributeIndex];
-            strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[attributeIndex]))); // selectedAttribute label
+        for (long attributeIndex = 0; attributeIndex < globeMetricsCount; attributeIndex++) {
+            int attributeValue = globeMetrics[attributeIndex];
+            strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[attributeIndex]))); // selectedAttribute label
             fetchAttributeValue(s30, attributeIndex, attributeValue);
             strcat(longText, s30);
             Serial.println(longText);
@@ -1560,7 +1571,7 @@ void writeAttributeLabelAndValue() {
     blinkEnabled = selectedAttribute.attributeChangeMode;                                   // blink if user is changing values
 
     // selectedAttribute value type ?
-    bool isSetValue = (globeAttributes_editable & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
+    bool isSetValue = (globeMetrics_editableFlags & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
     bool isRotationValue = ((selectedAttribute.attributeIndex == 1) || (selectedAttribute.attributeIndex == 2) || (selectedAttribute.attributeIndex == 10)); // value to print is provided by last Greenwich event
     bool isLiveValue = !(isSetValue || isRotationValue);                                    // all other values
 
@@ -1580,7 +1591,7 @@ void writeAttributeLabelAndValue() {
 
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
 
-    strcpy_P(longText, (char*)pgm_read_word(&(globeAttributes_label[selectedAttribute.attributeIndex])));                           // selectedAttribute label
+    strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[selectedAttribute.attributeIndex])));                           // selectedAttribute label
 
     fetchAttributeValue(s30, selectedAttribute.attributeIndex, selectedAttribute.attributeValue);                                   // selectedAttribute value
     strcat(longText, LCDeraseValue ? "       " : s30);                                      // blink: spaces instead of value
@@ -1623,7 +1634,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
 
     switch (attributeIndex) {
         case 0: {                                               // set rotation time
-            paramValue = *(globeAttributes_valueList[attributeIndex] + attributeValue);
+            paramValue = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue);
             strcpy(s, "    off");
             if (paramValue != 0) {
                 dtostrf(((float)paramValue) / 1000., 6, 2, s);
@@ -1678,7 +1689,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
         }
 
         case 7: {                                                // globe lifting: reference for hall detector in milliVolt as read by Arduino (sensor value x analog gain)
-            paramValue = *(globeAttributes_valueList[attributeIndex] + attributeValue);
+            paramValue = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue);
             sprintf(s, "%5ldmV", paramValue);
             break;
         }
@@ -1694,7 +1705,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
         }
 
         case 9: {                                                // integration term
-            sprintf(s, "%6ld", secondData.realTTTintTerm);
+            sprintf(s, "%6ld", secondData.realTTTintegrationTerm);
             break;
         }
 
@@ -1738,7 +1749,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
         }
         case 16: {
 
-            sprintf(s, "%+4ddeg", (attributeValue < 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
+            sprintf(s, "%+4ddeg", (attributeValue <= 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
             break;
         }
     }
@@ -1925,7 +1936,7 @@ void readKey(char* keyAscii) {                                  // from Serial i
 
 void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
 {
-    attributes_currentValues[attributeIndex] = attributeValue;          // save this value in the attributes array
+    globeMetrics[attributeIndex] = attributeValue;          // save this value in the attributes array
      // only items that can be changed need to have an entry here 
 
     uint8_t byteNumber{ 4 };                                            // init: eeprom byte number for gain
@@ -1946,7 +1957,7 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         case attributeIndex_hallmVoltRefs:
         {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
-                long hallmVoltRef = *(globeAttributes_valueList[attributeIndex] + attributeValue); // globe vertical position ref in mVolt read by Arduino ADC
+                long hallmVoltRef = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue); // globe vertical position ref in mVolt read by Arduino ADC
                 targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
                 eeprom_update_byte((uint8_t*)1, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
@@ -2015,7 +2026,7 @@ void setPIDcontroller()
 void setRotationTime(int attributeValue)
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                     // interrupts off: interface with ISR and eeprom write
-        targetGlobeRotationTime = *(globeAttributes_valueList[attributeIndex_rotTimes] + attributeValue);
+        targetGlobeRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + attributeValue);
             // adapt magnetic field rotation immediately
         targetStepTime = targetGlobeRotationTime / stepCount;
 
@@ -2851,7 +2862,7 @@ SIGNAL(ADC_vect) {
             ((SecondData*)messagePtr)->eventSecond = second;
             ((SecondData*)messagePtr)->liftingSecond = liftingSecond;
             ((SecondData*)messagePtr)->lockedSecond = lockedSecond;
-            ((SecondData*)messagePtr)->realTTTintTerm = (TTTintTerm >> PIDcalculation_BinaryFractionDigits);    // 1 sample every second (slow moving)
+            ((SecondData*)messagePtr)->realTTTintegrationTerm = (TTTintTerm >> PIDcalculation_BinaryFractionDigits);    // 1 sample every second (slow moving)
         }
     }
 
