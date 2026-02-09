@@ -2,14 +2,8 @@
 #define _SHARED_DATA_h
 
 #include "wireCommon_messages.h"
+#include <stddef.h>
 
-// ----- shared with spinning globe master ----- //// moeten identiek zijn, maar zijn nu niet shared
-
-constexpr long spinningGlobeNano_timer1ClockFreq{ 2000000L };
-constexpr long spinningGlobeNano_timer1PWMfreq{ 1000L };
-constexpr long spinningGlobeNano_timer1Top{ spinningGlobeNano_timer1ClockFreq / spinningGlobeNano_timer1PWMfreq / 2 };
-constexpr float spinningGlobeNano_ADCmVperStep = 5000. / 1024.;
-constexpr long spinningGlobeNano_fastDataRateSamplingPeriods{ 1 << 7 };
 
 enum rotStatus :uint8_t {
     rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked, // rotNoPosSync: also if rotation OFF or not floating   
@@ -19,25 +13,6 @@ enum rotStatus :uint8_t {
 ////enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
-
-
-constexpr const char str_noPosSync[] = "wait for pos sync";
-constexpr const char str_freeRunning[] = "free running";
-constexpr const char str_measuring[] = "measuring";
-constexpr const char str_notLocked[] = "not locked";
-constexpr const char str_locked[] = "locked";
-constexpr const char str_rotationOff[] = "rotation off";
-constexpr const char str_notFloating[] = "not floating";
-
-constexpr const char str_ErrDroppedGlobe[] = "E! dropped globe";
-constexpr const char str_ErrStickyGlobe[] = "E! sticky globe";
-constexpr const char str_ErrOverload[] = "E! overload";
-constexpr const char str_ErrTemp[] = "E! temp too high";
-
-
-
-
-#include <stddef.h>
 
 // to MQTT
 constexpr const char* TOPIC_STATUS = "globe/status";

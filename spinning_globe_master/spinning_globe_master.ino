@@ -222,16 +222,11 @@ char longText[150], s30[30];                                                    
 #error code expects CPU frequency 16 MHz
 #endif
 
-constexpr uint8_t keyBufferLength{ 3 };
-constexpr long timer1PWMfreq{ 1000L };                                              // 1 KHz
-constexpr long timer1PreScaler{ 8 };                                                // as set in setup();
-constexpr long timer1ClockFreq{ F_CPU / timer1PreScaler };                          // 2 MHz
-constexpr long timer1Top{ timer1ClockFreq / timer1PWMfreq / 2 };                    // timer counts up and down : 2000 steps, TOP =1000
-constexpr long fastDataRateSamplingPeriods{ 1 << 7 };                               // in sampling periods (milliseconds, power of 2)
 constexpr float samplingPeriod{ 1. / (float)timer1PWMfreq };                        // 1 millisecond sampling period, in seconds
 constexpr long oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
 constexpr long spareTimeCount{ 500 };                                               // milliseconds
 
+constexpr uint8_t keyBufferLength{ 3 };
 bool showLiveValues{ true };
 bool forceWriteLedstripSpecs{ false };
 uint8_t ISRevent{ eNoEvent };                                                       // current ISR event retrieved for processing in main loop
@@ -288,7 +283,6 @@ constexpr int gain_BinaryFractionDigits{ 8 };                                   
 constexpr int TTTintFactor_BinaryFractionDigits{ 18 };                              // added TTTintFactor accuracy (binary fraction digits) because of small TTTintFactor                           
 constexpr int TTTdifFactor_BinaryFractionDigits{ 3 };                               // added TTTdifFactor accuracy (binary fraction digits) because of small TTTdifFactor
 
-constexpr long ADCsteps{ 1024L };                                                   // globe vertical position sensor: resolution (10 bit ADC)
 constexpr uint16_t printPIDperiod{ 20000 }, PIDstepTime{ 1000 };                    // for step response measurement
 
 
@@ -695,7 +689,7 @@ void setup()
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
         globeMetrics[attributeIndex_hallmVoltRefs] = eepromValue;
         long hallmVoltRef = hallMilliVolts[eepromValue];                                // globe vertical position ref in mVolt (after analog amplification)
-        targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;                     // globe vertical position ref in ADC steps
+        targetHallRef_ADCsteps = ((float)(ADCsteps * hallmVoltRef)) / ADCvolt;                     // globe vertical position ref in ADC steps
         hallRef_ADCsteps = targetHallRef_ADCsteps;
 
         // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
@@ -758,7 +752,8 @@ void setup()
 
     // ========== do a first temp reading here and assign it to temperature filter output, to avoid slow temperature ramp up ==========
 
-    tempSmooth = (((long)analogRead(A1_temperaturePin) * 50000L - (5000L << 10)) >> 10);    // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
+    // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
+    tempSmooth = (((long)analogRead(A1_temperaturePin) * (500/*mV at 0°C*/ * 100L /*in °C x 100*/ ) - ((long)ADCvolt << 10)) >> 10);    // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
 
 
     // ========== init serial and LCD ==========
@@ -1075,7 +1070,7 @@ uint8_t processEvent() {
             // feed temp. sensor reading to smoothing filter
             // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
             // tempSmooth: in °C * 100
-            long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - (5000L << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
+            long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - ((long)ADCvolt << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
                 smoothedMeasurements.tempSmooth =                       //   
                     tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
@@ -1698,7 +1693,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
             strcpy(s, " ---mV");
             if (statusData.isFloating) {                         // from latest fast rate update event before write
                 // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milliVolt range
-                dtostrf((smoothedMeasurements.errSignalMagnitudeSmooth / fastDataRateSamplingPeriods) * 5000. / (float)ADCsteps, 4, 0, s);
+                dtostrf((smoothedMeasurements.errSignalMagnitudeSmooth / fastDataRateSamplingPeriods) * ADCvolt / (float)ADCsteps, 4, 0, s);
                 strcat(s, "mV");
             }
             break;
@@ -1958,7 +1953,7 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 long hallmVoltRef = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue); // globe vertical position ref in mVolt read by Arduino ADC
-                targetHallRef_ADCsteps = (ADCsteps * hallmVoltRef) / 5000L;
+                targetHallRef_ADCsteps = ((float)(ADCsteps * hallmVoltRef)) / ADCvolt;
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
                 eeprom_update_byte((uint8_t*)1, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }

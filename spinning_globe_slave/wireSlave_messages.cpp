@@ -198,11 +198,11 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
 
 void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     float tempC = p->tempSmooth / 100.0f;
-    float magnetDutyCycle = (p->magnetOnCyclesSmooth / spinningGlobeNano_fastDataRateSamplingPeriods) * 100.0f / (float)spinningGlobeNano_timer1Top;
-    float isrDuration = p->ISRdurationSmooth / spinningGlobeNano_fastDataRateSamplingPeriods;
-    float load = ((1000.0f * spinningGlobeNano_fastDataRateSamplingPeriods - p->idleLoopMicrosSmooth)
-        * 100.0f / (1000.0f * spinningGlobeNano_fastDataRateSamplingPeriods));
-    float vertPosAvgError = (p->errSignalMagnitudeSmooth / spinningGlobeNano_fastDataRateSamplingPeriods) * spinningGlobeNano_ADCmVperStep;
+    float magnetDutyCycle = (p->magnetOnCyclesSmooth / fastDataRateSamplingPeriods) * 100.0f / (float)timer1Top;
+    float isrDuration = p->ISRdurationSmooth / fastDataRateSamplingPeriods;
+    float load = ((1000.0f * fastDataRateSamplingPeriods - p->idleLoopMicrosSmooth)
+        * 100.0f / (1000.0f * fastDataRateSamplingPeriods));
+    float vertPosAvgError = (p->errSignalMagnitudeSmooth / (float)fastDataRateSamplingPeriods) * (ADCvolt / (float)ADCsteps);
 
     MsgToMQTT msg{};
     // JSON

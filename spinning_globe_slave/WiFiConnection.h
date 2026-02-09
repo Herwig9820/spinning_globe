@@ -4,7 +4,6 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "sharedContext.h"
 #include "secrets.h"
 #include "debug.h"
 
