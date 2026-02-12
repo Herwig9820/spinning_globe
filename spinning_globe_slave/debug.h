@@ -1,5 +1,5 @@
-#ifndef _DEBUG_h
-#define _DEBUG_h
+#ifndef FG_DEBUG_h
+#define FG_DEBUG_h
 
 
 // ============================================================

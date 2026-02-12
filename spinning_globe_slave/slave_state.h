@@ -1,7 +1,7 @@
-#ifndef _SHARED_DATA_h
-#define _SHARED_DATA_h
+#ifndef FG_SLAVE_STATE_h
+#define FG_SLAVE_STATE_h
 
-#include "wireCommon_messages.h"
+#include "wire_protocol.h"
 #include <stddef.h>
 
 
@@ -28,6 +28,7 @@ constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
 
 
 template<typename T, size_t N>
+
 class SPSCQueue {
 public:
     bool push(const T& item) {

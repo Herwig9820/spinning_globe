@@ -1,5 +1,5 @@
-#ifndef _WIFI_CONNECTION_h
-#define _WIFI_CONNECTION_h
+#ifndef FG_WIFI_CONNECTION_h
+#define FG_WIFI_CONNECTION_h
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>

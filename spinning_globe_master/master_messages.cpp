@@ -43,8 +43,8 @@ Wire master: message handling layer
 ===============================================================================
 */
 
-#include "floatingGlobeState.h"
-#include "wireMaster_messages.h"
+#include "master_state.h"
+#include "master_messages.h"
 
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
     SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
@@ -294,13 +294,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         #endif
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            /*
-            for (int i = 0; i < sizeof(I2C_s_globeSettings_set); ++i) {
-                Serial.print(plIn[i], HEX); Serial.print(' ');////
-            }
-            Serial.println();
-            */
 
             I2C_s_globeSettings_set* p = reinterpret_cast<I2C_s_globeSettings_set*>(plIn);
 

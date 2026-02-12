@@ -43,8 +43,8 @@ Spinning globe declarations shared with messageHandling library
 ===============================================================================
 */
 
-#ifndef _FLOATINGGLOBESTATE_h
-#define _FLOATINGGLOBESTATE_h
+#ifndef FG_MASTER_STATE_h
+#define FG_MASTER_STATE_h
 
 #include <Arduino.h>
 #include <stdlib.h>

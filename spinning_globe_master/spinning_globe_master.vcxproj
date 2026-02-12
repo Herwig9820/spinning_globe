@@ -74,31 +74,29 @@
     <ProjectCapability Include="VisualMicroLinux" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="wireMaster_messages.cpp">
+    <ClCompile Include="master_messages.cpp">
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
     <ClCompile Include="spinning_globe_master.ino">
       <FileType>CppCode</FileType>
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
-    <ClCompile Include="wireMaster_transport.cpp">
+    <ClCompile Include="master_transport.cpp">
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="floatingGlobeState.h">
+    <ClCompile Include="master_state.h">
       <FileType>CppCode</FileType>
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
-    <ClCompile Include="wireMaster_messages.h">
+    <ClCompile Include="master_transport.h">
       <FileType>CppCode</FileType>
       <DeploymentContent>true</DeploymentContent>
     </ClCompile>
-    <ClCompile Include="wireMaster_transport.h">
-      <FileType>CppCode</FileType>
-      <DeploymentContent>true</DeploymentContent>
-    </ClCompile>
-    <ClInclude Include="..\spinning_globe_shared\wireCommon_messages.h" />
+    <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h" />
+    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h" />
+    <ClInclude Include="master_messages.h" />
     <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h" />
   </ItemGroup>
   <PropertyGroup>

@@ -1,5 +1,5 @@
-#ifndef _JSON_HELPERS_h
-#define _JSON_HELPERS_h
+#ifndef FG_JSON_HELPERS_h
+#define FG_JSON_HELPERS_h
 
 #pragma once
 #include <ctype.h>              //// check: nodig ?

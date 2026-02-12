@@ -1,5 +1,5 @@
-#ifndef _SECRETS_h
-#define _SECRETS_h
+#ifndef FG_SECRETS_h
+#define FG_SECRETS_h
 
     // WiFi: SSID and password
     #define WIFI_SSID "Mathurot"

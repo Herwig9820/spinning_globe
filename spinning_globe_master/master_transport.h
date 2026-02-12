@@ -109,12 +109,12 @@ incoming wire data in method 'i2cReadMessage()'.
 ===============================================================================
 */
 
-#ifndef _WIRE_MASTER_INTERFACE.h
-#define _WIRE_MASTER_INTERFACE.h
+#ifndef FG_MASTER_TRANSPORT.h
+#define FG_MASTER_TRANSPORT.h
 
 #include "arduino.h"
 #include <util/atomic.h>                                            // atomic operations
-#include "wireCommon_messages.h"
+#include "wire_protocol.h"
 
 class  WireMaster {
 

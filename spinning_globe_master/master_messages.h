@@ -43,11 +43,11 @@ Wire master: message handling layer
 ===============================================================================
 */
 
-#ifndef _MESSAGEHANDLING_h
-#define _MESSAGEHANDLING_h
+#ifndef FG_MASTER_MESSAGES_h
+#define FG_MASTER_MESSAGES_h
 
-#include "floatingGlobeState.h"
-#include "wireMaster_transport.h"             // or master slave 
+#include "master_state.h"
+#include "master_transport.h"             // or master slave 
 
 class MessageHandling {
 

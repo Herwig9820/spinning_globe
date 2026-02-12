@@ -44,11 +44,12 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #include <avr/wdt.h>                                        // watchdog timer
 #include <limits.h>                                         // specific constants
 
-#include "floatingGlobeState.h"
+#include "wire_hw_config.h"
+#include "master_state.h"
 #if WITH_WIRE_COMM                                          // 0: earlier floating globe version without WiFi
-#include "wireMaster_messages.h"
+#include "master_messages.h"
+#include "wire_protocol.h"  
 #endif
-#include "wireCommon_messages.h"
 
 #define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B
 #define SPINNING_GLOBE_VERSION 2.00
@@ -841,7 +842,9 @@ void loop()
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
 
-    writeStatus();
+    //// neemt te veel ram -> longtext moet dan 150 zijn
+    //// writeStatus();   
+    
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 

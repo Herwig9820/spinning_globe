@@ -1,10 +1,10 @@
-#ifndef _MQTT_MESSAGES_h
-#define _MQTT_MESSAGES_h
+#ifndef FG_MQTT_MESSAGES_h
+#define FG_MQTT_MESSAGES_h
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "sharedContext.h"
+#include "slave_state.h"
 #include "WiFiConnection.h"
 
 class MQTTmessages {

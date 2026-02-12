@@ -31,19 +31,19 @@
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="sharedContext.h">
+    <ClCompile Include="slave_state.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_messages.h">
+    <ClCompile Include="slave_messages.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_transport.cpp">
+    <ClCompile Include="slave_transport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_transport.h">
+    <ClCompile Include="slave_transport.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_messages.cpp">
+    <ClCompile Include="slave_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WiFiConnection.cpp">
@@ -57,7 +57,10 @@
     <ClInclude Include="WiFiConnection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\spinning_globe_shared\wireCommon_messages.h">
+    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
