@@ -48,6 +48,7 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #if WITH_WIRE_COMM                                          // 0: earlier floating globe version without WiFi
 #include "wireMaster_messages.h"
 #endif
+#include "wireCommon_messages.h"
 
 #define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B
 #define SPINNING_GLOBE_VERSION 2.00
@@ -840,7 +841,7 @@ void loop()
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
 
- //   writeStatus();
+    writeStatus();
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 
@@ -1389,7 +1390,7 @@ void writeStatus() {
     Serial.print(strcat(strcpy(longText, "led effect "), s30));
     if (ledStripSettings.ledEffect >= cWhiteBlue) {
         sprintf(s30, "%u", ledStripSettings.ledCycleSpeed + 1);
-        Serial.println(strcat(strcpy(longText, "led timing "), s30));
+        Serial.println(strcat(strcpy(longText, ", led timing "), s30));
     }
 
     Serial.println();

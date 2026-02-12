@@ -1,19 +1,8 @@
-#include "WiFiConnection.h"
-#include "secrets.h"
-
-// wire slave 
 #include "wireSlave_messages.h"
-#include "wireSlave_transport.h"
-
-// WiFi and MQTT
 #include "MQTTmessages.h"
-
-// debugging 
-#include "debug.h"
 
 SharedContext sharedContext;
 WireSlaveMessages wireSlaveMessages(sharedContext);
-//MQTTmessages mqttMessages(sharedContext);
 MQTTmessages* mqttMessages = nullptr;
 
 
@@ -29,6 +18,7 @@ void setup()
     Serial.println("=== BUILD DATE AND TIME ===");
     Serial.print(__DATE__); Serial.print(' '); Serial.println(__TIME__);
 
+    // do not define before setup() runs
     mqttMessages = new MQTTmessages(sharedContext);
 
     pinMode(13, OUTPUT);
@@ -40,9 +30,10 @@ void setup()
 // ============================================================================
 void loop()
 {
-    if (mqttMessages)
-        mqttMessages->loop();
-
+    // that's all there is (here): this nano esp32 acts as a bridge between MQTT and the spinning globe classic nano
+    
+    // maintain both the wire slave and MQTT connections and send messages back and forth
+    if (mqttMessages){mqttMessages->loop();}
     wireSlaveMessages.loop();
 }
 

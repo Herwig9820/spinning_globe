@@ -25,7 +25,7 @@ void MQTTmessages::loop() {
         MsgToMQTT* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
-            _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload);
+            _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
             _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
         }
 
@@ -56,6 +56,7 @@ void MQTTmessages::loop() {
 // MQTT globe settings message - PHASE 1: parse payload into 'pending' globe settings structure
 // [Phases 2 and 3: in wireSlaveMessages.loop()]
 // ============================================================================================
+
 bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     bool ok{ false };
     unsigned int tmp{};

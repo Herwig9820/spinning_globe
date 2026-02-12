@@ -71,6 +71,7 @@ private:
 struct MsgToMQTT {
     char topic[48];
     char payload[160];
+    bool retain{true};
 };
 
 struct MQTTmsgToWire {

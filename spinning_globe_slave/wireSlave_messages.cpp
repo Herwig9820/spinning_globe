@@ -172,6 +172,7 @@ void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
     MsgToMQTT msg{};
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_STATUS);
     snprintf(msg.payload, sizeof(msg.payload), "%u", p->status);
+    msg.retain = false;
     _sharedContext.queueToMQTT.push(msg);
 };
 
@@ -193,6 +194,7 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"--- degrees\"");
     }
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    msg.retain = false;
     _sharedContext.queueToMQTT.push(msg);
 };
 
@@ -215,6 +217,7 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "vertPosError", "\"%.1f mV\"", vertPosAvgError);
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "TTTintegrTerm", "\"%6ld\"", p->realTTTintegrationTerm);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    msg.retain = false;
     _sharedContext.queueToMQTT.push(msg);
 }
 
@@ -227,6 +230,7 @@ void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffect", "\"%1u\"", pGlobeIn->ledEffect);            // led effect
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffectSpeed", "\"%1u\"", pGlobeIn->ledCycleSpeed);   // led effect speed
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    msg.retain = false;
     _sharedContext.queueToMQTT.push(msg);
 };
 
@@ -239,6 +243,7 @@ void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "difTimeAdjust", "%1d", pPIDIn->difTimeCstAdjustSteps);     // diff. time constant adjustment
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "intTimeAdjust", "%1d", pPIDIn->intTimeCstAdjustSteps);     // int. time constant adjustment
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    msg.retain = false;
     _sharedContext.queueToMQTT.push(msg);
 };
 

@@ -295,11 +295,12 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
+            /*
             for (int i = 0; i < sizeof(I2C_s_globeSettings_set); ++i) {
                 Serial.print(plIn[i], HEX); Serial.print(' ');////
             }
             Serial.println();
-
+            */
 
             I2C_s_globeSettings_set* p = reinterpret_cast<I2C_s_globeSettings_set*>(plIn);
 
