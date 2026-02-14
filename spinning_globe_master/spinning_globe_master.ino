@@ -755,7 +755,7 @@ void setup()
     // ========== do a first temp reading here and assign it to temperature filter output, to avoid slow temperature ramp up ==========
 
     // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
-    tempSmooth = (((long)analogRead(A1_temperaturePin) * (500/*mV at 0°C*/ * 100L /*in °C x 100*/ ) - ((long)ADCvolt << 10)) >> 10);    // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
+    tempSmooth = (((long)analogRead(A1_temperaturePin) * (500/*mV at 0°C*/ * 100L /*in °C x 100*/) - ((long)ADCvolt << 10)) >> 10);    // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits instead)
 
 
     // ========== init serial and LCD ==========
@@ -775,7 +775,8 @@ void setup()
     }
 
 #if WITH_WIRE_COMM
-    Serial.println(F("Communication using I2C: hardware buttons, LCD and USB input\n"));
+    Serial.println(F("Communication using I2C: hardware buttons, LCD and USB input disabled."));
+    Serial.println(F("If working stand-alone, on-board switches can be used to change settings."));
 #else
     Serial.println(strcpy_P(longText, str_help1));
     Serial.println(strcpy_P(longText, str_help2));
@@ -818,12 +819,12 @@ void loop()
     if (slaveRequestNextMsgTypeOut != M_MSG_NONE) {
         nextMsgTypeOut = slaveRequestNextMsgTypeOut;
     }
-    
+
     // priority 2: messages after startup
-    else if(initialMsg < sizeof(initialMessages)){nextMsgTypeOut = initialMessages[initialMsg++];}
-    
+    else if (initialMsg < sizeof(initialMessages)) { nextMsgTypeOut = initialMessages[initialMsg++]; }
+
     // priority 3: messages in response to an ISR event (or user command, but none are available in 'wire comm' mode)
-    else{
+    else {
         getEventOrUserCommand();                                        // get ONE event or assembled user command, exit anyway if none available
         nextMsgTypeOut = processEvent();                                // process event, if available
     }
@@ -844,7 +845,7 @@ void loop()
 
     //// neemt te veel ram -> longtext moet dan 150 zijn
     //// writeStatus();   
-    
+
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
 
@@ -1091,14 +1092,19 @@ uint8_t processEvent() {
                     highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
                 }
             }
+
+        #if WITH_WIRE_COMM
+            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
+            if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
+        #endif    
         }
         break;
 
         case eSecond:
         {
         #if WITH_WIRE_COMM
-            uint8_t clockDividerBitMask = 0b11;       // 0b0011 divides frequency by 4
-            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_SECOND; }
+            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth second cue = every 4 seconds
+            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }             //send telemetry 
         #endif
 
             /*
@@ -1938,15 +1944,15 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
     globeMetrics[attributeIndex] = attributeValue;          // save this value in the attributes array
      // only items that can be changed need to have an entry here 
 
-    uint8_t byteNumber{ 4 };                                            // init: eeprom byte number for gain
+    uint8_t eepromByteIndex{ 4 };                                           // init: eeprom byte number for gain
 
     switch (attributeIndex) {
         // set rotation time
         case attributeIndex_rotTimes:
         {
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // interrupts off: interface with ISR and eeprom write
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setRotationTime(attributeValue);
-                forceStatusEvent = true;                                // 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
+                forceStatusEvent = true;                                    // 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
                 eeprom_update_byte((uint8_t*)0, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
         }
@@ -1974,22 +1980,22 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         }
         break;
 
-        // eeprom byteNumber is now pointing to gain adjust step storage (byte 4) 
+        // eeprom eepromByteIndex is now pointing to gain adjust step storage (byte 4) 
         case attributeIndex_difTimeConstAdjust:
         {
-            byteNumber++;                                                   // byte 6: dif. time adjust step
+            eepromByteIndex++;                                                   // byte 6: dif. time adjust step
         }
         case attributeIndex_intTimeConstAdjust:
         {
-            byteNumber++;                                                   // byte 5: int. time cst. adjust step
+            eepromByteIndex++;                                                   // byte 5: int. time cst. adjust step
         }
         case attributeIndex_gainAdjust:
         {
-            byteNumber++;                                                   // byte 4: gain adjust step
+            eepromByteIndex++;                                                   // byte 4: gain adjust step
             // update eeprom for specified characteristic (gain, int.tc or diff.tc) AND update PID settings (pidSettings)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
-                eeprom_update_byte((uint8_t*)byteNumber, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
+                eeprom_update_byte((uint8_t*)eepromByteIndex, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
             }
         }
@@ -2025,8 +2031,12 @@ void setPIDcontroller()
 void setRotationTime(int attributeValue)
 {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                     // interrupts off: interface with ISR and eeprom write
-        targetGlobeRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + attributeValue);
-            // adapt magnetic field rotation immediately
+        long newTargetGlobeRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + attributeValue);
+        if (newTargetGlobeRotationTime == targetGlobeRotationTime) { return; }
+
+        targetGlobeRotationTime = newTargetGlobeRotationTime;
+
+        // adapt magnetic field rotation immediately
         targetStepTime = targetGlobeRotationTime / stepCount;
 
         const int speedIndex = (targetGlobeRotationTime >= 3000) ? 1 : 0;
@@ -2056,50 +2066,54 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
     // slow and very slow cycles: choose cycle times such that cycle will be moved 1/2 cycle (two-color cycles) or 1/6 cycle (three-color cycles) every 24 hours 
     // slow: number of complete cycles: 48 two-color cycles in 23 hours 45 minutes, or 24 three-color cycles in 23 hours 50 minutes, respectively, giving a time shift of either 15 or 10 minutes per day
     // very slow: number of complete cycles: 12 two-color cycles in 23 hours, or 6 three-color cycles in 23 hours 20 minutes, respectively, giving a time shift of either 30 or 40 minutes per day
-    constexpr long ledstripTimings[2][4] = { { 150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L }, { 180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L } }; // in seconds
+
+    constexpr long ledstripTimings[2][4] = { { 150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L },
+        { 180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L } }; // in seconds
+
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                                                   // interrupts off: interface with ISR and eeprom write
-        if (initColorCycle || (newColorCycle != ledStripSettings.ledEffect) || (newColorTiming != ledStripSettings.ledCycleSpeed)) {
-            ledStripSettings.ledEffect = newColorCycle;                                                     // color cycle
-            ledStripSettings.ledCycleSpeed = newColorTiming;                                                // color cycle timing
-            LStransitionStops = (ledStripSettings.ledEffect <= cWhiteBlue) ? 2L : 6L;                       // no of 'frozen brightness' stops within a brightness cycle: MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
-            int8_t cycleType = (ledStripSettings.ledEffect <= cWhiteBlue) ? 0 : 1;
-            LSbrightnessTransitionTime = ledstripTimings[cycleType][newColorTiming];                        // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times                                           
-            LSlongTimeUnit = LSbrightnessTransitionTime >= 3600 * 1000L;                                    // prevent overflow LSscaledDelay variable for long cycle times: time unit is now 128 milliseconds instead of 1 ms
-            if (LSlongTimeUnit) { LSbrightnessTransitionTime >>= 7; }                                       // will introduce small cumulative timing error if led strip cycle time not a multiple of 128 ms
+        bool updateLedSettings = initColorCycle || (newColorCycle != ledStripSettings.ledEffect) || (newColorTiming != ledStripSettings.ledCycleSpeed);
+        if (!updateLedSettings) { return; }
 
-            LSbrightnessFreezeTime = ((ledStripSettings.ledEffect <= cWhiteBlue) ? 0L : 0L) * 1000L;        // total 'frozen brightness' time (summed up constant brightness time between all transitions), in milliseconds (minimum = 0)
-            LSbrightnessCycleTime = LSbrightnessFreezeTime + LSbrightnessTransitionTime;                    // COMPLETE color cycle in milliseconds
+        ledStripSettings.ledEffect = newColorCycle;                                                     // color cycle
+        ledStripSettings.ledCycleSpeed = newColorTiming;                                                // color cycle timing
+        LStransitionStops = (ledStripSettings.ledEffect <= cWhiteBlue) ? 2L : 6L;                       // no of 'frozen brightness' stops within a brightness cycle: MUST be > 0 => set LSbrightnessFreezeTime = 0 if no transition stops desired
+        int8_t cycleType = (ledStripSettings.ledEffect <= cWhiteBlue) ? 0 : 1;
+        LSbrightnessTransitionTime = ledstripTimings[cycleType][newColorTiming];                        // total brightness transition time (in a complete color cycle), in milliseconds - excludes 'frozen brightness' times                                           
+        LSlongTimeUnit = LSbrightnessTransitionTime >= 3600 * 1000L;                                    // prevent overflow LSscaledDelay variable for long cycle times: time unit is now 128 milliseconds instead of 1 ms
+        if (LSlongTimeUnit) { LSbrightnessTransitionTime >>= 7; }                                       // will introduce small cumulative timing error if led strip cycle time not a multiple of 128 ms
 
-            LSminBrightnessTime = (ledStripSettings.ledEffect <= cWhiteBlue) ? 0 : LSbrightnessTransitionTime / 3;        // if 3 colors: 1/3 of cycle time (only two primary colors at the same time - no white)
-            LSmaxBrightnessTime = 0.6 * LSbrightnessTransitionTime / ((ledStripSettings.ledEffect <= cWhiteBlue) ? 2 : 3);// min 0: primary stronger than CMY), max 1/(no of colors) of cycle time (CMY stronger than primary) 
-            LSbrightnessDelay = LSbrightnessTransitionTime / ((ledStripSettings.ledEffect <= cWhiteBlue) ? 2 : 3);        // delay between brightness cycles (here: between to or three brightness values)
+        LSbrightnessFreezeTime = ((ledStripSettings.ledEffect <= cWhiteBlue) ? 0L : 0L) * 1000L;        // total 'frozen brightness' time (summed up constant brightness time between all transitions), in milliseconds (minimum = 0)
+        LSbrightnessCycleTime = LSbrightnessFreezeTime + LSbrightnessTransitionTime;                    // COMPLETE color cycle in milliseconds
 
-            // number of brightness steps, including steps of min / max brightness (but excluding 'frozen brightness' time)
-            LSbrightnessUpDownSteps = (LSmaxBrightnessLevel - LSminBrightnessLevel) * 2;
-            LSbrightnessMinLvlSteps = (LSbrightnessUpDownSteps * LSminBrightnessTime) / (LSbrightnessTransitionTime - LSminBrightnessTime - LSmaxBrightnessTime);
-            LSbrightnessMaxLvlSteps = (LSbrightnessUpDownSteps * LSmaxBrightnessTime) / (LSbrightnessTransitionTime - LSminBrightnessTime - LSmaxBrightnessTime);
-            LSbrightnessTransitionSteps = (LSbrightnessUpDownSteps + LSbrightnessMinLvlSteps + LSbrightnessMaxLvlSteps);
+        LSminBrightnessTime = (ledStripSettings.ledEffect <= cWhiteBlue) ? 0 : LSbrightnessTransitionTime / 3;        // if 3 colors: 1/3 of cycle time (only two primary colors at the same time - no white)
+        LSmaxBrightnessTime = 0.6 * LSbrightnessTransitionTime / ((ledStripSettings.ledEffect <= cWhiteBlue) ? 2 : 3);// min 0: primary stronger than CMY), max 1/(no of colors) of cycle time (CMY stronger than primary) 
+        LSbrightnessDelay = LSbrightnessTransitionTime / ((ledStripSettings.ledEffect <= cWhiteBlue) ? 2 : 3);        // delay between brightness cycles (here: between to or three brightness values)
 
-            LSscaledDelay = LSbrightnessDelay * LSbrightnessTransitionSteps;                                // delay between brightness cycles, scaled by total no of brightness steps
+        // number of brightness steps, including steps of min / max brightness (but excluding 'frozen brightness' time)
+        LSbrightnessUpDownSteps = (LSmaxBrightnessLevel - LSminBrightnessLevel) * 2;
+        LSbrightnessMinLvlSteps = (LSbrightnessUpDownSteps * LSminBrightnessTime) / (LSbrightnessTransitionTime - LSminBrightnessTime - LSmaxBrightnessTime);
+        LSbrightnessMaxLvlSteps = (LSbrightnessUpDownSteps * LSmaxBrightnessTime) / (LSbrightnessTransitionTime - LSminBrightnessTime - LSmaxBrightnessTime);
+        LSbrightnessTransitionSteps = (LSbrightnessUpDownSteps + LSbrightnessMinLvlSteps + LSbrightnessMaxLvlSteps);
 
-            LSbrightnessFreezeTimer = -LSbrightnessCycleTime - 0 * LSbrightnessTransitionTime;              // optional: skip first 'frozen brightness' step if a brightness is still missing (if starting from 'all brightness values OFF')
+        LSscaledDelay = LSbrightnessDelay * LSbrightnessTransitionSteps;                                // delay between brightness cycles, scaled by total no of brightness steps
 
-            for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
-                LScolor[i] = ((i == 0) && (ledStripSettings.ledEffect > cLedstripOff)) ? LSmaxBrightnessLevel : LSminBrightnessLevel;    // initial brightness levels (not yet assigned to specific colors or leds)
-                LSminBrightnessStepNo[i] = 0;
-                LSmaxBrightnessStepNo[i] = (i == 0) ? LSbrightnessMaxLvlSteps >> 1 : 0;
-                // initial values per brightness step timer: step size and delay between brightness cycle, scaled by total no of brightness steps (step size x no of brightness steps = total transition time)
-                LSbrightnessStepTimer[i] = -LSbrightnessTransitionTime - ((i == 2) ? LSscaledDelay : 0);
-            }
+        LSbrightnessFreezeTimer = -LSbrightnessCycleTime - 0 * LSbrightnessTransitionTime;              // optional: skip first 'frozen brightness' step if a brightness is still missing (if starting from 'all brightness values OFF')
 
-            LSupdate = B111;                                                                                // update flags per brightness 
-            LSup = B111;                                                                                    // initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
-            LSminReached = B000;
-            LSmaxReached = B000;
-
-            // initial color settings are READ from eeprom 
-            eeprom_update_byte((uint8_t*)2, (uint8_t)(ledStripSettings.ledEffect | (ledStripSettings.ledCycleSpeed << 4)));    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+        for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
+            LScolor[i] = ((i == 0) && (ledStripSettings.ledEffect > cLedstripOff)) ? LSmaxBrightnessLevel : LSminBrightnessLevel;    // initial brightness levels (not yet assigned to specific colors or leds)
+            LSminBrightnessStepNo[i] = 0;
+            LSmaxBrightnessStepNo[i] = (i == 0) ? LSbrightnessMaxLvlSteps >> 1 : 0;
+            // initial values per brightness step timer: step size and delay between brightness cycle, scaled by total no of brightness steps (step size x no of brightness steps = total transition time)
+            LSbrightnessStepTimer[i] = -LSbrightnessTransitionTime - ((i == 2) ? LSscaledDelay : 0);
         }
+
+        LSupdate = B111;                                                                                // update flags per brightness 
+        LSup = B111;                                                                                    // initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
+        LSminReached = B000;
+        LSmaxReached = B000;
+
+        // initial color settings are READ from eeprom 
+        eeprom_update_byte((uint8_t*)2, (uint8_t)(ledStripSettings.ledEffect | (ledStripSettings.ledCycleSpeed << 4)));    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold        
     }
 }
 
@@ -2507,7 +2521,7 @@ SIGNAL(ADC_vect) {
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
 
                         // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                        // when rotation is locked, the magnetic field generated by the 6 coils rotates at a fixed pace. This is the reference.
+                        // when rotation is locked to clock, the magnetic field generated by the 6 coils rotates at a fixed pace. This is the reference.
                         // The rotation time of each successive 360-degrees turn of the globe (displayed as 'actual rotation time') will slowly converge to this (coils) magnetic field rotation time,...
                         //... oscillating around it with a decreasing amplitude.
                         // This actual globe rotation time can be measured at each passing of the globe's 'Greenwich' magnet (signaling passing of the Greenwich meridian).
@@ -2843,6 +2857,7 @@ SIGNAL(ADC_vect) {
     // events happening at regular intervals at a relatively fast rate (multiple times per second), NOT synchronized with fixed parts of a second  
     if ((millis16bits & (fastDataRateSamplingPeriods - 1)) == 0) {
         if (globeEvents.addChunk(eFastRateData, sizeof(FastRateData), &messagePtr)) {
+            ((FastRateData*)messagePtr)->eventMillis = millis16bits;
             ((FastRateData*)messagePtr)->sumIdleLoopMicros = sumIdleLoopMicros;
             ((FastRateData*)messagePtr)->sumISRdurations = sumISRdurations;
             ((FastRateData*)messagePtr)->sumMagnetOnCycles = sumMagnetOnCycles;

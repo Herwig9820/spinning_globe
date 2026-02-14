@@ -14,17 +14,24 @@ enum rotStatus :uint8_t {
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
-// to MQTT
+// to MQTT: settings changed by wire master (spinning globe)
 constexpr const char* TOPIC_STATUS = "globe/status";
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
 constexpr const char* TOPIC_GLOBE_SETTINGS = "globe/settings";
 constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
 
-// to Wire
+// to Wire: settings changed by MQTT client (e.g., node-red)
 constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";
-constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
+constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
+constexpr const char* TOPIC_VERT_POS_SETPOINT_SET ="globe/vertPos/set";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET ="globe/phaseAdjust/set";
 
+// to Wire: MQTT client requests data from wire master (spinning globe) 
+constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
+constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
+constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPos/request";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/phaseAdjust/request";
 
 
 template<typename T, size_t N>
@@ -80,13 +87,22 @@ struct MQTTmsgToWire {
     char payload[160];
 };
 
+struct WireHoldingBuffer{
+    int8_t msgType{S_MSG_NONE};
+};
 
 struct SharedContext {
 
     // ---------- Queues ----------
 
+    // queues with inbound and outbound MQTT messages
     SPSCQueue<MsgToMQTT, 16> queueToMQTT;
     SPSCQueue<MQTTmsgToWire, 16> queueToWire;
+
+    // queue with 
+    // queue with message types requested by wire slave
+    SPSCQueue<MsgType, 8> requestSpinningGlobeData;
+    
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;
@@ -95,11 +111,6 @@ struct SharedContext {
     // Optional: timestamps
     uint32_t lastMQTTpublish = 0;
     uint32_t lastWireActivity = 0;
-
-
-    // ---------- wire slave requests data from wire master ----------
-
-    MsgType requestMsgType{M_MSG_NONE};
 
 
     // ---------- wire slave has data for wire master ----------

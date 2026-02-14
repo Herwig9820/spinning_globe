@@ -25,6 +25,8 @@ void MQTTmessages::loop() {
         MsgToMQTT* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
+            Serial.print("Greenwich-MQTT: "); Serial.print(pMsgToMQTT->topic); Serial.print(", "); Serial.println(pMsgToMQTT->payload);
+
             _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
             _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
         }
@@ -33,16 +35,29 @@ void MQTTmessages::loop() {
         if (!_sharedContext.queueToWire.empty()) {
             pMsgToWire = _sharedContext.queueToWire.front();
 
-            // switch() requires integral type
+            // ------------------------------------------------------------------------------
+            // MQTT has data available (typically a setting) to send to wire master ? 
+            // convert to wire message and save in temporary buffer for this msg type.
+            // ------------------------------------------------------------------------------
 
-            // MQTT has data available: OVERWRITE pending settings slot for that particular data
-            if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {
+            if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {                 // MQTT has globe settings available ?
                 convertMQTTtoGlobeSettings(pMsgToWire);
             }
+            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_SET) == 0) {}             // MQTT has PID settings available ?            //// te doen
+            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_SET) == 0) {}        // MQTT has vertical pos. setpoint available ?  //// te doen
+            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_SET) == 0) {}        // MQTT has coil phase adjustment available ?   //// te doen
 
-            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {
-                // MSTT requests globe settings
-            }
+            // ------------------------------------------------------------------------------
+            // MQTT REQUESTS wire master (spinning globe) to send message:
+            // push the requested message type in a temporary queue
+            // ------------------------------------------------------------------------------
+            
+            // currently not implemented (no need for it)
+            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {}       // MQTT requests globe settings ?            
+            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {}         // MQTT requests PID settings ? 
+            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {}    // MQTT requests vertical pos. setpoint ? 
+            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {}    // MSTT requests coil phase adjustment ?
+
 
             _sharedContext.queueToWire.pop(*pMsgToWire);
         }
@@ -69,7 +84,6 @@ bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffectSpeed", &tmp);
     _sharedContext.pendingGlobeSettings.ledCycleSpeed = tmp;
     _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
-    Serial.print("PHASE 1: MQTT convert to wire: set rot time index: "); Serial.println(_sharedContext.pendingGlobeSettings.rotationPeriodIndex);
     return ok;
 }
 
@@ -94,8 +108,8 @@ void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int 
     if (_sharedContext.queueToWire.full()) { return; }
     MQTTmsgToWire msg;
     strlcpy(msg.topic, topic, sizeof(msg.topic));
-    if(length < sizeof(msg.payload)){
-        strlcpy((char*)msg.payload, (const char*)payload, length+1);
+    if (length < sizeof(msg.payload)) {
+        strlcpy((char*)msg.payload, (const char*)payload, length + 1);
     }
     _sharedContext.queueToWire.push(msg);
 }

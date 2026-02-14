@@ -17,7 +17,7 @@ bool WireSlaveMessages::loop() {
     switch (messageTypeIn)
     {
         // hello message: not yet implemented
-        /*  
+        /*
         case MsgType::M_MSG_HELLO:  // not yet implemented
         {
             wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_HELLO_ACK, nullptr, 0);             // no payload
@@ -26,6 +26,13 @@ bool WireSlaveMessages::loop() {
         */
 
        // ========== message types in: RECEIVE DATA from wire master after an event ==========
+
+        case MsgType::M_MSG_PING:
+        {
+            // a wire master ping message does not trigger an MQTT message, but master expects an ack reply  
+            replyAndFlagSlaveDataAvailable();
+        }
+        break;
 
         case MsgType::M_MSG_STATUS:
         {
@@ -45,7 +52,7 @@ bool WireSlaveMessages::loop() {
         }
         break;
 
-        case MsgType::M_MSG_SECOND:
+        case MsgType::M_MSG_TELEMETRY:
         {
             I2C_m_secondCue* pSecondCue = reinterpret_cast<I2C_m_secondCue*>(payloadIn);
             convertSecondCueToMQTT(pSecondCue);
@@ -124,11 +131,9 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_GLOBE_SETTINGS_REQ:
         {
-            // but master needs to observe a delay between this message it sent and the response expected, because this response will only be enqueued now
-            // and must be ready in the queue when 'popOutgoingWireMsg()' is triggered  
-            Serial.print("Phase 3: master requests globe settings. MQTT settings to be sent are valid: "); Serial.println(_sharedContext.committedGlobeSettings.slaveHasData);
-            Serial.print("         MQTT globe settings now committed: set rot time index: "); Serial.println(_sharedContext.committedGlobeSettings.rotationPeriodIndex);
-            Serial.print("         has slave data ?"); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);
+            // but master needs to observe a delay between this message it sent and the response expected, because this response will only be enqueued now.
+            // alternatively, let the slave first inform the master that data is available and let the master then request to send it
+            // note: lockStep. Answer is mandatory, even if no data available yet (master can test .slaveHasData)
             wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_GLOBE_SETTINGS_SET, &_sharedContext.committedGlobeSettings, sizeof(I2C_s_globeSettings_set));
             _sharedContext.committedGlobeSettings.slaveHasData = 0;
         }
@@ -183,19 +188,22 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GREENWICH);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
     if ((p->status == rotUnlocked) || (p->status == rotLocked)) {
+        Serial.println("**** A");
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"%.2f s\"", p->actualRotationTime / 1000.);
     }
-    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); }
+    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); Serial.println("**** B"); }
+
     if (p->status == rotLocked) {
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"%.2ld degrees\"", p->greenwichLag);      // already in degrees
     }
     else {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"--.-- \"s");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"--.-- s\"");
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"--- degrees\"");
     }
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
+    Serial.print("Greenwich-wire: "); Serial.print(msg.topic); Serial.print(", "); Serial.println(msg.payload);
     _sharedContext.queueToMQTT.push(msg);
 };
 
@@ -219,7 +227,6 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     JsonAssemble::add(msg.payload, sizeof(msg.payload), "TTTintegrTerm", "\"%6ld\"", p->realTTTintegrationTerm);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
-    Serial.print("second cue: MQTT msg is "); Serial.print(msg.topic); Serial.print(", "); Serial.print(msg.payload); Serial.print(", "); Serial.println(msg.retain);
     _sharedContext.queueToMQTT.push(msg);
 }
 
@@ -253,48 +260,62 @@ void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
 // ============================================================================================
 // Reply to wire master with an 'ACK' message
 // If an MQTT message is pending and NO MQTT message is committed to be sent to wire master:
-//   MQTT message - PHASE 2: commit pending message and lag 'message is committed' 
+//   MQTT message - PHASE 2: commit pending message and log 'message is committed' 
 //   (next phase: phase 3: answer to wire master requesting data)
 // ============================================================================================
 void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
     MsgType msgType{ M_MSG_NONE };        // init: no message req
 
+    // Each time an 'ack' MsgType is sent to the wire master, the slave can request the master to send a specific message type.
+    // If wire slave:
+    // PRIO 1: has DATA AVAILABLE for wire master: the master is REQUESTED TO send a message type REQUESTING the specific data available 
+    // PRIO 2: REQUESTS DATA from wire master    : the master is REQUESTED TO send a message type CONTAINING the specific data 
+
+    
+    // ---------- PRIO 1: data (settings, ...) to submit to master ? (will include a readback to distribute changed settings to all subscribed clients) ----------
+    
     if (_sharedContext.pendingGlobeSettings.slaveHasData && !_sharedContext.committedGlobeSettings.slaveHasData) {
-        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // also sets '.hasSlaveData' to '1'
-        _sharedContext.pendingGlobeSettings.slaveHasData = 0;       // was just committed
-        msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;        // inform master: should request globe settings
-        Serial.print("Phase 2: MQTT globe settings now committed: set rot time index: ");Serial.println(_sharedContext.committedGlobeSettings.rotationPeriodIndex);
-        Serial.print("         has slave data ?"); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);
+        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingGlobeSettings.slaveHasData = 0;                               // because it was just committed
+        msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                                        // inform master: should request globe settings
+        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_GLOBE_SETTINGS);        // push readback msg type
     }
 
-    /* later ////
-    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
-        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
-        _sharedContext.pendingGlobeSettingsFull = false;
-        _sharedContext.committedGlobeSettingsFull = true;
-        msgType = ;
+    else if (_sharedContext.pendingPIDsettings.slaveHasData && !_sharedContext.committedPIDsettings.slaveHasData) {
+        _sharedContext.committedPIDsettings = _sharedContext.pendingPIDsettings;        // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingPIDsettings.slaveHasData = 0;                               // because it was just committed
+        msgType = MsgType::M_MSG_PID_SETTINGS_REQ;                                        // inform master: should request globe settings
+        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_PID_SETTINGS);        // push readback msg type
     }
 
-    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
-        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
-        _sharedContext.pendingGlobeSettingsFull = false;
-        _sharedContext.committedGlobeSettingsFull = true;
-        msgType = ;
+    else if (_sharedContext.pendingVertPosSetpoint.slaveHasData && !_sharedContext.committedVertPosSetpoint.slaveHasData) {
+        _sharedContext.committedVertPosSetpoint = _sharedContext.pendingVertPosSetpoint;        // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingVertPosSetpoint.slaveHasData = 0;                               // because it was just committed
+        msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;                                        // inform master: should request globe settings
+        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_VERT_POS_SETPOINT);        // push readback msg type
     }
 
-    else if (_sharedContext.pendingGlobeSettingsFull && !_sharedContext.committedGlobeSettingsFull) {
-        _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;
-        _sharedContext.pendingGlobeSettingsFull = false;
-        _sharedContext.committedGlobeSettingsFull = true;
-        msgType = ;
+    else if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData && !_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
+        _sharedContext.committedCoilPhaseAdjust = _sharedContext.pendingCoilPhaseAdjust;        // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
+        msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;                                        // inform master: should request globe settings
+        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_COIL_PHASE_ADJUST);        // push readback msg type
     }
-    */
+
+    
+    // ---------- PRIO 2: no data to submit to master. Data requested from master ?  ----------
+
+    else if(!_sharedContext.requestSpinningGlobeData.empty()){
+        MsgType pMsgType;
+        msgType = *_sharedContext.requestSpinningGlobeData.front();
+        _sharedContext.requestSpinningGlobeData.pop(pMsgType);
+    }
 
     I2C_s_ack p;
     p.ack = 0x0;        // not used
     p.requestMasterMsgType = msgType;
-    if(p.requestMasterMsgType == MsgType::M_MSG_GLOBE_SETTINGS_REQ) {Serial.print("(start)  MQTT globe settings now committed: "); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData);}
+    if (p.requestMasterMsgType == MsgType::M_MSG_GLOBE_SETTINGS_REQ) { Serial.print("(start)  MQTT globe settings now committed: "); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData); }
     wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
     if (p.requestMasterMsgType == MsgType::M_MSG_GLOBE_SETTINGS_REQ) { Serial.print("(end)    MQTT globe settings now committed: "); Serial.println((bool)_sharedContext.committedGlobeSettings.slaveHasData); }
 }

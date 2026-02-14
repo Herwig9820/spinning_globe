@@ -78,6 +78,15 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         }
         break;
 
+        // ========== empty message type requesting an acknowledge from slave ==========
+
+        case MsgType::M_MSG_PING:                                                     
+        {
+           // sent regularly; allows slave to reply and ingorm master that either it has data for, or it requests data from master
+           _wireMaster.enqueueTx(M_MSG_PING, 0, nullptr, S_MSG_ACK, sizeof(I2C_s_ack));                // no payload
+        }
+        break;
+
 
         // ========== message types SENDING DATA to slave after a globe event ==========
 
@@ -89,7 +98,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
                 if (_statusData.isFloating) {
                     uint8_t rotTimeIndex = _globeMetrics[attributeIndex_rotTimes];  // index into list of rotation times
                     int setRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + rotTimeIndex);
-                    if (setRotationTime == 0) { p.status == wire_rotOff; }
+                    if (rotTimeIndex == 0) { p.status = wire_rotOff; }
                 }
                 else { p.status = wire_notFloating; }
             }
@@ -116,7 +125,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         }
         break;
 
-        case  MsgType::M_MSG_SECOND:
+        case  MsgType::M_MSG_TELEMETRY:
         {
             I2C_m_secondCue p{};
             p.tempSmooth = _smoothedMeasurements.tempSmooth;                            // raw input for wire slave
@@ -125,7 +134,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.idleLoopMicrosSmooth = _smoothedMeasurements.idleLoopMicrosSmooth;
             p.errSignalMagnitudeSmooth = _smoothedMeasurements.errSignalMagnitudeSmooth;
             p.realTTTintegrationTerm = _secondData.realTTTintegrationTerm;
-            _wireMaster.enqueueTx(M_MSG_SECOND, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+            _wireMaster.enqueueTx(M_MSG_TELEMETRY, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
@@ -265,7 +274,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     // (note that, if the message type is correct, then the message size is as well (handled in WireMaster library) 
     if (msgTypeIn != expMsgType) {
         _msgStats.E_stats_lockStepError++;
-        Serial.println("!!!! message received is not as expected !");
         return;
     }
 

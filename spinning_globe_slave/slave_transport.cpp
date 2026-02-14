@@ -62,12 +62,6 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
     }
     txQueue[HEADER_SIZE + payloadSize] = sum;
 
-    Serial.print("within push outgoing wire msg: ");
-    for (int i = 0; i < HEADER_SIZE + payloadSize + 1; ++i) {
-        Serial.print(txQueue[i], HEX); Serial.print(' ');////
-    }
-    Serial.println();
-
     RELEASE_BARRIER();                      // Ensure packet bytes are visible BEFORE publishing
 
     txEmpty = false;

@@ -229,23 +229,24 @@ enum MsgType : uint8_t {
 
     M_MSG_NONE = 0x20,
     M_MSG_HELLO = 0x21,                 // simple hello message  (reserved, currently not implemented)  
+    M_MSG_PING = 0x22,                  // no payload, expects ack msg back
 
     // message types to send globe status data to slave. Slave reply: ACK message type
-    M_MSG_GREENWICH = 0x22,             // globe Greenwich meridian passes hall detector
-    M_MSG_STATUS = 0x23,                // globe status changes
-    M_MSG_SECOND = 0x24,                // 'second' tick
+    M_MSG_GREENWICH = 0x23,             // globe Greenwich meridian passes hall detector
+    M_MSG_STATUS = 0x24,                // globe status changes
+    M_MSG_TELEMETRY = 0x25,             // heatsink temp., magnet duty cycle, ...
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
-    M_MSG_SEND_STATS = 0x25,            // master library: send stats
-    M_MSG_RECEIVE_STATS = 0x26,         // master library: receive stats
-    M_MSG_MESSAGE_STATS = 0x27,         // message library: message stats
-    M_MSG_GLOBE_STATS = 0x28,           // floating globe stats
+    M_MSG_SEND_STATS = 0x26,            // master library: send stats
+    M_MSG_RECEIVE_STATS = 0x27,         // master library: receive stats
+    M_MSG_MESSAGE_STATS = 0x28,         // message library: message stats
+    M_MSG_GLOBE_STATS = 0x29,           // floating globe stats
 
     // message types to send current master settings to slave. Slave reply: ACK message type
-    M_MSG_GLOBE_SETTINGS = 0x29,        // rotation time, ...
-    M_MSG_PID_SETTINGS = 0x2A,          // PID controller gain, time constants
-    M_MSG_VERT_POS_SETPOINT = 0x2B,     // PID setpoint (vertical position)
-    M_MSG_COIL_PHASE_ADJUST = 0x2C,     // globe rotation controller: phase adjust between coils magnetic field and globe Greenwich meridian
+    M_MSG_GLOBE_SETTINGS = 0x2A,        // rotation time, ...
+    M_MSG_PID_SETTINGS = 0x2B,          // PID controller gain, time constants
+    M_MSG_VERT_POS_SETPOINT = 0x2C,     // PID setpoint (vertical position)
+    M_MSG_COIL_PHASE_ADJUST = 0x2D,     // globe rotation controller: phase adjust between coils magnetic field and globe Greenwich meridian
 
     // master requests slave to send data. Slave reply: message types with the requested slave data
     M_MSG_GLOBE_SETTINGS_REQ = 0x30,    // master requests globe settings as maintained / known by slave
