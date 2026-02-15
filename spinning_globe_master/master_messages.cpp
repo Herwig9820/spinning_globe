@@ -304,6 +304,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_globeSettings_set* p = reinterpret_cast<I2C_s_globeSettings_set*>(plIn);
+            if(!p->slaveHasData){break;}
 
             // set rotation time is stored in globe attributes array, not in a struct
             int rotTimesCount = globeMetrics_listLengths[attributeIndex_rotTimes];
@@ -325,6 +326,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_PIDsettings_set* p = reinterpret_cast<I2C_s_PIDsettings_set*>(plIn);
+            if (!p->slaveHasData) { break; }
 
             // setting steps: positive values (preset value = mid point) 
             _pidSettings.gainAdjustSteps = (uint8_t)p->gainAdjustSteps;                  // preset gain corresponds to gainAdjustSteps mid value   
@@ -347,6 +349,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_vertPosSetpoint_set* p = reinterpret_cast<I2C_s_vertPosSetpoint_set*>(plIn);
+            if (!p->slaveHasData) { break; }
 
             // vertical position (in mVolt) is stored in the globe attributes array, not in a struct
             int vertPosCount = globeMetrics_listLengths[attributeIndex_hallmVoltRefs];
@@ -363,6 +366,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
             I2C_s_coilPhaseAdjust_set* p = reinterpret_cast<I2C_s_coilPhaseAdjust_set*>(plIn);
+            if (!p->slaveHasData) { break; }
 
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             // phase adjustment in 2-degree increments (0 to 358 degrees)

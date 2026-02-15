@@ -105,7 +105,7 @@ const long* const globeMetrics_valueListsPointers[] = { rotationTimes, nullptr, 
 // ========== communication between (1) ISR and main, and (2) between main and message handling ==========
 
 struct GreenwichData {                                                              // initialize members, awaiting first event
-    long eventMilliSecond{ 0 }, eventSecond{ 0 };
+    uint32_t eventMilliSecond{ 0 }, eventSecond{ 0 };
     long globeRotationTime{ 0 };
     long rotationOutOfSyncTime{ 0 };
     long greenwichLag{ 0 };                                                         // versus (steady) magnetic field rotation (coils), when globe rotation is locked to it
@@ -113,14 +113,14 @@ struct GreenwichData {                                                          
 };
 
 struct StatusData {                                                                 // initialize members, awaiting first event
-    long eventMilliSecond{ 0 }, eventSecond{ 0 };
+    uint32_t eventMilliSecond{ 0 }, eventSecond{ 0 };
     uint8_t rotationStatus{ rotNoPosSync }, errorCondition{ errNoError };
     bool isGreenwich{ false };
     bool isFloating{ false };
 };
 
 struct SecondData {                                                                 // initialize members, awaiting first event
-    long eventSecond{ 0 };
+    uint32_t eventSecond{ 0 };
     long liftingSecond{ 0 }, lockedSecond{ 0 };
     long realTTTintegrationTerm{ 0 };
 };
@@ -193,32 +193,10 @@ struct SmoothedMeasurements {
 };
 
 
-// ========== forward declarations ==========
+// forward declarations
 
-void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
-void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
-void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
-void processEvent(uint8_t& msgTypeOut);                         // process one event, if available
-void processCommand();                                          // process one user command, if available
-void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
-void writeStatus();                                             // print on event or on command
-void writeAttributeLabelAndValue();                             // print on event or on command
-
-
-void writeLedStrip();                                           // apply gamma correction and write led strip
-void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
-void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);      // write one led strip led
-void idleLoop();
-
-void formatTime(char* s, long totalSeconds, long totalMillis, long* days = nullptr, long* hours = nullptr, long* minutes = nullptr, long* seconds = nullptr);
-void readKey(char* keyAscii);                                   // from Serial interface and on board keys
 void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue);
-void fetchAttributeValue(char* s, long attributeIndex, int attributeValue);
-void setPIDcontroller();
-void setRotationTime(int attributeValue);
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
-
-
 
 #endif
 
