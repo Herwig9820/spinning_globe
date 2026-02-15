@@ -3,9 +3,10 @@
 
 // this file contains spinning globe Arduino nano HW related constants that must be known at the slave slide 
 
+constexpr long AVR_classicNano_CPU_clockF{ 16000000 };                              // do NOT use F_CPU: we need the nano clock f at the slave side as well !
+constexpr long timer1PreScaler{ 8 };                                                // 8 (as set in setup())
+constexpr long timer1ClockFreq{ AVR_classicNano_CPU_clockF / timer1PreScaler };     // 2 MHz
 constexpr long timer1PWMfreq{ 1000L };                                              // 1 KHz
-constexpr long timer1PreScaler{ 8 };                                                // as set in setup();
-constexpr long timer1ClockFreq{ F_CPU / timer1PreScaler };                          // 2 MHz
 constexpr long timer1Top{ timer1ClockFreq / timer1PWMfreq / 2 };                    // timer counts up and down : 2000 steps, TOP =1000
 
 constexpr float ADCvolt{ 5000. };

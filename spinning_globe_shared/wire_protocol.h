@@ -229,7 +229,7 @@ enum MsgType : uint8_t {
 
     M_MSG_NONE = 0x20,
     M_MSG_HELLO = 0x21,                 // simple hello message  (reserved, currently not implemented)  
-    M_MSG_PING = 0x22,                  // no payload, expects ack msg back
+    M_MSG_PING = 0x22,                  // no payload, but expects ack msg back
 
     // message types to send globe status data to slave. Slave reply: ACK message type
     M_MSG_GREENWICH = 0x23,             // globe Greenwich meridian passes hall detector

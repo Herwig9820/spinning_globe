@@ -24,8 +24,8 @@ constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
 // to Wire: settings changed by MQTT client (e.g., node-red)
 constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
-constexpr const char* TOPIC_VERT_POS_SETPOINT_SET ="globe/vertPos/set";
-constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET ="globe/phaseAdjust/set";
+constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPos/set";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/phaseAdjust/set";
 
 // to Wire: MQTT client requests data from wire master (spinning globe) 
 constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
@@ -57,7 +57,7 @@ public:
         return true;
     }
 
-    T* front(){
+    T* front() {
         return &buffer[tail];
     }
 
@@ -73,13 +73,13 @@ private:
     T buffer[N];
     size_t head = 0;
     size_t tail = 0;
-}; 
+};
 
 
-struct MsgToMQTT {
+struct MQTTmsgFromWire {
     char topic[48];
     char payload[160];
-    bool retain{true};
+    bool retain{ true };
 };
 
 struct MQTTmsgToWire {
@@ -87,22 +87,16 @@ struct MQTTmsgToWire {
     char payload[160];
 };
 
-struct WireHoldingBuffer{
-    int8_t msgType{S_MSG_NONE};
-};
-
 struct SharedContext {
 
     // ---------- Queues ----------
 
     // queues with inbound and outbound MQTT messages
-    SPSCQueue<MsgToMQTT, 16> queueToMQTT;
+    SPSCQueue<MQTTmsgFromWire, 16> queueToMQTT;
     SPSCQueue<MQTTmsgToWire, 16> queueToWire;
 
-    // queue with 
-    // queue with message types requested by wire slave
-    SPSCQueue<MsgType, 8> requestSpinningGlobeData;
-    
+    // MQTT to wire flows: holding queue 
+    SPSCQueue<MsgType, 8> requestDataFromMaster;                // message types to be sent by master to send data to wire slave
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;

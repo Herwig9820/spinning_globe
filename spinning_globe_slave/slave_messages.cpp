@@ -175,7 +175,7 @@ bool WireSlaveMessages::loop() {
 
 
 void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
-    MsgToMQTT msg{};
+    MQTTmsgFromWire msg{};
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_STATUS);
     snprintf(msg.payload, sizeof(msg.payload), "%u", p->status);
     msg.retain = true;
@@ -183,7 +183,7 @@ void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
 };
 
 void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
-    MsgToMQTT msg{};
+    MQTTmsgFromWire msg{};
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GREENWICH);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
@@ -215,7 +215,7 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
         * 100.0f / (1000.0f * fastDataRateSamplingPeriods));
     float vertPosAvgError = (p->errSignalMagnitudeSmooth / (float)fastDataRateSamplingPeriods) * (ADCvolt / (float)ADCsteps);
 
-    MsgToMQTT msg{};
+    MQTTmsgFromWire msg{};
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_TELEMETRY);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
@@ -231,7 +231,7 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
 }
 
 void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn) {
-    MsgToMQTT msg{};
+    MQTTmsgFromWire msg{};
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GLOBE_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
@@ -244,7 +244,7 @@ void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn
 };
 
 void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
-    MsgToMQTT msg{};
+    MQTTmsgFromWire msg{};
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_PID_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
@@ -279,37 +279,37 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingGlobeSettings.slaveHasData = 0;                               // because it was just committed
         msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_GLOBE_SETTINGS);        // push readback msg type
+        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_GLOBE_SETTINGS);        // push readback msg type
     }
 
     else if (_sharedContext.pendingPIDsettings.slaveHasData && !_sharedContext.committedPIDsettings.slaveHasData) {
         _sharedContext.committedPIDsettings = _sharedContext.pendingPIDsettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingPIDsettings.slaveHasData = 0;                               // because it was just committed
         msgType = MsgType::M_MSG_PID_SETTINGS_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_PID_SETTINGS);        // push readback msg type
+        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_PID_SETTINGS);        // push readback msg type
     }
 
     else if (_sharedContext.pendingVertPosSetpoint.slaveHasData && !_sharedContext.committedVertPosSetpoint.slaveHasData) {
         _sharedContext.committedVertPosSetpoint = _sharedContext.pendingVertPosSetpoint;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingVertPosSetpoint.slaveHasData = 0;                               // because it was just committed
         msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_VERT_POS_SETPOINT);        // push readback msg type
+        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_VERT_POS_SETPOINT);        // push readback msg type
     }
 
     else if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData && !_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
         _sharedContext.committedCoilPhaseAdjust = _sharedContext.pendingCoilPhaseAdjust;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
         msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestSpinningGlobeData.push(MsgType::M_MSG_COIL_PHASE_ADJUST);        // push readback msg type
+        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_COIL_PHASE_ADJUST);        // push readback msg type
     }
 
     
     // ---------- PRIO 2: no data to submit to master. Data requested from master ?  ----------
 
-    else if(!_sharedContext.requestSpinningGlobeData.empty()){
+    else if(!_sharedContext.requestDataFromMaster.empty()){
         MsgType pMsgType;
-        msgType = *_sharedContext.requestSpinningGlobeData.front();
-        _sharedContext.requestSpinningGlobeData.pop(pMsgType);
+        msgType = *_sharedContext.requestDataFromMaster.front();
+        _sharedContext.requestDataFromMaster.pop(pMsgType);
     }
 
     I2C_s_ack p;

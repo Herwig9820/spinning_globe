@@ -155,20 +155,20 @@ const char str_ErrStickyGlobe[] PROGMEM = "E! sticky globe";
 const char str_ErrOverload[] PROGMEM = "E! overload";
 const char str_ErrTemp[] PROGMEM = "E! temp too high";
 
-const char str_rotTimeSet[] PROGMEM = "rot time>";
+const char str_rotTimeSet[] PROGMEM = "rot time>";              // '>': user setting         
 const char str_rotTimeAct[] PROGMEM = "rot t act";
 const char str_syncError[] PROGMEM = "sync err ";
 const char str_tLocked[] PROGMEM = "t locked ";
 const char str_tFloat[] PROGMEM = "t float  ";
 const char str_tempAct[] PROGMEM = "temp     ";
 const char str_avgDutyC[] PROGMEM = "avg duty c";
-const char str_vertPos[] PROGMEM = "vert pos>";
+const char str_vertPos[] PROGMEM = "vert pos!";
 const char str_errSigVar[] PROGMEM = "vp avg err";
 const char str_intTerm[] PROGMEM = "integ term";
 const char str_avgPhase[] PROGMEM = "rot lag ";                 // with respect to (stable) magnetic field rotation
 const char str_isrTime[] PROGMEM = "adc isr t";
 const char str_procLoad[] PROGMEM = "proc load";
-const char str_gain[] PROGMEM = "gain!";
+const char str_gain[] PROGMEM = "gain!";                        // '!': system setting (take care when changing these settings)
 const char str_intTimeCst[] PROGMEM = "int t c!";
 const char str_difTimeCst[] PROGMEM = "dif t c!";
 const char str_phaseAdj[] PROGMEM = "phas adj!";
@@ -211,10 +211,9 @@ constexpr char microSecSymbol[] = { 'u', 's', 0 };                              
 
 // ========== general purpose character buffers ==========
 
-#if WITH_WIRE_COMM
-char longText[50], s30[30];                                                         // general purpose long and short character string
-#else
-char longText[150], s30[30];                                                        // general purpose long and short character strings
+char s30[30];                                                                       // general purpose character string
+#if !WITH_WIRE_COMM
+char longText[150];                                                        // general purpose long and short character strings
 #endif
 
 
@@ -225,8 +224,8 @@ char longText[150], s30[30];                                                    
 #endif
 
 constexpr float samplingPeriod{ 1. / (float)timer1PWMfreq };                        // 1 millisecond sampling period, in seconds
-constexpr long oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
-constexpr long spareTimeCount{ 500 };                                               // milliseconds
+constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
+constexpr uint32_t spareTimeCount{ 500 };                                               // milliseconds
 
 constexpr uint8_t keyBufferLength{ 3 };
 bool showLiveValues{ true };
@@ -249,7 +248,7 @@ volatile uint8_t switchStates{ 0 };                                             
 volatile uint8_t keysAvailable{ 0 };                                                // No of keys available in board key buffer
 volatile unsigned int idleLoopNanos500{ 0 };                                        // at least reset every mS = 1000 micro seconds: will not overflow
 volatile unsigned int millis16bits{ 0 };
-volatile long milliSecond{ 0 }, second{ 0 };
+volatile uint32_t milliSecond{ 0 }, second{ 0 };
 volatile long tempSmooth{ 0 };                                                      // temperature smoothed by first order filter; long for speed, used by ISR
 
 
@@ -415,7 +414,32 @@ volatile uint8_t LSminReached, LSmaxReached;
 
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
 
+
+// forward declarations
+
+void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
+void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
+void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
+uint8_t processEvent();                                            // process one event, if available
+void processCommand();                                          // process one user command, if available
+void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
+void writeStatus();                                             // print on event or on command
+void writeAttributeLabelAndValue();                             // print on event or on command
+
+
+void writeLedStrip();                                           // apply gamma correction and write led strip
+void LSout(uint8_t* led, uint8_t* ledstripMasks);               // write led strip
+void LSoneLedOut(uint8_t holdPortC, uint8_t* LedData, uint8_t ledMask = B111);      // write one led strip led
+void idleLoop();
+
+void formatTime(char* s, uint32_t totalSeconds, uint32_t totalMillis, uint32_t* days = nullptr, uint32_t* hours = nullptr, uint32_t* minutes = nullptr, uint32_t* seconds = nullptr);
+void readKey(char* keyAscii);                                   // from Serial interface and on board keys
+void fetchAttributeValue(char* s, long attributeIndex, int attributeValue);
+void setPIDcontroller();
+void setRotationTime(int attributeValue);
 /*
+
+
 ============================================================================
 Class: millis and micros function based on timer1 and own time counting logic
 (millis and micros < one second, count seconds) ***
@@ -426,11 +450,11 @@ class GlobeTime {
 // Note: timer 1 reading assumes clock speed is 16Mhz
 
 private:
-    long m_milliSecond, microSecond;
+    uint32_t m_milliSecond, microSecond;
     unsigned int volatile m_nanoSecond500, m_nextNanoSecond500;
 
 public:
-    long millis(long* secondsPtr = nullptr) {                               // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
+    uint32_t millis(uint32_t* secondsPtr = nullptr) {                       // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
         }
@@ -438,7 +462,7 @@ public:
     }
 
     // execution time is very close to 20 microSeconds (16MHz clock)
-    long micros(long* secondsPtr = nullptr) {                               // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
+    uint32_t micros(uint32_t* secondsPtr = nullptr) {                       // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             if (secondsPtr != nullptr) { *secondsPtr = second; }            // total running
             m_milliSecond = milliSecond;                                    // 0 to 999
@@ -457,7 +481,7 @@ public:
         }
 
         // calculate micro seconds in current second: 0 to 999999 (1 period = 500 nS) 
-        microSecond = ((long)(m_nanoSecond500 >> 1)) + (m_milliSecond << 10) - (m_milliSecond << 4) - (m_milliSecond << 3);
+        microSecond = ((uint32_t)(m_nanoSecond500 >> 1)) + (m_milliSecond << 10) - (m_milliSecond << 4) - (m_milliSecond << 3);
         if (microSecond >= 1000000L) {
             microSecond = microSecond - 1000000L;
             if (secondsPtr != nullptr) { (*secondsPtr)++; }
@@ -763,14 +787,14 @@ void setup()
     while (!Serial);
     Serial.println();
 
-    Serial.print(strcpy_P(longText, str_build_start));
+    Serial.print(strcpy_P(s30, str_build_start));
     Serial.print(SPINNING_GLOBE_VERSION);
-    Serial.print(strcpy_P(longText, str_build_end));
+    Serial.print(strcpy_P(s30, str_build_end));
     Serial.print(F("Build date: "));
     Serial.print(__DATE__); Serial.print("  "); Serial.println(__TIME__);
     Serial.println();
     if (programMode) {
-        Serial.println(strcpy_P(longText, str_programMode));
+        Serial.println(strcpy_P(s30, str_programMode));
         Serial.println();
     }
 
@@ -807,6 +831,7 @@ Arduino loop()
 
 void loop()
 {
+    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #if WITH_WIRE_COMM
 
     static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
@@ -833,18 +858,15 @@ void loop()
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
 
-    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
+    writeStatus();
+
 #else
     getEventOrUserCommand();                        // get ONE event or assembled user command, exit anyway if none available
     processEvent();
     processCommand();                               // process command, if available
-    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
     writeStatus();                                  // print status to Serial and LCD (if connected)
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
-
-    //// neemt te veel ram -> longtext moet dan 150 zijn
-    //// writeStatus();   
 
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
@@ -1018,124 +1040,7 @@ void getCommand() {
 
     } while (commandState != 0);
 }
-#endif
 
-// ========== process an event (except printing) ==========
-
-uint8_t processEvent() {
-    constexpr int averagingPeriodsMagnetLoad{ 10 };
-    constexpr long maxOnCycles = (long)((averagingPeriodsMagnetLoad * 256 * fastDataRateSamplingPeriods * timer1Top) * 0.8);               // can normally not occur, but as this concerns safety ...
-    constexpr int tempTimeCst_BinaryFractionDigits{ 16 };
-    constexpr long tempTimeCst1024 = (long)(samplingPeriod * fastDataRateSamplingPeriods * (1L << tempTimeCst_BinaryFractionDigits));      // temp time cst * 2^n for added accuracy (long integer)
-
-    static uint8_t fastRateDataEventCounter{ 0 };                                                           // overflows at 255
-    static long partialSumMagnetOnCycles{ 0 };
-    static long movingSumMagnetOnCycles{ 0 };
-    static long sumMagnetOnCycles[averagingPeriodsMagnetLoad] = { 0 };
-
-#if WITH_WIRE_COMM
-    MsgType msgTypeOut = MsgType::M_MSG_NONE;
-#endif
-
-    // first order filters below are implemented as integrator with negative feedback: 
-    // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
-    // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
-
-    switch (ISRevent) {
-        case eStatusChange:
-        {
-            if (!statusData.isFloating) { smoothedMeasurements.errSignalMagnitudeSmooth = 0.f; }            // globe currently not floating ? reset smoothed error value immediately
-        #if WITH_WIRE_COMM
-            msgTypeOut = MsgType::M_MSG_STATUS;
-        #endif
-        }
-        break;
-
-        case eGreenwich:
-        {
-        #if WITH_WIRE_COMM
-            msgTypeOut = MsgType::M_MSG_GREENWICH;
-        #endif
-        }
-        break;
-
-        case eFastRateData:
-        {                                                               // data provided at a high rate (every 128 milliseconds)
-        #if WITH_WIRE_COMM
-            msgTypeOut = MsgType::M_MSG_NONE;
-        #endif
-
-            // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fastDataRateSamplingPeriods to smoothing filters
-            // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
-            smoothedMeasurements.idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - smoothedMeasurements.idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            smoothedMeasurements.ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - smoothedMeasurements.ISRdurationSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            smoothedMeasurements.magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - smoothedMeasurements.magnetOnCyclesSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
-            smoothedMeasurements.errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - smoothedMeasurements.errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
-
-            // feed temp. sensor reading to smoothing filter
-            // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
-            // tempSmooth: in °C * 100
-            long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - ((long)ADCvolt << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
-                smoothedMeasurements.tempSmooth =                       //   
-                    tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
-            }
-
-            partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
-            fastRateDataEventCounter++;                                                     // overflows at 255 idle events = 255 * 128 mS, period = 32768 milliseconds
-            if (fastRateDataEventCounter == 0) {
-                movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];   // spans more than 5 minutes
-                for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
-                sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
-                partialSumMagnetOnCycles = 0;
-                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                         // highLoad is passed back to ISR for safety check high magnet load
-                    highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
-                }
-            }
-
-        #if WITH_WIRE_COMM
-            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
-            if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
-        #endif    
-        }
-        break;
-
-        case eSecond:
-        {
-        #if WITH_WIRE_COMM
-            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth second cue = every 4 seconds
-            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }             //send telemetry 
-        #endif
-
-            /*
-            // 3 seconds after reset
-            if (secondData.eventSecond == 3) {
-                cli();                                                                      // interrupts off: interface with ISR and eeprom write
-                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
-                sei();
-            }
-            */
-        }
-        break;
-
-        default:        // including eNoEvent
-        {
-        #if WITH_WIRE_COMM
-            msgTypeOut = MsgType::M_MSG_NONE;
-        #endif
-        }
-        break;
-    }
-
-#if WITH_WIRE_COMM
-    return msgTypeOut;
-#else
-    return 0;               // dummy return value
-#endif
-}
-
-
-#if !WITH_WIRE_COMM
 
 // ========== execute a user command (except printing) ==========
 
@@ -1301,6 +1206,121 @@ void processCommand() {
 }
 #endif
 
+// ========== process an event (except printing) ==========
+
+uint8_t processEvent() {
+    constexpr int averagingPeriodsMagnetLoad{ 10 };
+    constexpr long maxOnCycles = (long)((averagingPeriodsMagnetLoad * 256 * fastDataRateSamplingPeriods * timer1Top) * 0.8);               // can normally not occur, but as this concerns safety ...
+    constexpr int tempTimeCst_BinaryFractionDigits{ 16 };
+    constexpr long tempTimeCst1024 = (long)(samplingPeriod * fastDataRateSamplingPeriods * (1L << tempTimeCst_BinaryFractionDigits));      // temp time cst * 2^n for added accuracy (long integer)
+
+    static uint8_t fastRateDataEventCounter{ 0 };                                                           // overflows at 255
+    static long partialSumMagnetOnCycles{ 0 };
+    static long movingSumMagnetOnCycles{ 0 };
+    static long sumMagnetOnCycles[averagingPeriodsMagnetLoad] = { 0 };
+
+#if WITH_WIRE_COMM
+    MsgType msgTypeOut = MsgType::M_MSG_NONE;
+#endif
+
+    // first order filters below are implemented as integrator with negative feedback: 
+    // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
+    // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
+
+    switch (ISRevent) {
+        case eStatusChange:
+        {
+            if (!statusData.isFloating) { smoothedMeasurements.errSignalMagnitudeSmooth = 0.f; }            // globe currently not floating ? reset smoothed error value immediately
+        #if WITH_WIRE_COMM
+            msgTypeOut = MsgType::M_MSG_STATUS;
+        #endif
+        }
+        break;
+
+        case eGreenwich:
+        {
+        #if WITH_WIRE_COMM
+            msgTypeOut = MsgType::M_MSG_GREENWICH;
+        #endif
+        }
+        break;
+
+        case eFastRateData:
+        {                                                               // data provided at a high rate (every 128 milliseconds)
+        #if WITH_WIRE_COMM
+            msgTypeOut = MsgType::M_MSG_NONE;
+        #endif
+
+            // feed idle time, ISR duration, magnet ON cycles and error signal totaled in fastDataRateSamplingPeriods to smoothing filters
+            // -> NOTE that at this stage, the smoothed values are NOT AVERAGES BUT SUMS 
+            smoothedMeasurements.idleLoopMicrosSmooth += ((((float)fastRateDataPtr->sumIdleLoopMicros) - smoothedMeasurements.idleLoopMicrosSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.ISRdurationSmooth += ((((float)fastRateDataPtr->sumISRdurations) - smoothedMeasurements.ISRdurationSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.magnetOnCyclesSmooth += ((((float)fastRateDataPtr->sumMagnetOnCycles) - smoothedMeasurements.magnetOnCyclesSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 1.0F));
+            smoothedMeasurements.errSignalMagnitudeSmooth += ((((float)fastRateDataPtr->sumErrSignalMagnitude) - smoothedMeasurements.errSignalMagnitudeSmooth) * (samplingPeriod * fastDataRateSamplingPeriods / 5.0F));
+
+            // feed temp. sensor reading to smoothing filter
+            // TMP36 sensor: 10 mV per °C, 750 mV at 25 °C : 1 ADC step * 5000 mV / 1024 steps *  1 °C / 10 mV = 0.488 °C which gives sufficient accuracy for safety purposes
+            // tempSmooth: in °C * 100
+            long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - ((long)ADCvolt << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
+                smoothedMeasurements.tempSmooth =                       //   
+                    tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
+            }
+
+            partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
+            fastRateDataEventCounter++;                                                     // overflows at 255 idle events = 255 * 128 mS, period = 32768 milliseconds
+            if (fastRateDataEventCounter == 0) {
+                movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];   // spans more than 5 minutes
+                for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
+                sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
+                partialSumMagnetOnCycles = 0;
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                         // highLoad is passed back to ISR for safety check high magnet load
+                    highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
+                }
+            }
+
+        #if WITH_WIRE_COMM
+            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
+            if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
+        #endif    
+        }
+        break;
+
+        case eSecond:
+        {
+        #if WITH_WIRE_COMM
+            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth second cue = every 4 seconds
+            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }             //send telemetry 
+        #endif
+
+            /*
+            // 3 seconds after reset
+            if (secondData.eventSecond == 3) {
+                cli();                                                                      // interrupts off: interface with ISR and eeprom write
+                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
+                sei();
+            }
+            */
+        }
+        break;
+
+        default:        // including eNoEvent
+        {
+        #if WITH_WIRE_COMM
+            msgTypeOut = MsgType::M_MSG_NONE;
+        #endif
+        }
+        break;
+    }
+
+#if WITH_WIRE_COMM
+    return msgTypeOut;
+#else
+    return 0;               // dummy return value
+#endif
+}
+
+
 // ========== check switch settings ==========
 
 void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW3 to SW0 to be interpreted as switches only (instead of buttons)
@@ -1352,14 +1372,21 @@ void checkSwitches(bool forceSwitchCheck /* = false */) {               // if SW
 
 // ========== write status and other info to LCD and Serial ==========
 void writeStatus() {
-    if (ISRevent != eSecond) { return; }
+    static uint8_t previousISRevent{ eNoEvent };
 
-    long sec{ 0 };
-    long mS = globeTime.millis(&sec);
-    formatTime(s30, sec, mS);
-    Serial.println();
-    Serial.println(s30);                                                               // time stamp line
+    if ((ISRevent != eGreenwich) && (ISRevent != eStatusChange) && (ISRevent != eSecond)) { return; }
+    previousISRevent = ISRevent;
+    uint32_t event_mS = (ISRevent == eGreenwich) ? greenwichData.eventMilliSecond : (ISRevent == eStatusChange) ? statusData.eventMilliSecond : 0;
+    uint32_t event_sec = (ISRevent == eGreenwich) ? greenwichData.eventSecond : (ISRevent == eStatusChange) ? statusData.eventSecond : secondData.eventSecond;
 
+    // line 1: print event name (second event: add parentheses instead of leading and trailing '++')
+    Serial.println((ISRevent == eGreenwich) ? F("++ Greenwich event ++") : (ISRevent == eStatusChange) ? F("++ Status change event ++") : F("(Second event)"));
+
+    // line 2: print event time
+    formatTime(s30, event_sec, event_mS);           // time of this event
+    Serial.println(s30);
+
+    // line 3: print status 
     if (statusData.errorCondition == errNoError) {
         switch (statusData.rotationStatus) {
             case rotNoPosSync: strcpy_P(s30, statusData.isFloating ? ((targetGlobeRotationTime == 0) ? str_rotationOff : str_noPosSync) : str_notFloating); break;
@@ -1379,70 +1406,30 @@ void writeStatus() {
         }
     }
 
-    strcat(strcat(strcpy(longText, "++ "), s30), " ++");
-    if (ISRevent == eStatusChange) {
-        Serial.println();
-        formatTime(s30, statusData.eventSecond, statusData.eventMilliSecond);           // time of this status change (which is a little earlier than globeTime.millis(), giving the current time)
-        strcat(strcat(longText, s30), ") ++");
-    }
-    Serial.println(longText);
+    Serial.print("Status: ");     Serial.println(s30);
 
+    // next lines: print metrics, telemetry, ...
     for (long attributeIndex = 0; attributeIndex < globeMetricsCount; attributeIndex++) {
         int attributeValue = globeMetrics[attributeIndex];
-        strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[attributeIndex]))); // selected attribute label
+        strcpy_P(s30, (char*)pgm_read_word(&(globeMetricsLabels[attributeIndex]))); // selected attribute label
+        Serial.print(s30);
         fetchAttributeValue(s30, attributeIndex, attributeValue);
-        strcat(longText, s30);
-        Serial.println(longText);
+        Serial.println(s30);
     }
 
+    // next lines: print led status
     sprintf(s30, "%u", ledStripSettings.ledEffect);
-    Serial.print(strcat(strcpy(longText, "led effect "), s30));
+    Serial.print(F("led effect>    ")); Serial.println(s30);        // '>': setting
     if (ledStripSettings.ledEffect >= cWhiteBlue) {
         sprintf(s30, "%u", ledStripSettings.ledCycleSpeed + 1);
-        Serial.println(strcat(strcpy(longText, ", led timing "), s30));
+        Serial.print(F("led timing>    ")); Serial.println(s30);
     }
+
+    // last line: print missed event count
+    sprintf(s30, "%6u", globeEventSnapshot.eventsMissed);
+    Serial.print(F("Ev.missed ")); Serial.println(s30);
 
     Serial.println();
-}
-
-
-// ========== write an selectedAttribute label and its value to LCD and Serial ==========
-
-void writeAttributeLabelAndValue() {
-
-    // selectedAttribute value type ?
-    bool isSetValue = (globeMetrics_editableFlags & (1L << selectedAttribute.attributeIndex));// setting that can be changed by user  
-    bool isRotationValue = ((selectedAttribute.attributeIndex == 1) || (selectedAttribute.attributeIndex == 2) || (selectedAttribute.attributeIndex == 10)); // value to print is provided by last Greenwich event
-    bool isLiveValue = !(isSetValue || isRotationValue);                                    // all other values
-
-    // refresh Serial ?
-    bool SerialWriteValue = ((ISRevent == eStatusChange) && !(isRotationValue && statusData.isGreenwich))   // if linked Greenwich event, do not write rotation value now
-        || (showLiveValues && ((ISRevent == eGreenwich) && isRotationValue))
-        || (showLiveValues && ((ISRevent == eSecond) && isLiveValue));
-
-    if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
-
-    strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[selectedAttribute.attributeIndex])));                           // selectedAttribute label
-
-    fetchAttributeValue(s30, selectedAttribute.attributeIndex, selectedAttribute.attributeValue);                                   // selectedAttribute value
-
-    if (SerialWriteValue) {
-        Serial.print(longText);
-        strcpy_P(longText, (selectedAttribute.attributeIndex > attributeIndex_gainAdjust) ? str_editValueWithDefault : str_editValue);
-        Serial.println(selectedAttribute.attributeChangeMode ? longText : "");
-
-        if (globeEventSnapshot.eventsMissed > 0) {
-            sprintf(longText, "%ld ", globeEventSnapshot.eventsMissed);
-            strcat_P(longText, str_eventsMissed);
-            Serial.println(longText);
-        }
-
-    #if TEST_SHOW_STATS
-        sprintf_P(longText, str_eventMaxStats, globeEventSnapshot.largestEventsPending, globeEventSnapshot.largestEventBufferBytesUsed);
-        Serial.println(longText);
-    #endif
-    }
-
 }
 
 
@@ -1452,8 +1439,8 @@ void writeStatus() {
     if ((ISRevent == eNoEvent) && (userCommand == uNoCmd)) { return; }
 
     if ((userCommand == uShowAll) || (userCommand == uTimeStamp)) {                         // time stamp (actual time) needed ?
-        long sec{ 0 };
-        long mS = globeTime.millis(&sec);
+        uint32_t sec{ 0 };
+        uint32_t mS = globeTime.millis(&sec);
         formatTime(s30, sec, mS);
         strcat(strcpy_P(longText, str_timeStamp), s30);
         Serial.println();
@@ -1635,7 +1622,7 @@ void writeAttributeLabelAndValue() {
 
 void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
     long paramValue{ 0 };                                       // !!! do not define variables within a case clause unless you put the case clause in curly brackets
-    long days, hours, min, sec;
+    uint32_t days, hours, min, sec;
 
     switch (attributeIndex) {
         case 0: {                                               // set rotation time
@@ -1888,9 +1875,9 @@ void idleLoop() {
 
 // ========== format time, given as a number of seconds and milliseconds within a second as a string and optionally return total days, hours, minutes and seconds ==========
 
-void formatTime(char* s, long totalSeconds, long totalMillis, long* days /* = nullptr */, long* hours /* = nullptr */, long* minutes /* = nullptr */, long* seconds /* = nullptr */) {
+void formatTime(char* s, uint32_t totalSeconds, uint32_t totalMillis, uint32_t* days /* = nullptr */, uint32_t* hours /* = nullptr */, uint32_t* minutes /* = nullptr */, uint32_t* seconds /* = nullptr */) {
 
-    long sec, min, hr, d;
+    uint32_t sec, min, hr, d;
 
     sec = totalSeconds;
     min = totalSeconds / 60L;

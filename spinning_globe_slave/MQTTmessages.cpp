@@ -22,7 +22,7 @@ void MQTTmessages::loop() {
 
     // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
     if (MQTTconnected) {
-        MsgToMQTT* pMsgToMQTT{};
+        MQTTmsgFromWire* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
             Serial.print("Greenwich-MQTT: "); Serial.print(pMsgToMQTT->topic); Serial.print(", "); Serial.println(pMsgToMQTT->payload);
@@ -84,6 +84,7 @@ bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffectSpeed", &tmp);
     _sharedContext.pendingGlobeSettings.ledCycleSpeed = tmp;
     _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
+    
     return ok;
 }
 
