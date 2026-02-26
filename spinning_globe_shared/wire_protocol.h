@@ -288,24 +288,24 @@ struct __attribute__((packed)) I2C_globeSettings {
     uint8_t rotationPeriodIndex;                // index into array with defined rotation periods 
     uint8_t ledEffect;                          // led effect number
     uint8_t ledCycleSpeed;                      // led effect speed number
-    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
+    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_PIDsettings {
-    int8_t gainAdjustSteps;                     // positive or negative
-    int8_t intTimeCstAdjustSteps;
-    int8_t difTimeCstAdjustSteps;
-    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
+    uint8_t gainAdjustSteps;                     // 0 (minimum) to 32 (maximum)
+    uint8_t intTimeCstAdjustSteps;
+    uint8_t difTimeCstAdjustSteps;
+    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_vertPosSetpoint {
-    uint8_t vertPosIndex = 0;                   // index into array with vert. positions (in mV)
-    uint8_t slaveHasData {0};                   // slave=>master only: the slave data requested is available
+    uint8_t vertPosIndex;                       // index into array with vert. positions (in mV)
+    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_coilPhaseAdjust {
-    int8_t coilPhaseAdjust = 0;                 // -90 to 90 degrees
-    uint8_t slaveHasData {0};                    // slave=>master only: the slave data requested is available
+    uint8_t coilPhaseAdjust;                     // coil phase in 2-degrees increments (0: 0 degrees, 89: 178 degrees, 90: -180 degrees, 179: -2 degrees   
+    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
 

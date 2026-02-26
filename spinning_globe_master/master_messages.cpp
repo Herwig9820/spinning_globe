@@ -88,7 +88,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         break;
 
 
-        // ========== message types SENDING DATA to slave after a globe event ==========
+        // ========== message types SENDING DATA to slave after a globe event or when requested ==========
 
         case MsgType::M_MSG_STATUS:
         {
@@ -138,7 +138,51 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         }
         break;
 
-        // ========== message types SENDING DATA to slave when requested ==========
+        // send user settings to wire slave
+        case MsgType::M_MSG_GLOBE_SETTINGS:
+        {
+            I2C_m_globeSettings p{};
+            // set rotation time is stored in globe attributes array, not in a struct
+            p.rotationPeriodIndex = _globeMetrics[attributeIndex_rotTimes];      // index
+            p.ledEffect = _ledStripSettings.ledEffect;
+            p.ledCycleSpeed = _ledStripSettings.ledCycleSpeed;
+            _wireMaster.enqueueTx(M_MSG_GLOBE_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+
+        // send PID settings to wire slave
+        case MsgType::M_MSG_PID_SETTINGS:
+        {
+            I2C_m_PIDsettings p{};
+            p.gainAdjustSteps = _pidSettings.gainAdjustSteps;
+            p.difTimeCstAdjustSteps = _pidSettings.difTimeCstAdjustSteps;
+            p.intTimeCstAdjustSteps = _pidSettings.intTimeCstAdjustSteps;
+            _wireMaster.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+
+
+        // send globe vertical position setpoint to wire slave
+        case MsgType::M_MSG_VERT_POS_SETPOINT:
+        {
+            I2C_m_vertPosSetpoint p{};
+            // vertical position (in mVolt) is stored in the globe metrics array, not in a struct
+            p.vertPosIndex = _globeMetrics[attributeIndex_hallmVoltRefs];
+            _wireMaster.enqueueTx(M_MSG_VERT_POS_SETPOINT, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+
+        // send coil phase adjustment setting to wire slave
+        case MsgType::M_MSG_COIL_PHASE_ADJUST:
+        {
+            I2C_m_coilPhaseAdjust p{};
+            // set coil phase adjust is stored in the globe attributes array, not in a struct
+            p.coilPhaseAdjust = _globeMetrics[attributeIndex_coilPhaseAdjust];               // 0 to 179
+            Serial.print("wire msg out: coil phase adjust = "); Serial.println(p.coilPhaseAdjust);
+            _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+
 
         // send wire master library send stats to wire slave
         case MsgType::M_MSG_SEND_STATS:
@@ -174,52 +218,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.largestEventsPending = _globeEventSnapshot.largestEventsPending;
             p.largestEventBufferBytesUsed = _globeEventSnapshot.largestEventBufferBytesUsed;
             _wireMaster.enqueueTx(M_MSG_GLOBE_STATS, sizeof(_globeEventSnapshot), &_globeEventSnapshot, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-
-        // send user settings to wire slave
-        case MsgType::M_MSG_GLOBE_SETTINGS:
-        {
-            I2C_m_globeSettings p{};
-            // set rotation time is stored in globe attributes array, not in a struct
-            p.rotationPeriodIndex = _globeMetrics[attributeIndex_rotTimes];      // index
-            p.ledEffect = _ledStripSettings.ledEffect;
-            p.ledCycleSpeed = _ledStripSettings.ledCycleSpeed;
-            _wireMaster.enqueueTx(M_MSG_GLOBE_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        // send PID settings to wire slave
-        case MsgType::M_MSG_PID_SETTINGS:
-        {
-            I2C_m_PIDsettings p{};
-            p.gainAdjustSteps = _pidSettings.gainAdjustSteps;
-            p.intTimeCstAdjustSteps = _pidSettings.intTimeCstAdjustSteps;
-            p.difTimeCstAdjustSteps = _pidSettings.difTimeCstAdjustSteps;
-            _wireMaster.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-
-        // send globe vertical position setpoint to wire slave
-        case MsgType::M_MSG_VERT_POS_SETPOINT:
-        {
-            I2C_m_vertPosSetpoint p{};
-            // vertical position (in mVolt) is stored in the globe metrics array, not in a struct
-            p.vertPosIndex = _globeMetrics[attributeIndex_rotTimes];
-            _wireMaster.enqueueTx(M_MSG_VERT_POS_SETPOINT, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        // send coil phase adjustment setting to wire slave
-        case MsgType::M_MSG_COIL_PHASE_ADJUST:
-        {
-            I2C_m_coilPhaseAdjust p{};
-            // set coil phase adjust is stored in the globe attributes array, not in a struct
-            p.coilPhaseAdjust = (_globeMetrics[attributeIndex_coilPhaseAdjust] << 1);               // 0 to 355
-            if (p.coilPhaseAdjust > 180) { p.coilPhaseAdjust -= 360; }                      // -179 to +180 degrees
-            _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
@@ -348,7 +346,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
-            I2C_s_vertPosSetpoint_set* p = reinterpret_cast<I2C_s_vertPosSetpoint_set*>(plIn);
+            I2C_s_vertPosSetpoint_set* p = reinterpret_cast<I2C_s_vertPosSetpoint_set*>(plIn);           
             if (!p->slaveHasData) { break; }
 
             // vertical position (in mVolt) is stored in the globe attributes array, not in a struct
@@ -367,6 +365,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
 
             I2C_s_coilPhaseAdjust_set* p = reinterpret_cast<I2C_s_coilPhaseAdjust_set*>(plIn);
             if (!p->slaveHasData) { break; }
+            Serial.print("incoming coil phase adjust: "); Serial.print(p->slaveHasData); Serial.print(", "); Serial.println(p->coilPhaseAdjust);
 
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             // phase adjustment in 2-degree increments (0 to 358 degrees)

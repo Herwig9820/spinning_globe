@@ -17,6 +17,7 @@ bool WiFiConnection::maintainWiFi() {
             // time for a next WiFi connection attempt ?
             if (now - _lastWiFiMaintenanceTime > WIFI_UP_CHECK_INTERVAL) {
 
+                WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
                 WiFi.begin(WIFI_SSID, WIFI_PASS);
                 _wifiState = WiFi_waitForConnecton;
 

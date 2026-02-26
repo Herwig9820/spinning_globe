@@ -59,8 +59,8 @@ enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, e
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
-constexpr uint8_t settingSteps{ 32 };                       // must be even; from -steps/2 to steps/2 - 1  
-constexpr uint8_t centerPointStep = settingSteps / 2;
+constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps     //// overal implementeren   
+constexpr uint8_t centerPointStep{ settingSteps / 2 };      //// overal implementeren
 
 
 // ========== indexes in globe attributes list: attributes with user selectable values ==========

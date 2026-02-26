@@ -1,5 +1,5 @@
-#ifndef FG_SLAVE_STATE_h
-#define FG_SLAVE_STATE_h
+#ifndef FG_SLAVE_CONTEXT_h
+#define FG_SLAVE_CONTEXT_h
 
 #include "wire_protocol.h"
 #include <stddef.h>
@@ -14,24 +14,29 @@ enum rotStatus :uint8_t {
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
-// to MQTT: settings changed by wire master (spinning globe)
-constexpr const char* TOPIC_STATUS = "globe/status";
+
+// wire to MQTT
+constexpr const char* TOPIC_STATUS = "globe/status";                                
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
+
+// wire to MQTT
 constexpr const char* TOPIC_GLOBE_SETTINGS = "globe/settings";
 constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
+constexpr const char* TOPIC_VERT_POS_SETPOINT = "globe/vertPosSetpoint";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST = "globe/coilPhaseAdjust";
 
-// to Wire: settings changed by MQTT client (e.g., node-red)
+// MQTT to Wire: settings changed by MQTT client (e.g., node-red)
 constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
-constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPos/set";
-constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/phaseAdjust/set";
+constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPosSetpoint/set";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/coilPhaseAdjust/set";
 
-// to Wire: MQTT client requests data from wire master (spinning globe) 
+// MQTT to Wire: MQTT client requests data from wire master (spinning globe) 
 constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
-constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPos/request";
-constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/phaseAdjust/request";
+constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPosSetpoint/request";
+constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/request";
 
 
 template<typename T, size_t N>

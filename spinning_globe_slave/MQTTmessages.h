@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "slave_state.h"
+#include "slave_context.h"
 #include "WiFiConnection.h"
 
 class MQTTmessages {
@@ -79,6 +79,9 @@ public:
     MQTTmessages(SharedContext& sharedContext);
     void loop();
     bool convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire);
+    bool convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire);
+    bool convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire);
+    bool convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire);
 
 };
 

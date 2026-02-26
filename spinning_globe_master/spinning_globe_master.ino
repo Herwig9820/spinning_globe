@@ -137,66 +137,66 @@ constexpr uint8_t ledstripDataBits{ B11000000 };                // port D bits 7
 
 // ========== flash memory constants ==========
 
-const char str_build_start[] PROGMEM = "===== Spinning Globe v";
-const char str_build_end[] PROGMEM = " =====\r\n";
+constexpr char str_build_start[] PROGMEM = "===== Spinning Globe v";
+constexpr char str_build_end[] PROGMEM = " =====\r\n";
 
-const char str_empty16[] PROGMEM = "                ";
+constexpr char str_empty16[] PROGMEM = "                ";
 
-const char str_noPosSync[] PROGMEM = "wait for pos sync";
-const char str_freeRunning[] PROGMEM = "free running";
-const char str_measuring[] PROGMEM = "measuring";
-const char str_notLocked[] PROGMEM = "not locked";
-const char str_locked[] PROGMEM = "locked";
-const char str_rotationOff[] PROGMEM = "rotation off";
-const char str_notFloating[] PROGMEM = "not floating";
-
-const char str_ErrDroppedGlobe[] PROGMEM = "E! dropped globe";
-const char str_ErrStickyGlobe[] PROGMEM = "E! sticky globe";
-const char str_ErrOverload[] PROGMEM = "E! overload";
-const char str_ErrTemp[] PROGMEM = "E! temp too high";
-
-const char str_rotTimeSet[] PROGMEM = "rot time>";              // '>': user setting         
-const char str_rotTimeAct[] PROGMEM = "rot t act";
-const char str_syncError[] PROGMEM = "sync err ";
-const char str_tLocked[] PROGMEM = "t locked ";
-const char str_tFloat[] PROGMEM = "t float  ";
-const char str_tempAct[] PROGMEM = "temp     ";
-const char str_avgDutyC[] PROGMEM = "avg duty c";
-const char str_vertPos[] PROGMEM = "vert pos!";
-const char str_errSigVar[] PROGMEM = "vp avg err";
-const char str_intTerm[] PROGMEM = "integ term";
-const char str_avgPhase[] PROGMEM = "rot lag ";                 // with respect to (stable) magnetic field rotation
-const char str_isrTime[] PROGMEM = "adc isr t";
-const char str_procLoad[] PROGMEM = "proc load";
-const char str_gain[] PROGMEM = "gain!";                        // '!': system setting (take care when changing these settings)
-const char str_intTimeCst[] PROGMEM = "int t c!";
-const char str_difTimeCst[] PROGMEM = "dif t c!";
-const char str_phaseAdj[] PROGMEM = "phas adj!";
-
-const char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
-const char str_editValueWithDefault[] PROGMEM = "  << +, - to change value, R for reset value, E to end edit, C to cancel";     // during edit
-const char str_help1[] PROGMEM = "Type + or - to show next/previous, E to edit value, S to show or stop live values, A to show all values, T for time stamp,";
-const char str_help2[] PROGMEM = "LC0..5 to change led strip cycle (0 = off), LT1..4 to change led strip cycle time (1 = fastest), M0..1 to measure (step) response, ? for help";
-const char str_cmdError[] PROGMEM = "== Not a valid command or parameter";
-const char str_showLive[] PROGMEM = "== Show Live";
-const char str_stopLive[] PROGMEM = "== Stop Live";
-const char str_colorCycle[] PROGMEM = "== led strip color cycle ";
-const char str_timeStamp[] PROGMEM = "== Time stamp ";
-const char str_stepResponse[] PROGMEM = "== (Step) response (ms;hall;ctr)";
-const char str_stepResponseEnd[] PROGMEM = "== (Step) response end";
-const char str_eventsMissed[] PROGMEM = "event(s) missed !";
-const char str_programMode[] PROGMEM = "PROGRAM MODE";
-
-const char str_fmtTime[] PROGMEM = "%ldd %02ld:%02ld:%02ld %03ld";
-const char str_fmt3unsignedInteger[] PROGMEM = "%u;%u;%u";
-const char str_fmtDayHour[] PROGMEM = "%3ldd%2ldh";
-const char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
+constexpr char str_noPosSync[] PROGMEM = "wait for pos sync";
+constexpr char str_freeRunning[] PROGMEM = "free running";
+constexpr char str_measuring[] PROGMEM = "measuring";
+constexpr char str_notLocked[] PROGMEM = "not locked";
+constexpr char str_locked[] PROGMEM = "locked";
+constexpr char str_rotationOff[] PROGMEM = "rotation off";
+constexpr char str_notFloating[] PROGMEM = "not floating";
+ 
+constexpr char str_ErrDroppedGlobe[] PROGMEM = "E! dropped globe";
+constexpr char str_ErrStickyGlobe[] PROGMEM = "E! sticky globe";
+constexpr char str_ErrOverload[] PROGMEM = "E! overload";
+constexpr char str_ErrTemp[] PROGMEM = "E! temp too high";
+ 
+constexpr char str_rotTimeSet[] PROGMEM = "rot time>";              // '>': user setting         
+constexpr char str_rotTimeAct[] PROGMEM = "rot t act";
+constexpr char str_syncError[] PROGMEM = "sync err ";
+constexpr char str_tLocked[] PROGMEM = "t locked ";
+constexpr char str_tFloat[] PROGMEM = "t float  ";
+constexpr char str_tempAct[] PROGMEM = "temp     ";
+constexpr char str_avgDutyC[] PROGMEM = "avg duty c";
+constexpr char str_vertPos[] PROGMEM = "vert pos!";
+constexpr char str_errSigVar[] PROGMEM = "vp avg err";
+constexpr char str_intTerm[] PROGMEM = "integ term";
+constexpr char str_avgPhase[] PROGMEM = "rot lag ";                 // with respect to (stable) magnetic field rotation
+constexpr char str_isrTime[] PROGMEM = "adc isr t";
+constexpr char str_procLoad[] PROGMEM = "proc load";
+constexpr char str_gain[] PROGMEM = "gain!";                        // '!': system setting (take care when changing these settings)
+constexpr char str_intTimeCst[] PROGMEM = "int t c!";
+constexpr char str_difTimeCst[] PROGMEM = "dif t c!";
+constexpr char str_phaseAdj[] PROGMEM = "phas adj!";
+ 
+constexpr char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
+constexpr char str_editValueWithDefault[] PROGMEM = "  << +, - to change value, R for reset value, E to end edit, C to cancel";     // during edit
+constexpr char str_help1[] PROGMEM = "Type + or - to show next/previous, E to edit value, S to show or stop live values, A to show all values, T for time stamp,";
+constexpr char str_help2[] PROGMEM = "LC0..5 to change led strip cycle (0 = off), LT1..4 to change led strip cycle time (1 = fastest), M0..1 to measure (step) response, ? for help";
+constexpr char str_cmdError[] PROGMEM = "== Not a valid command or parameter";
+constexpr char str_showLive[] PROGMEM = "== Show Live";
+constexpr char str_stopLive[] PROGMEM = "== Stop Live";
+constexpr char str_colorCycle[] PROGMEM = "== led strip color cycle ";
+constexpr char str_timeStamp[] PROGMEM = "== Time stamp ";
+constexpr char str_stepResponse[] PROGMEM = "== (Step) response (ms;hall;ctr)";
+constexpr char str_stepResponseEnd[] PROGMEM = "== (Step) response end";
+constexpr char str_eventsMissed[] PROGMEM = "event(s) missed !";
+constexpr char str_programMode[] PROGMEM = "PROGRAM MODE";
+ 
+constexpr char str_fmtTime[] PROGMEM = "%ldd %02ld:%02ld:%02ld %03ld";
+constexpr char str_fmt3unsignedInteger[] PROGMEM = "%u;%u;%u";
+constexpr char str_fmtDayHour[] PROGMEM = "%3ldd%2ldh";
+constexpr char str_fmtHourMinute[] PROGMEM = "%3ldh%2ldm";
 
 #if TEST_SHOW_STATS 
 const char str_eventMaxStats[] PROGMEM = "event max stats: events pending %d, mem size %d";
 #endif
 
-const char* const globeMetricsLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
+constexpr const char* const globeMetricsLabels[] PROGMEM = { str_rotTimeSet, str_rotTimeAct, str_syncError, str_tLocked, str_tFloat, str_tempAct, str_avgDutyC,
     str_vertPos, str_errSigVar, str_intTerm, str_avgPhase, str_isrTime, str_procLoad, str_gain, str_intTimeCst, str_difTimeCst, str_phaseAdj };
 
 constexpr int globeMetricsCount = sizeof(globeMetricsLabels) / sizeof(globeMetricsLabels[0]);
@@ -722,7 +722,7 @@ void setup()
         // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
         pidSettings.gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;           // preset gain corresponds to gainAdjustSteps mid value   
-        globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps;
+        globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps ;
 
         eepromValue = eeprom_read_byte((uint8_t*)5);
         pidSettings.intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
@@ -799,8 +799,7 @@ void setup()
     }
 
 #if WITH_WIRE_COMM
-    Serial.println(F("Communication using I2C: hardware buttons, LCD and USB input disabled."));
-    Serial.println(F("If working stand-alone, on-board switches can be used to change settings."));
+    Serial.println(F("Control over I2C enabled. Hardware buttons, LCD and USB input disabled. Use on-board switches to change settings."));
 #else
     Serial.println(strcpy_P(longText, str_help1));
     Serial.println(strcpy_P(longText, str_help2));
@@ -836,7 +835,7 @@ void loop()
 
     static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
     static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
-    const uint8_t initialMessages[2]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS };
+    const uint8_t initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST};
 
     static uint8_t initialMsg{ 0 };
 
@@ -858,7 +857,7 @@ void loop()
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
 
-    writeStatus();
+    ////writeStatus();
 
 #else
     getEventOrUserCommand();                        // get ONE event or assembled user command, exit anyway if none available
@@ -1740,8 +1739,8 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
             break;
         }
         case 16: {
-
-            sprintf(s, "%+4ddeg", (attributeValue <= 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
+            // coil phase in 2-degrees increments (0: 0 degrees, 89: 178 degrees, 90: -180 degrees, 179: -2 degrees
+            sprintf(s, "%+4ddeg", (attributeValue < 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
             break;
         }
     }
@@ -1931,7 +1930,7 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
     globeMetrics[attributeIndex] = attributeValue;          // save this value in the attributes array
      // only items that can be changed need to have an entry here 
 
-    uint8_t eepromByteIndex{ 4 };                                           // init: eeprom byte number for gain
+    uint8_t gainEepromByteIndex{ 4 };                                           // init: eeprom byte number for gain
 
     switch (attributeIndex) {
         // set rotation time
@@ -1967,22 +1966,22 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         }
         break;
 
-        // eeprom eepromByteIndex is now pointing to gain adjust step storage (byte 4) 
+        // eeprom gainEepromByteIndex is now pointing to gain adjust step storage (byte 4) 
         case attributeIndex_difTimeConstAdjust:
         {
-            eepromByteIndex++;                                                   // byte 6: dif. time adjust step
+            gainEepromByteIndex++;                                                   // byte 6: dif. time adjust step
         }
         case attributeIndex_intTimeConstAdjust:
         {
-            eepromByteIndex++;                                                   // byte 5: int. time cst. adjust step
+            gainEepromByteIndex++;                                                   // byte 5: int. time cst. adjust step
         }
         case attributeIndex_gainAdjust:
         {
-            eepromByteIndex++;                                                   // byte 4: gain adjust step
+            gainEepromByteIndex++;                                                   // byte 4: gain adjust step
             // update eeprom for specified characteristic (gain, int.tc or diff.tc) AND update PID settings (pidSettings)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
-                eeprom_update_byte((uint8_t*)eepromByteIndex, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
+                eeprom_update_byte((uint8_t*)gainEepromByteIndex, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
             }
         }

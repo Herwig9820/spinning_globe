@@ -31,7 +31,7 @@
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="slave_state.h">
+    <ClCompile Include="slave_context.h">
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="slave_messages.h">

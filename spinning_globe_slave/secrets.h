@@ -14,6 +14,9 @@
 
     #define MQTT_DEVICE_ID "floating_globe_esp32_B59J4NF4865L"
 
+    constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";
+
+
 /*
     AANPASSEN in deze secrets.h file : WiFi SSID en paswoord voor MERELBEKE
     -----------------------------------------------------------------------

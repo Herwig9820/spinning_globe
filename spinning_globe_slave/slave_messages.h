@@ -1,7 +1,7 @@
 #ifndef FG_SLAVE_MESSAGES_h
 #define FG_SLAVE_MESSAGES_h
 
-#include "slave_state.h"
+#include "slave_context.h"
 #include "slave_transport.h"
 
 
@@ -32,6 +32,8 @@ class WireSlaveMessages {
     void convertSecondCueToMQTT(I2C_m_secondCue* p);
     void convertGlobeSettingsToMQTT(I2C_m_globeSettings* p);
     void convertPIDsettingsToMQTT(I2C_m_PIDsettings* p);
+    void convertVertPosSetpointToMQTT(I2C_m_vertPosSetpoint* pPIDIn);
+    void convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* pPIDIn);
 
     void replyAndFlagSlaveDataAvailable();             // naming
 
