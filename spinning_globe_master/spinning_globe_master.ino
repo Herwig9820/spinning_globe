@@ -1930,7 +1930,9 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
     globeMetrics[attributeIndex] = attributeValue;          // save this value in the attributes array
      // only items that can be changed need to have an entry here 
 
-    uint8_t gainEepromByteIndex{ 4 };                                           // init: eeprom byte number for gain
+    constexpr uint8_t gainEepromByteIndex{ 4 };                                           // init: eeprom byte number for gain
+    constexpr uint8_t intTimeConstEepromByteIndex{ 5 };                                           // init: eeprom byte number for gain
+    constexpr uint8_t difTimeConstEepromByteIndex{ 6 };                                           // init: eeprom byte number for gain
 
     switch (attributeIndex) {
         // set rotation time
@@ -1967,21 +1969,16 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         break;
 
         // eeprom gainEepromByteIndex is now pointing to gain adjust step storage (byte 4) 
+        case attributeIndex_gainAdjust:
         case attributeIndex_difTimeConstAdjust:
-        {
-            gainEepromByteIndex++;                                                   // byte 6: dif. time adjust step
-        }
         case attributeIndex_intTimeConstAdjust:
         {
-            gainEepromByteIndex++;                                                   // byte 5: int. time cst. adjust step
-        }
-        case attributeIndex_gainAdjust:
-        {
-            gainEepromByteIndex++;                                                   // byte 4: gain adjust step
+            uint8_t eepromByteIndex = (attributeIndex== attributeIndex_gainAdjust) ? gainEepromByteIndex: 
+                (attributeIndex == attributeIndex_difTimeConstAdjust) ? difTimeConstEepromByteIndex : intTimeConstEepromByteIndex ;                                                   // byte 4: gain adjust step
             // update eeprom for specified characteristic (gain, int.tc or diff.tc) AND update PID settings (pidSettings)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
-                eeprom_update_byte((uint8_t*)gainEepromByteIndex, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
+                eeprom_update_byte((uint8_t*)eepromByteIndex, (uint8_t)attributeValue);  // update eeprom for the selected ('1') attribute
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
             }
         }

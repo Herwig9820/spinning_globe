@@ -158,6 +158,9 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.difTimeCstAdjustSteps = _pidSettings.difTimeCstAdjustSteps;
             p.intTimeCstAdjustSteps = _pidSettings.intTimeCstAdjustSteps;
             _wireMaster.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+            Serial.print("wire msg out: PID settings = "); Serial.print(p.gainAdjustSteps);
+            Serial.print(", "); Serial.print(p.difTimeCstAdjustSteps);
+            Serial.print(", "); Serial.println(p.intTimeCstAdjustSteps);
         }
         break;
 
@@ -334,6 +337,10 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             if (_pidSettings.gainAdjustSteps >= settingSteps) { _pidSettings.gainAdjustSteps = settingSteps - 1; }
             if (_pidSettings.intTimeCstAdjustSteps >= settingSteps) { _pidSettings.intTimeCstAdjustSteps = settingSteps - 1; }
             if (_pidSettings.difTimeCstAdjustSteps >= settingSteps) { _pidSettings.difTimeCstAdjustSteps = settingSteps - 1; }
+
+            Serial.print("wire msg in : PID settings = "); Serial.print(_pidSettings.gainAdjustSteps);
+            Serial.print(", "); Serial.print(_pidSettings.difTimeCstAdjustSteps);
+            Serial.print(", "); Serial.println(_pidSettings.intTimeCstAdjustSteps);
 
             saveAndUseGlobeAttribute(attributeIndex_gainAdjust, _pidSettings.gainAdjustSteps);
             saveAndUseGlobeAttribute(attributeIndex_intTimeConstAdjust, _pidSettings.intTimeCstAdjustSteps);

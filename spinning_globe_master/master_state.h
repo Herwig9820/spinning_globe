@@ -79,7 +79,7 @@ constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((v
 
 
 /*v1.0.1 high speed rotation times adapted or created new*/
-constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };   // must be divisible by 12 (steps), 0 means OFF
+constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };   // values must be divisible by 12 (steps), 0 means OFF
 #if highAnalogGain                                                                              // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #else

@@ -174,7 +174,7 @@
         "name": "Spinning floating globe",
         "path": "/dashboard",
         "appIcon": "",
-        "includeClientData": false,
+        "includeClientData": true,
         "acceptsClientConfig": [
             "ui-notification",
             "ui-control"
@@ -331,7 +331,7 @@
     {
         "id": "59b84ef62cd6fe8a",
         "type": "ui-group",
-        "name": "System settings",
+        "name": "PID controller",
         "page": "efc6475877a45e67",
         "width": "4",
         "height": 1,
@@ -359,7 +359,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "spacer",
         "tooltip": "",
-        "order": 6,
+        "order": 4,
         "width": 1,
         "height": 1,
         "className": ""
@@ -370,7 +370,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "spacer",
         "tooltip": "",
-        "order": 9,
+        "order": 7,
         "width": 1,
         "height": 1,
         "className": ""
@@ -465,112 +465,20 @@
         "page": "",
         "ui": "",
         "name": "IP Access guard banner",
-        "order": 1,
+        "order": 10,
         "width": "0",
         "height": "0",
         "head": "",
-        "format": "<template>\n  <div v-if=\"blocked\" style=\"\n      background:#7f0000;\n      color:white;\n      padding:12px;\n      border-radius:6px;\n      font-size:13px;\">\n    ⛔ Remote access ({{ clientIp }}): controls are disabled\n  </div>\n  <div v-else style=\"\n      background:#1a3a1a;\n      color:#40ff40;\n      padding:8px;\n      border-radius:6px;\n      font-size:13px;\">\n    ✅ Local access ({{ clientIp }}): controls are enabled \n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      clientIp: 'checking...',\n      blocked: false\n    }\n  },\n  mounted() {\n    fetch('/checkip')\n      .then(r => r.json())\n        .then(data => {\n        this.clientIp = data.ip;\n        let ipOk = (\n        data.ip === '127.0.0.1' ||\n        data.ip.startsWith('192.168.')\n        );\n        this.blocked = !(ipOk && data.localNetwork);\n        fetch('/setpidaccess?blocked=' + this.blocked);\n        })\n      .catch(() => {\n        this.clientIp = 'unknown';\n        this.blocked = true;\n        fetch('/setpidaccess?blocked=true');\n      });\n  }\n}\n</script>",
+        "format": "<template>\n  <div v-if=\"blocked\" style=\"\n      background:#7f0000;\n      color:white;\n      padding:12px;\n      border-radius:6px;\n      font-size:13px;\">\n    ⛔ Remote access ({{ clientIp }}): controls are disabled\n  </div>\n  <div v-else style=\"\n      background:#1a3a1a;\n      color:#40ff40;\n      padding:8px;\n      border-radius:6px;\n      font-size:13px;\">\n    ✅ Local access ({{ clientIp }}): controls are enabled \n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      clientIp: 'checking...',\n      blocked: false\n    }\n  },\nmounted() {\nfetch('/checkip')\n.then(r => r.json())\n.then(data => {\nthis.clientIp = data.ip;\nthis.blocked = !(\ndata.ip === '127.0.0.1' ||\ndata.ip.startsWith('192.168.')\n);\n})\n.catch(() => {\nthis.clientIp = 'unknown';\nthis.blocked = true;\n});\n}\n}\n</script>",
         "storeOutMessages": true,
         "passthru": true,
         "resendOnRefresh": true,
         "templateScope": "local",
         "className": "",
         "x": 230,
-        "y": 420,
+        "y": 360,
         "wires": [
             []
-        ]
-    },
-    {
-        "id": "7a9acf11189953bd",
-        "type": "http in",
-        "z": "846c39736bfcf985",
-        "name": "Set PID access",
-        "url": "/setpidaccess",
-        "method": "get",
-        "upload": false,
-        "skipBodyParsing": false,
-        "swaggerDoc": "",
-        "x": 200,
-        "y": 280,
-        "wires": [
-            [
-                "1a5b8b57fc6a3def"
-            ]
-        ]
-    },
-    {
-        "id": "1a5b8b57fc6a3def",
-        "type": "function",
-        "z": "846c39736bfcf985",
-        "name": "build control message",
-        "func": "let blocked = msg.req.query.blocked === 'true';\n\nmsg.payload = {\n    groups: blocked\n        ? { disable: [\"59b84ef62cd6fe8a\"] }\n        : { enable: [\"59b84ef62cd6fe8a\"] }\n};\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 440,
-        "y": 280,
-        "wires": [
-            [
-                "d61f47aeccdaa8b1",
-                "35debe84adc5b17e"
-            ]
-        ]
-    },
-    {
-        "id": "d61f47aeccdaa8b1",
-        "type": "http response",
-        "z": "846c39736bfcf985",
-        "name": "",
-        "statusCode": "",
-        "headers": {},
-        "x": 670,
-        "y": 280,
-        "wires": []
-    },
-    {
-        "id": "35debe84adc5b17e",
-        "type": "ui-control",
-        "z": "846c39736bfcf985",
-        "name": "",
-        "ui": "77df2131ac60a5ea",
-        "events": "all",
-        "x": 700,
-        "y": 340,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "a0aa420b6c9ba90d",
-        "type": "inject",
-        "z": "846c39736bfcf985",
-        "name": "",
-        "props": [
-            {
-                "p": "payload"
-            },
-            {
-                "p": "topic",
-                "vt": "str"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": true,
-        "onceDelay": "1",
-        "topic": "",
-        "payload": "{\"groups\":{\"enable\":[\"59b84ef62cd6fe8a\"]}}",
-        "payloadType": "json",
-        "x": 190,
-        "y": 340,
-        "wires": [
-            [
-                "35debe84adc5b17e"
-            ]
         ]
     },
     {
@@ -587,7 +495,7 @@
                 "vt": "str"
             }
         ],
-        "repeat": "30",
+        "repeat": "10",
         "crontab": "",
         "once": true,
         "onceDelay": "2",
@@ -650,7 +558,7 @@
         "ui": "77df2131ac60a5ea",
         "events": "connect",
         "x": 180,
-        "y": 500,
+        "y": 640,
         "wires": [
             [
                 "22fbdb2340531b80"
@@ -679,7 +587,7 @@
         "payload": "",
         "payloadType": "date",
         "x": 200,
-        "y": 580,
+        "y": 720,
         "wires": [
             [
                 "cb4bcbdd08831955"
@@ -699,7 +607,7 @@
             "ee09ea4a6790976c"
         ],
         "x": 355,
-        "y": 580,
+        "y": 720,
         "wires": []
     },
     {
@@ -715,8 +623,56 @@
             "d555f1bb02b8fa5d"
         ],
         "x": 355,
-        "y": 500,
+        "y": 640,
         "wires": []
+    },
+    {
+        "id": "5892b4d0e0f548bb",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "change",
+        "x": 520,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "5af782f10a10c1dc",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "all",
+        "x": 180,
+        "y": 260,
+        "wires": [
+            [
+                "e75d515615169946"
+            ]
+        ]
+    },
+    {
+        "id": "e75d515615169946",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "name": "IP gate v2",
+        "func": "let socketId = msg._client.socketId;\nlet socketIp = msg._client.socketIp;\nlet isLocal = global.get('localNetwork') || false;\n\n// Only act on connect and change events\nif (msg.payload !== 'connect' && msg.payload !== 'change') return null;\n\nlet ipOk = (\n    socketIp === '127.0.0.1' ||\n    socketIp.startsWith('192.168.')\n);\n\nlet blocked = !(ipOk && isLocal);\n\nmsg.payload = {\n    _client: { socketId: socketId },\n    groups: blocked\n        ? { disable: [\"59b84ef62cd6fe8a\"] }\n        : { enable: [\"59b84ef62cd6fe8a\"] }\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 260,
+        "wires": [
+            [
+                "5892b4d0e0f548bb"
+            ]
+        ]
     },
     {
         "id": "ec3389e411beae7a",
@@ -1055,26 +1011,6 @@
         ]
     },
     {
-        "id": "e2f554368963a47a",
-        "type": "function",
-        "z": "cb6dceeb25cbc3d8",
-        "name": "offline checker",
-        "func": "const timeoutMs = 20000;  // 20 seconds\n\nlet lastSeen = flow.get(\"lastSeen\");\nif (!lastSeen) {\n    return null;   // no data yet\n}\n\nlet now = Date.now();\nlet delta = now - lastSeen;\n\nif (delta > timeoutMs) {\n    return {\n        topic: \"offline\",\n        payload: \"__offline__\"\n    };\n}\n\nreturn null;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 360,
-        "y": 240,
-        "wires": [
-            [
-                "3b447212f2fc19a1"
-            ]
-        ]
-    },
-    {
         "id": "49ced551f05e4611",
         "type": "inject",
         "z": "cb6dceeb25cbc3d8",
@@ -1098,9 +1034,7 @@
         "x": 150,
         "y": 240,
         "wires": [
-            [
-                "e2f554368963a47a"
-            ]
+            []
         ]
     },
     {
@@ -1428,7 +1362,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "Gain setting",
         "label": "Gain",
-        "order": 3,
+        "order": 1,
         "width": "4",
         "height": "1",
         "topic": "topic",
@@ -1621,7 +1555,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "Derivative time constant",
         "label": "Derivative time constant (milliseconds)",
-        "order": 4,
+        "order": 2,
         "width": "4",
         "height": "1",
         "topic": "topic",
@@ -1676,7 +1610,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "Integral time constant",
         "label": "Integral time constant (seconds)",
-        "order": 5,
+        "order": 3,
         "width": "4",
         "height": "1",
         "topic": "topic",
@@ -1790,7 +1724,7 @@
         "page": "",
         "ui": "",
         "name": "vert.pos. label",
-        "order": 7,
+        "order": 5,
         "width": "4",
         "height": "1",
         "head": "",
@@ -1814,7 +1748,7 @@
         "name": "vertical position select",
         "label": "Select a vertical position",
         "tooltip": "",
-        "order": 8,
+        "order": 6,
         "width": 4,
         "height": "1",
         "passthru": false,
@@ -1869,7 +1803,7 @@
         "group": "59b84ef62cd6fe8a",
         "name": "Coil phase adjust",
         "label": "Set coil phase adjustment",
-        "order": 11,
+        "order": 9,
         "width": "4",
         "height": "1",
         "topic": "topic",
@@ -1905,7 +1839,7 @@
         "page": "",
         "ui": "",
         "name": "Coil phase label",
-        "order": 10,
+        "order": 8,
         "width": "4",
         "height": "1",
         "head": "",
@@ -1941,30 +1875,6 @@
         "className": "",
         "x": 130,
         "y": 900,
-        "wires": [
-            []
-        ]
-    },
-    {
-        "id": "ba069dabf2e528f2",
-        "type": "ui-template",
-        "z": "0bc71bd3ce48e106",
-        "group": "59b84ef62cd6fe8a",
-        "page": "",
-        "ui": "",
-        "name": "PID label",
-        "order": 2,
-        "width": "4",
-        "height": "1",
-        "head": "",
-        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        PID controller \n    </div>\n</template>",
-        "storeOutMessages": true,
-        "passthru": true,
-        "resendOnRefresh": true,
-        "templateScope": "local",
-        "className": "",
-        "x": 120,
-        "y": 940,
         "wires": [
             []
         ]
@@ -2497,7 +2407,7 @@
         "wires": []
     },
     {
-        "id": "370744f12cf687ac",
+        "id": "a908c74720ae233a",
         "type": "global-config",
         "env": [],
         "modules": {
