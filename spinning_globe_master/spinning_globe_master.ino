@@ -1093,7 +1093,7 @@ void processCommand() {
                 case attributeIndex_gainAdjust:
                 case attributeIndex_intTimeConstAdjust:
                 case attributeIndex_difTimeConstAdjust:
-                    selectedAttribute.attributeValue = 16; break;
+                    selectedAttribute.attributeValue = centerPointStep; break;
                 case attributeIndex_coilPhaseAdjust:
                     selectedAttribute.attributeValue = 0; break;
             }
@@ -1120,7 +1120,7 @@ void processCommand() {
                 case attributeIndex_intTimeConstAdjust:
                 case attributeIndex_difTimeConstAdjust: {
                     if (down) { if (selectedAttribute.attributeValue > 0) { selectedAttribute.attributeValue--; } }
-                    else { if (selectedAttribute.attributeValue < 32) { selectedAttribute.attributeValue++; } }   // max. is 32 
+                    else { if (selectedAttribute.attributeValue < settingSteps) { selectedAttribute.attributeValue++; } }   
                 } break;
                 case attributeIndex_coilPhaseAdjust: {
                     if (down) { if (selectedAttribute.attributeValue > 0) { selectedAttribute.attributeValue--; } else { selectedAttribute.attributeValue = 179; } }    // max. is 179 (x2 = 358 degrees)

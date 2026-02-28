@@ -292,7 +292,7 @@ struct __attribute__((packed)) I2C_globeSettings {
 };
 
 struct __attribute__((packed)) I2C_PIDsettings {
-    uint8_t gainAdjustSteps;                     // 0 (minimum) to 32 (maximum)
+    uint8_t gainAdjustSteps;                     // 0 (minimum) to settingSteps (maximum)
     uint8_t intTimeCstAdjustSteps;
     uint8_t difTimeCstAdjustSteps;
     uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
