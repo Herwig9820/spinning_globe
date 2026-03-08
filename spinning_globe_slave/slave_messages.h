@@ -10,7 +10,7 @@
 class WireSlaveMessages {
 
     bool _wireLedOn {false};
-    uint32_t _ledOnStart{};
+    uint32_t _wireLedOn_start{};
 
     WireSlave wireSlave;
 

@@ -13,7 +13,7 @@ bool WireSlaveMessages::loop() {
 
     // switch of 'wire data received' LED if no data is received for a set time
     if(_wireLedOn){
-        if (millis() - _ledOnStart > 15) {                                                  // say on for 15 ms after last data was received
+        if (millis() - _wireLedOn_start > 15) {                                                  // say on for 15 ms after last data was received
             _wireLedOn = false;
             digitalWrite(WIRE_RECEIVE_LED, false);
         }
@@ -25,7 +25,7 @@ bool WireSlaveMessages::loop() {
     // signal that wire data is received
     _wireLedOn = true;
     digitalWrite(WIRE_RECEIVE_LED, true);
-    _ledOnStart = millis();
+    _wireLedOn_start = millis();
 
     switch (messageTypeIn)
     {
