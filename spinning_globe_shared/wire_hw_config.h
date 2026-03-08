@@ -9,6 +9,11 @@ constexpr long timer1ClockFreq{ AVR_classicNano_CPU_clockF / timer1PreScaler }; 
 constexpr long timer1PWMfreq{ 1000L };                                              // 1 KHz
 constexpr long timer1Top{ timer1ClockFreq / timer1PWMfreq / 2 };                    // timer counts up and down : 2000 steps, TOP =1000
 
+
+constexpr float samplingPeriod{ 1. / (float)timer1PWMfreq };                        // 1 millisecond sampling period, in seconds
+
+
+
 constexpr float ADCvolt{ 5000. };
 constexpr long ADCsteps{ 1024L };                                                   // globe vertical position sensor: resolution (10 bit ADC)
 

@@ -16,7 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="spinning_globe_master.ino" />
-    <ClCompile Include="master_state.h">
+    <ClCompile Include="master_context.h">
       <Filter>Header Files</Filter>
     </ClCompile>
     <ClCompile Include="master_messages.cpp">
@@ -27,6 +27,9 @@
     </ClCompile>
     <ClCompile Include="master_transport.h">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="master_context.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

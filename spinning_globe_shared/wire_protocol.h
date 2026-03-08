@@ -243,17 +243,17 @@ enum MsgType : uint8_t {
     M_MSG_GLOBE_STATS = 0x29,           // floating globe stats
 
     // message types to send current master settings to slave. Slave reply: ACK message type
-    M_MSG_GLOBE_SETTINGS = 0x2A,        // rotation time, ...
-    M_MSG_PID_SETTINGS = 0x2B,          // PID controller gain, time constants
-    M_MSG_VERT_POS_SETPOINT = 0x2C,     // PID setpoint (vertical position)
-    M_MSG_COIL_PHASE_ADJUST = 0x2D,     // globe rotation controller: phase adjust between coils magnetic field and globe Greenwich meridian
+    M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...
+    M_MSG_PID_SETTINGS = 0x2D,          // PID controller gain, time constants
+    M_MSG_VERT_POS_SETPOINT = 0x2E,     // PID setpoint (vertical position)
+    M_MSG_COIL_PHASE_ADJUST = 0x2F,     // globe rotation controller: phase adjust between coils magnetic field and globe Greenwich meridian
 
     // master requests slave to send data. Slave reply: message types with the requested slave data
     M_MSG_GLOBE_SETTINGS_REQ = 0x30,    // master requests globe settings as maintained / known by slave
     M_MSG_PID_SETTINGS_REQ = 0x31,      // master requests PID settings as maintained / known by slave
     M_MSG_VERT_POS_SETPOINT_REQ = 0x32, // master requests vertical position setpoint as maintained / known by slave
     M_MSG_COIL_PHASE_ADJUST_REQ = 0x33, // master requests coil phase adjustment as maintained / known by slave
-
+    M_MSG_BUTTON_STATES_REQ = 0x34,     // master requests button states as maintained / known by slave 
 
     // ========== 0x40–0x5F: not used ==========
 
@@ -271,6 +271,7 @@ enum MsgType : uint8_t {
     S_MSG_PID_SETTINGS_SET = 0x71,          // send PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
     S_MSG_VERT_POS_SETPOINT_SET = 0x72,     // send vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
     S_MSG_COIL_PHASE_ADJUST_SET = 0x73,     // send coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
+    S_MSG_BUTTON_STATES_SET = 0x74,         // send button states to master:              response to msg type M_MSG_BUTTON_STATES_REQ
 
 
     // ========== 0x80–0xFE: not used ==========
@@ -308,6 +309,11 @@ struct __attribute__((packed)) I2C_coilPhaseAdjust {
     uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
+struct __attribute__((packed))   I2C_buttonStates {
+    uint8_t buttonStates;
+    uint8_t slaveHasData{ 0 };
+};
+
 
 // ========== I2C message payloads: messages from master to slave ==========
 
@@ -343,6 +349,7 @@ using I2C_m_globeSettings = I2C_globeSettings;      // '_m_': data flows from wi
 using I2C_m_PIDsettings = I2C_PIDsettings;
 using I2C_m_coilPhaseAdjust = I2C_coilPhaseAdjust;
 using I2C_m_vertPosSetpoint = I2C_vertPosSetpoint;
+using I2C_m_buttonStates = I2C_buttonStates;
 
 
 
@@ -370,6 +377,7 @@ using I2C_s_globeSettings_set = I2C_globeSettings;  // '_s_': data flows from wi
 using I2C_s_PIDsettings_set = I2C_PIDsettings;
 using I2C_s_coilPhaseAdjust_set = I2C_coilPhaseAdjust;
 using I2C_s_vertPosSetpoint_set = I2C_vertPosSetpoint;
+using I2C_s_buttonStates_set = I2C_buttonStates;
 
 /* ========== END OF COMMON SECTION BETWEEN WIRE MASTER AND WIRE SLAVE ========== */
 

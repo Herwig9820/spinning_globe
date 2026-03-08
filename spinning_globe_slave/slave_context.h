@@ -3,7 +3,12 @@
 
 #include "wire_protocol.h"
 #include <stddef.h>
+#include <pins_arduino.h>
 
+constexpr int WIRE_RECEIVE_LED{ LED_BUILTIN };              // pin 13 (receive only)
+
+constexpr int WIFI_CONNECT_LED{ LED_GREEN };                // pin 15, blinking while connecting
+constexpr int MQTT_CONNECT_LED{ LED_RED };                  // pin 14, blinking while connecting; off while transmitting
 
 enum rotStatus :uint8_t {
     rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked, // rotNoPosSync: also if rotation OFF or not floating   
@@ -16,7 +21,7 @@ enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow,
 
 
 // wire to MQTT
-constexpr const char* TOPIC_STATUS = "globe/status";                                
+constexpr const char* TOPIC_STATUS = "globe/status";
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
 

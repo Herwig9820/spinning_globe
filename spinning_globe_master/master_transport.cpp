@@ -174,6 +174,9 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
         state = MasterState::MS_SEND;                                           // change status to MS_SEND 
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            //PORTB |= 0x20;                                                    // (outcommented: do NOT set Arduino pin D13 onboard LED when sending)
+        }
     }
 
 
@@ -202,6 +205,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
             // write retries exhausted: advance txTail (pop the packet), increment error counter and go back to idle
             state = MasterState::MS_IDLE;
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+                PORTB &= ~0x20;                                                 // reset Arduino pin D13 onboard LED
                 txTail = (txTail + 1) % TX_QUEUE_SIZE;                          // advance tx tail (even with 8-bit length, operation  is not atomic)
                 masterSendStats.E_stats_tx_wireXmitError++;                     // after max retries: error
             }
@@ -211,6 +215,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
         // success: advance txTail (pop the packet), increment counter and move state to 'wait before polling'
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            PORTB &= ~0x20;                                                     // reset Arduino pin D13 onboard LED
             txTail = (txTail + 1) % TX_QUEUE_SIZE;                              // advance tx tail (even with 8-bit length, operation  is not atomic)
             masterSendStats.I_stats_tx_sent++;
         }
@@ -266,6 +271,9 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
         if (reply == (uint8_t)WireTransport::S_CTRL_READY) {
             state = MasterState::MS_RECEIVE;
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+                PORTB |= 0x20;                                                  //set Arduino pin D13 onboard LED
+            }
         }
     }
 
@@ -285,10 +293,14 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
+            PORTB &= ~0x20;                                                     // reset Arduino pin D13 onboard LED
             state = MasterState::MS_IDLE;
             return WireStatus::E_rx_timeOut;
         }
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            PORTB &= ~0x20;                                                     // reset Arduino pin D13 onboard LED
+        }
         state = MasterState::MS_IDLE;
         return wireStatus;
     }

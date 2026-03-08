@@ -46,7 +46,7 @@ Wire master: message handling layer
 #ifndef FG_MASTER_MESSAGES_h
 #define FG_MASTER_MESSAGES_h
 
-#include "master_state.h"
+#include "master_context.h"
 #include "master_transport.h"             // or master slave 
 
 class MessageHandling {
@@ -61,6 +61,7 @@ class MessageHandling {
     PIDsettings& _pidSettings;
     LedStripSettings& _ledStripSettings;
     EventData& _globeEventSnapshot;
+    VisualRing& _visualRing;
 
     int* _globeMetrics;
 
@@ -75,7 +76,7 @@ class MessageHandling {
 public:
     MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
         SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
-        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot);
+        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing);
 
     ~MessageHandling();
 

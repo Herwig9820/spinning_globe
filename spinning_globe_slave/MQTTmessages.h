@@ -45,6 +45,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
+    static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min
 
     enum ConnectionState {
         MQTT_notConnected,                                       // MQTT not yet connected

@@ -9,6 +9,9 @@
 
 class WireSlaveMessages {
 
+    bool _wireLedOn {false};
+    uint32_t _ledOnStart{};
+
     WireSlave wireSlave;
 
     struct I2C_m_masterSendStats {////
@@ -35,7 +38,7 @@ class WireSlaveMessages {
     void convertVertPosSetpointToMQTT(I2C_m_vertPosSetpoint* pPIDIn);
     void convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* pPIDIn);
 
-    void replyAndFlagSlaveDataAvailable();             // naming
+    void replyAndFlagSlaveDataAvailable();             
 
     //// ???
     //bool processMsgIn_second(uint8_t payloadSizeIn, void* ppl);
@@ -43,7 +46,7 @@ class WireSlaveMessages {
 
 public:
     WireSlaveMessages(SharedContext& sharedContext);
-    bool  loop();
+    bool loop();
 
 
 };

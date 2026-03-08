@@ -48,6 +48,7 @@ Spinning globe declarations shared with messageHandling library
 
 #include <Arduino.h>
 #include <stdlib.h>
+#include <util/atomic.h>                                    // atomic operations
 
 #define highAnalogGain 1                                    // 0: analog gain is 10, 1: analog gain is 15 (defined by resistors R9 to R12)
 
@@ -62,6 +63,8 @@ enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow,
 constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps     //// overal implementeren   
 constexpr uint8_t centerPointStep{ settingSteps / 2 };      //// overal implementeren
 
+constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
+constexpr uint32_t spareTimeCount{ 500 };                                               // milliseconds
 
 // ========== indexes in globe attributes list: attributes with user selectable values ==========
 
@@ -74,12 +77,11 @@ constexpr int  attributeIndex_coilPhaseAdjust{ 16 };
 
 constexpr uint8_t LSbrightnessItemCount{ 3 };               // max no of brightness values available for color led dimming 
 constexpr uint8_t LSminBrightnessLevel{ 0x00 };             // min: 0 (LS off) 
-constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff)     
-
+constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((value + 1)^2 / 256) - 1 = gamma corrected value = 0x3f or 0xff) 
 
 
 /*v1.0.1 high speed rotation times adapted or created new*/
-constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };   // values must be divisible by 12 (steps), 0 means OFF
+constexpr long const rotationTimes[] = { 0, 750, 1500, 3000, 4500, 6000, 7500, 9000, 12000 }; ////  // values must be divisible by 12 (steps), 0 means OFF
 #if highAnalogGain                                                                              // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #else
@@ -139,10 +141,6 @@ struct LedstripData {
     uint8_t LScolor[LSbrightnessItemCount];
 };
 
-struct StepResponseData {
-    uint16_t count, hallReading_ADCsteps, TTTcontrOut;
-};
-
 struct EventData {
     uint8_t* activeMsgPtr{ nullptr };
     uint8_t activeEventType{ eNoEvent };
@@ -193,10 +191,112 @@ struct SmoothedMeasurements {
 };
 
 
-// forward declarations
+struct StepResponseData {
+    uint16_t count, hallReading_ADCsteps, TTTcontrOut;
+};
 
-void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue);
-void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
+
+// ========== class VisualRing: state machine creating a signal used to produce a 'ring' sequence  ==========
+/*
+The ring consists of m (m>=1) identical sequences, separated by a pause.
+A sequence consists of n (n>=1) alternating states A and B (e.g., 3 states: ABA).
+Each alternating state (A and B) has a common duration (d>=1), expressed in steps. The pause p has a fixed duration (expressed in steps).
+
+Use: control the ringing of a bell, the flashing of a led... based on the output signal produced by a VisualRing object. 
+
+Example: m = 2, n = 3, d=4. Sequential states:  AAAA BBBB AAAA pppppppp AAAA BBBB AAAA (end of ring)
+
+A ring is started by calling startRing(...), specifying:
+- the number of sequences (m),
+- the number of alternating states in each sequence (n),
+- the duration of each alternating state (d).
+
+This state machine counts *steps*, not time.
+Each time advanceRing() is called, the state machine advances 1 step.
+Example: if advanceRing() is called every 128 ms and d = 2 steps, then each state lasts 256 ms.
+
+checkRingState() returns the current ring state (as last updated by advanceRing()):
+    0 = end of sequence
+    1 = pause between sequences
+    2 = state A
+    3 = state B
+    Bit 7 set in the returned value indicates that the state changed in this step.
+*/
+
+class VisualRing {
+    static constexpr uint8_t SET_RING_STATE_NOW{ 0x80 };               // flag: set ring state (color 1 or 2) now
+
+    uint8_t _stateCount;            // number of states per sequence (counted in steps)
+    uint8_t _stateDuration;         // duration of normal states (counted in steps)
+    
+    uint8_t _sequenceCounter;       // remaining sequences in the ring; counts down
+    uint8_t _stateCounter;          // remaining states in current sequence; counts down; b0: state A or B, b7: 'state changes NOW'
+    uint8_t stepCounter;            // remaining steps to next state change (in steps); counts down
+    
+    uint8_t _ringState;             // current state (0 = no ring underway, 1 = pause between two ring sequences, 2, 3 = state A, B)
+    
+public:
+    // public interface
+    bool startRing(uint8_t sequenceCount, uint8_t stateCount, uint8_t stateDuration);
+    void advanceRing();
+    int8_t checkRingState();
+};
+
+
+class GlobeTime {
+// Note: timer 1 reading assumes clock speed is 16Mhz
+
+private:
+    uint32_t m_milliSecond, microSecond;
+    unsigned int volatile m_nanoSecond500, m_nextNanoSecond500;
+    volatile uint32_t milliSecond{ 0 }, second{ 0 };
+
+public:
+    
+    uint32_t inline getSecond();
+    uint32_t inline getMillis(uint32_t* secondsPtr = nullptr);
+    uint32_t inline incrementMillis();
+    uint32_t getMicros(uint32_t* secondsPtr = nullptr);
+};
+
+uint32_t inline GlobeTime::getSecond() {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        return second;                                                 // 0 to 999
+    }
+}
+
+uint32_t inline GlobeTime::getMillis(uint32_t* secondsPtr) {                       // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
+        return milliSecond;                                                 // 0 to 999
+    }
+}
+
+uint32_t inline GlobeTime::incrementMillis() {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        milliSecond++;            // total
+        if (milliSecond == oneSecondCount) { milliSecond = 0; second++; }
+        return milliSecond;                                                 // 0 to 999
+    }
+}
+
+class GlobeEvents {
+private:
+    static constexpr uint8_t eventBufferSize{ 127 };                                        // max 255
+
+    uint8_t* oldestMessageStartPtr{ nullptr }, * newestMessageStartPtr{ nullptr };
+    EventData eventData;
+
+public:
+    // interface between ISR and main
+    uint8_t eventBuffer[eventBufferSize];                                                   // dynamic memory to store event messages until they are processed
+
+    bool addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr);
+    bool removeOldestChunk(bool remove);
+    bool isEventsWaiting();
+    void takeSnapshot(EventData* eventSnapshotPtr);
+};
+
 
 #endif
 

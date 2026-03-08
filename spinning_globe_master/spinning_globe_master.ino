@@ -45,7 +45,7 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #include <limits.h>                                         // specific constants
 
 #include "wire_hw_config.h"
-#include "master_state.h"
+#include "master_context.h"
 #if WITH_WIRE_COMM                                          // 0: earlier floating globe version without WiFi
 #include "master_messages.h"
 #include "wire_protocol.h"  
@@ -149,12 +149,12 @@ constexpr char str_notLocked[] PROGMEM = "not locked";
 constexpr char str_locked[] PROGMEM = "locked";
 constexpr char str_rotationOff[] PROGMEM = "rotation off";
 constexpr char str_notFloating[] PROGMEM = "not floating";
- 
+
 constexpr char str_ErrDroppedGlobe[] PROGMEM = "E! dropped globe";
 constexpr char str_ErrStickyGlobe[] PROGMEM = "E! sticky globe";
 constexpr char str_ErrOverload[] PROGMEM = "E! overload";
 constexpr char str_ErrTemp[] PROGMEM = "E! temp too high";
- 
+
 constexpr char str_rotTimeSet[] PROGMEM = "rot time>";              // '>': user setting         
 constexpr char str_rotTimeAct[] PROGMEM = "rot t act";
 constexpr char str_syncError[] PROGMEM = "sync err ";
@@ -172,7 +172,7 @@ constexpr char str_gain[] PROGMEM = "gain!";                        // '!': syst
 constexpr char str_intTimeCst[] PROGMEM = "int t c!";
 constexpr char str_difTimeCst[] PROGMEM = "dif t c!";
 constexpr char str_phaseAdj[] PROGMEM = "phas adj!";
- 
+
 constexpr char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
 constexpr char str_editValueWithDefault[] PROGMEM = "  << +, - to change value, R for reset value, E to end edit, C to cancel";     // during edit
 constexpr char str_help1[] PROGMEM = "Type + or - to show next/previous, E to edit value, S to show or stop live values, A to show all values, T for time stamp,";
@@ -186,7 +186,7 @@ constexpr char str_stepResponse[] PROGMEM = "== (Step) response (ms;hall;ctr)";
 constexpr char str_stepResponseEnd[] PROGMEM = "== (Step) response end";
 constexpr char str_eventsMissed[] PROGMEM = "event(s) missed !";
 constexpr char str_programMode[] PROGMEM = "PROGRAM MODE";
- 
+
 constexpr char str_fmtTime[] PROGMEM = "%ldd %02ld:%02ld:%02ld %03ld";
 constexpr char str_fmt3unsignedInteger[] PROGMEM = "%u;%u;%u";
 constexpr char str_fmtDayHour[] PROGMEM = "%3ldd%2ldh";
@@ -223,11 +223,8 @@ char longText[150];                                                        // ge
 #error code expects CPU frequency 16 MHz
 #endif
 
-constexpr float samplingPeriod{ 1. / (float)timer1PWMfreq };                        // 1 millisecond sampling period, in seconds
-constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
-constexpr uint32_t spareTimeCount{ 500 };                                               // milliseconds
-
 constexpr uint8_t keyBufferLength{ 3 };
+
 bool showLiveValues{ true };
 bool forceWriteLedstripSpecs{ false };
 uint8_t ISRevent{ eNoEvent };                                                       // current ISR event retrieved for processing in main loop
@@ -248,7 +245,6 @@ volatile uint8_t switchStates{ 0 };                                             
 volatile uint8_t keysAvailable{ 0 };                                                // No of keys available in board key buffer
 volatile unsigned int idleLoopNanos500{ 0 };                                        // at least reset every mS = 1000 micro seconds: will not overflow
 volatile unsigned int millis16bits{ 0 };
-volatile uint32_t milliSecond{ 0 }, second{ 0 };
 volatile long tempSmooth{ 0 };                                                      // temperature smoothed by first order filter; long for speed, used by ISR
 
 
@@ -295,22 +291,6 @@ volatile bool applyStep{ false };                                               
 
 // -1 if display only (no changeable globe selectedAttribute); otherwise default value - needed in case the eeprom is not used to 
 int globeMetrics[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };
-
-// retain values from event message buffer
-GreenwichData greenwichData;
-StatusData statusData;
-SecondData secondData;
-
-// globe settings and calculated values
-GlobeAttribute selectedAttribute;
-SmoothedMeasurements smoothedMeasurements{};
-PIDsettings pidSettings{};
-LedStripSettings ledStripSettings{};
-
-// pointers into event message buffer
-FastRateData* fastRateDataPtr;
-LedstripData* ledstripDataPtr;
-StepResponseData* stepResponseDataPtr;
 
 
 // ========== globe rotation controller ==========
@@ -375,7 +355,7 @@ volatile long autoLock_maxGlobeRotationTime{};                                  
 volatile long stepTimeNewRotation{ targetStepTime };
 
 
-// ========== led strip dimming ==========
+// ========== led strip effects ==========
 
 // interface between ISR and main
 volatile bool LSlongTimeUnit{ false };                                              // 128 ms instead of 1 ms
@@ -415,7 +395,43 @@ volatile uint8_t LSminReached, LSmaxReached;
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
 
 
-// forward declarations
+// ========== objects ==========
+
+#if ! WITH_WIRE_COMM
+LiquidCrystal lcd(D3_LCDregSelPin, B2_LCDenablePin, 4, 5, 6, 7);    // define I/O pins (LCD RS, LCD enable, data = PORT D bits 4 to 7) 
+#endif
+
+GlobeTime globeTime;
+GlobeEvents globeEvents;
+EventData globeEventSnapshot;
+VisualRing visualRing;
+
+// retain values from event message buffer
+GreenwichData greenwichData;
+StatusData statusData;
+SecondData secondData;
+
+// globe settings and calculated values
+GlobeAttribute selectedAttribute;
+SmoothedMeasurements smoothedMeasurements{};
+PIDsettings pidSettings{};
+LedStripSettings ledStripSettings{};
+
+// pointers into event message buffer
+FastRateData* fastRateDataPtr;
+LedstripData* ledstripDataPtr;
+StepResponseData* stepResponseDataPtr;
+
+#if WITH_WIRE_COMM
+MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, globeMetrics, ledStripSettings, globeEventSnapshot, visualRing);
+#endif
+
+
+
+// ========== forward declarations ==========
+
+void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue);
+void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
 
 void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
@@ -437,204 +453,8 @@ void readKey(char* keyAscii);                                   // from Serial i
 void fetchAttributeValue(char* s, long attributeIndex, int attributeValue);
 void setPIDcontroller();
 void setRotationTime(int attributeValue);
-/*
 
 
-============================================================================
-Class: millis and micros function based on timer1 and own time counting logic
-(millis and micros < one second, count seconds) ***
-============================================================================
-*/
-class GlobeTime {
-
-// Note: timer 1 reading assumes clock speed is 16Mhz
-
-private:
-    uint32_t m_milliSecond, microSecond;
-    unsigned int volatile m_nanoSecond500, m_nextNanoSecond500;
-
-public:
-    uint32_t millis(uint32_t* secondsPtr = nullptr) {                       // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
-        }
-        return milliSecond;                                                 // 0 to 999
-    }
-
-    // execution time is very close to 20 microSeconds (16MHz clock)
-    uint32_t micros(uint32_t* secondsPtr = nullptr) {                       // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-            if (secondsPtr != nullptr) { *secondsPtr = second; }            // total running
-            m_milliSecond = milliSecond;                                    // 0 to 999
-
-            bool oldTOV1 = (TIFR1 & _BV(TOV1));                             // timer 1 interrupt pending ? 
-
-            m_nanoSecond500 = TCNT1;                                        // one read takes 8 clock cycles (2 LDS and 2 STS instructions -> 4 * 2 = 8 clock cycles = 500 nS with 16 MHz clock) 
-            m_nextNanoSecond500 = TCNT1;                                    // take 2 counter readings (500 nS steps) to determine slope (difference between 2 readings is exactly -1 or +1)
-
-            if (m_nanoSecond500 > m_nextNanoSecond500) { m_nanoSecond500 = 2 * timer1Top - m_nextNanoSecond500; }   // counting down (500 nS per cycle)
-
-            if (TIFR1 & _BV(TOV1)) {                                        // timer 1 interrupt pending: milliSecond is not yet updated
-                m_milliSecond++;                                            // milliSecond will be updated when ISR runs
-                if (!oldTOV1) { m_nanoSecond500 = m_nextNanoSecond500; }    // two microsecond readings around overflow (zero) point: prevent "2 * timer1Top - m_nanoSecond500" calculation)
-            }
-        }
-
-        // calculate micro seconds in current second: 0 to 999999 (1 period = 500 nS) 
-        microSecond = ((uint32_t)(m_nanoSecond500 >> 1)) + (m_milliSecond << 10) - (m_milliSecond << 4) - (m_milliSecond << 3);
-        if (microSecond >= 1000000L) {
-            microSecond = microSecond - 1000000L;
-            if (secondsPtr != nullptr) { (*secondsPtr)++; }
-        }
-        return microSecond;
-    }
-};
-
-/*
-============================================================================
-Class: GlobeEvents
-============================================================================
-*/
-
-class GlobeEvents {
-private:
-    static constexpr uint8_t eventBufferSize{ 127 };                                        // max 255
-
-    uint8_t* oldestMessageStartPtr{ nullptr }, * newestMessageStartPtr{ nullptr };
-    EventData eventData;
-
-public:
-    // interface between ISR and main
-    uint8_t eventBuffer[eventBufferSize];                                                   // dynamic memory to store event messages until they are processed
-
-    bool addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr);
-    bool removeOldestChunk(bool remove);
-    bool isEventsWaiting();
-    void takeSnapshot(EventData* eventSnapshotPtr);
-};
-
-
-// ========== reserve space in the event message buffer for a new event message ==========
-
-bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr) {      // prevent interference with another call to addChunk() - which may be called from ISR;
-    bool OK{ false };
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        uint8_t* newestEndPtr{ nullptr };
-        uint8_t** holdLastStartPtrPtr;
-
-        newChunkSize += 4;                                                                          // add 4 bytes for event type, length and pointer to next event message (ok if event is cue only and carries no data)
-
-        bool isEmpty = (oldestMessageStartPtr == nullptr);                                          // currently any event message logged ?
-        if (!isEmpty) { newestEndPtr = newestMessageStartPtr + *(newestMessageStartPtr + 1) - 1; }  // pointer to last byte of current event message
-        bool wrappedAround = (!isEmpty) && (oldestMessageStartPtr > newestEndPtr);
-
-        uint8_t freeChunkSize = isEmpty ? eventBufferSize : (wrappedAround ? (oldestMessageStartPtr - newestEndPtr) - 1 : eventBuffer + eventBufferSize - newestEndPtr - 1);
-        OK = (freeChunkSize >= newChunkSize);
-        bool wrap{ false };
-        if ((!OK) && (!wrappedAround) && (!isEmpty)) {                                              // append at end not possible: check if wraparound possible
-            uint8_t freeChunkSize = oldestMessageStartPtr - eventBuffer;
-            OK = (freeChunkSize >= newChunkSize);
-            wrap = OK;
-        }
-
-        if (OK) {                                                                                   // room available to store next message
-            if (isEmpty) { oldestMessageStartPtr = eventBuffer; newestMessageStartPtr = eventBuffer; }
-
-            else {
-                holdLastStartPtrPtr = (uint8_t**)(newestMessageStartPtr + 2);
-                newestMessageStartPtr = wrap ? eventBuffer : newestMessageStartPtr + *(newestMessageStartPtr + 1);
-                *holdLastStartPtrPtr = newestMessageStartPtr;                                       // pointer from (now) previously created event to newly created event
-            }
-
-            *newestMessageStartPtr = eventType;                                                     // newly created event: set event type
-            *(newestMessageStartPtr + 1) = newChunkSize;                                            // newly created event: set message length (including 4-byte header)
-            holdLastStartPtrPtr = (uint8_t**)(newestMessageStartPtr + 2);
-            *holdLastStartPtrPtr = nullptr;                                                         // pointer to next event: set to nullptr (there is no next event)
-
-            *messagePtrPtr = newestMessageStartPtr + 4;                                             // oldest event (next event to process): pointer to optional event message (NOT to the 4-byte header)
-
-            eventData.activeMsgPtr = oldestMessageStartPtr + 4;
-            eventData.activeEventType = *oldestMessageStartPtr;                                     // oldest event: event type
-            eventData.eventsPending++;
-            // update statistics
-            eventData.largestEventsPending = max(eventData.largestEventsPending, eventData.eventsPending);
-            eventData.eventBufferBytesUsed += newChunkSize;
-            eventData.largestEventBufferBytesUsed = max(eventData.largestEventBufferBytesUsed, eventData.eventBufferBytesUsed);
-
-        #if TEST_SHOW_STATS 
-            Serial.println(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
-        #endif
-        }
-
-        else {
-            eventData.eventsMissed++;
-        #if TEST_SHOW_STATS 
-            Serial.println(); Serial.println(F("missed"));
-        #endif
-        }
-    }
-    return OK;
-}
-
-
-// ========== release space occupied by the oldest message in the event message buffer ==========
-
-bool GlobeEvents::removeOldestChunk(bool remove) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                                                                             // prevent interference with addChunk() - which may be called from ISR;
-        if ((oldestMessageStartPtr == nullptr) || (!remove)) { return false; }                                                      // nothing to remove: is empty
-
-        eventData.eventsPending--;
-        eventData.eventBufferBytesUsed -= *(oldestMessageStartPtr + 1);                                                             // before pointer update
-
-    #if TEST_SHOW_STATS 
-        Serial.println(); Serial.print(F("- ;"));  Serial.println((int)oldestMessageStartPtr);
-    #endif
-
-        if (oldestMessageStartPtr == newestMessageStartPtr) { oldestMessageStartPtr = nullptr; newestMessageStartPtr = nullptr; }   // remove last remaining
-        else { oldestMessageStartPtr = *(uint8_t**)(oldestMessageStartPtr + 2); }                                                   // remove oldest (which is not the last remaining)
-
-        eventData.activeMsgPtr = (oldestMessageStartPtr == nullptr) ? nullptr : oldestMessageStartPtr + 4;                          // pointer to optional structure; after pointer update
-        eventData.activeEventType = (oldestMessageStartPtr == nullptr) ? eNoEvent : *oldestMessageStartPtr;
-
-    }
-    return true;
-}
-
-
-// ========== check whether any globe events are waiting to be processed ==========
-
-bool GlobeEvents::isEventsWaiting() {
-    bool eventsArePending{ false };
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // prevent interference with addChunk() - which may be called from ISR;
-        eventsArePending = (eventData.eventsPending > 0);       // (8-bit variable: operation is already atomic)
-    }
-    return eventsArePending;
-}
-
-
-// ========== take a snapshot of the current globe event status ==========
-
-void GlobeEvents::takeSnapshot(EventData* eventSnapshotPtr) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // prevent interference with addChunk() - which may be called from ISR;
-        *eventSnapshotPtr = eventData;
-    }
-}
-
-
-// ========== objects ==========
-
-#if ! WITH_WIRE_COMM
-LiquidCrystal lcd(D3_LCDregSelPin, B2_LCDenablePin, 4, 5, 6, 7);    // define I/O pins (LCD RS, LCD enable, data = PORT D bits 4 to 7) 
-#endif
-
-GlobeTime globeTime;
-GlobeEvents globeEvents;
-
-EventData globeEventSnapshot;
-
-#if WITH_WIRE_COMM
-MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, globeMetrics, ledStripSettings, globeEventSnapshot);
-#endif
 
 
 /*
@@ -722,7 +542,7 @@ void setup()
         // set PID controller
         eepromValue = eeprom_read_byte((uint8_t*)4);
         pidSettings.gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;           // preset gain corresponds to gainAdjustSteps mid value   
-        globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps ;
+        globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps;
 
         eepromValue = eeprom_read_byte((uint8_t*)5);
         pidSettings.intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
@@ -799,7 +619,7 @@ void setup()
     }
 
 #if WITH_WIRE_COMM
-    Serial.println(F("Control over I2C enabled. Hardware buttons, LCD and USB input disabled. Use on-board switches to change settings."));
+    Serial.println(F("Control over I2C enabled. Hardware buttons, LCD and USB input disabled.\r\nUse on-board switches to change settings locally."));
 #else
     Serial.println(strcpy_P(longText, str_help1));
     Serial.println(strcpy_P(longText, str_help2));
@@ -835,7 +655,7 @@ void loop()
 
     static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
     static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
-    const uint8_t initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST};
+    const uint8_t initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST };
 
     static uint8_t initialMsg{ 0 };
 
@@ -1120,7 +940,7 @@ void processCommand() {
                 case attributeIndex_intTimeConstAdjust:
                 case attributeIndex_difTimeConstAdjust: {
                     if (down) { if (selectedAttribute.attributeValue > 0) { selectedAttribute.attributeValue--; } }
-                    else { if (selectedAttribute.attributeValue < settingSteps) { selectedAttribute.attributeValue++; } }   
+                    else { if (selectedAttribute.attributeValue < settingSteps) { selectedAttribute.attributeValue++; } }
                 } break;
                 case attributeIndex_coilPhaseAdjust: {
                     if (down) { if (selectedAttribute.attributeValue > 0) { selectedAttribute.attributeValue--; } else { selectedAttribute.attributeValue = 179; } }    // max. is 179 (x2 = 358 degrees)
@@ -1224,7 +1044,7 @@ uint8_t processEvent() {
 
     // first order filters below are implemented as integrator with negative feedback: 
     // y(k)   =   sampling period / time constant * sigma(x(k) - y(k-1))   =   y(k-1) + sampling period / time constant * (x(k) - y(k-1))
-    // samping period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
+    // sampling period expressed in seconds / time constant 1 second (5 seconds for vertical position error signal and temp. reading)
 
     switch (ISRevent) {
         case eStatusChange:
@@ -1278,6 +1098,9 @@ uint8_t processEvent() {
                 }
             }
 
+            // if a ring is in progress: advance one '128 ms' tick
+            visualRing.advanceRing();
+            
         #if WITH_WIRE_COMM
             uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
             if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
@@ -1439,7 +1262,7 @@ void writeStatus() {
 
     if ((userCommand == uShowAll) || (userCommand == uTimeStamp)) {                         // time stamp (actual time) needed ?
         uint32_t sec{ 0 };
-        uint32_t mS = globeTime.millis(&sec);
+        uint32_t mS = globeTime.getMillis(&sec);
         formatTime(s30, sec, mS);
         strcat(strcpy_P(longText, str_timeStamp), s30);
         Serial.println();
@@ -1476,7 +1299,7 @@ void writeStatus() {
         strcat(strcat(strcpy(longText, "++ "), s30), ((userCommand == uShowAll) ? " ++" : " ("));
         if (ISRevent == eStatusChange) {
             Serial.println();
-            formatTime(s30, statusData.eventSecond, statusData.eventMilliSecond);           // time of this status change (which is a little earlier than globeTime.millis(), giving the current time)
+            formatTime(s30, statusData.eventSecond, statusData.eventMilliSecond);           // time of this status change (which is a little earlier than globeTime.getMillis(), giving the current time)
             strcat(strcat(longText, s30), ") ++");
         }
         Serial.println(longText);
@@ -1754,10 +1577,12 @@ void writeLedStrip() {
     const uint8_t minBrightnessGamma = (((((uint32_t)LSminBrightnessLevel) + 1UL) * (((uint32_t)LSminBrightnessLevel) + 1UL)) - 1UL) >> 8;
     const uint8_t maxBrightnessGamma = (((((uint32_t)LSmaxBrightnessLevel) + 1UL) * (((uint32_t)LSmaxBrightnessLevel) + 1UL)) - 1UL) >> 8;
 
+    constexpr uint8_t ringColorOne[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0xFF, 0xFF };
+    constexpr uint8_t ringColorTwo[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0xFF };
+    constexpr uint8_t ringColorPause[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0x00 };
+
     // include the line below to alternate between blue with another color if ledEffect == cWhiteBlue
     // static uint8_t LSColorSequence{ 1 }; 
-
-    if (ISRevent != eLedstripData) { return; }                                                  // no change in brightness values 
 
     /*
     // only 4 leds (above and underneath) used
@@ -1765,7 +1590,7 @@ void writeLedStrip() {
     */
     uint8_t ledstripMasks[3]{ B11111111, B11111111, B11111111 };                                // RGB led strip mask (8 leds) for red, green, blue colors, in this order 
 
-    if (ledstripDataPtr->LSupdate) {                                                            // brightness updated ?
+    if (ISRevent == eLedstripData) {                                                              // brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
             // assign calculated brightness values to Blue, Green and Red, respectively (order defined by led strip hardware)
             uint32_t temp = ((uint32_t)ledstripDataPtr->LScolor[i]) + 1UL;
@@ -1790,13 +1615,24 @@ void writeLedStrip() {
             }
             */
         }
+    }
 
+    // visual ring overrides current color setting
+    uint8_t _ringState = visualRing.checkRingState();      // ring underway, change ring color now
+    if (_ringState & 0x80) {                               // ring state change now
+        _ringState &= ~0x80;                                // remove 'state change' flag 
+        LSout((uint8_t*)((_ringState == 0) ? colorGammaCorrected : (_ringState == 1) ? ringColorPause :
+            (_ringState == 2) ? ringColorOne : ringColorTwo), ledstripMasks);
+        Serial.print(_ringState, HEX); Serial.print(' ');  Serial.println(millis());
+    }
+
+    // outside a ring: normal led cycle color
+    else if (ISRevent == eLedstripData) {
         LSout((uint8_t*)colorGammaCorrected, ledstripMasks);
     }
 }
 
-
-// ========== send led strip data to hardware ==========
+    // ========== send led strip data to hardware ==========
 
 void LSout(uint8_t* led, uint8_t* ledstripMasks) {                                              // output data to led strip 
     uint8_t startFrame[4]{ 0, 0, 0, 0 }, colorOffAndEndFrame[4]{ 0xFF, 0, 0, 0 };               // brightness, blue, green, red
@@ -1973,8 +1809,8 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
         case attributeIndex_difTimeConstAdjust:
         case attributeIndex_intTimeConstAdjust:
         {
-            uint8_t eepromByteIndex = (attributeIndex== attributeIndex_gainAdjust) ? gainEepromByteIndex: 
-                (attributeIndex == attributeIndex_difTimeConstAdjust) ? difTimeConstEepromByteIndex : intTimeConstEepromByteIndex ;                                                   // byte 4: gain adjust step
+            uint8_t eepromByteIndex = (attributeIndex == attributeIndex_gainAdjust) ? gainEepromByteIndex :
+                (attributeIndex == attributeIndex_difTimeConstAdjust) ? difTimeConstEepromByteIndex : intTimeConstEepromByteIndex;                                                   // byte 4: gain adjust step
             // update eeprom for specified characteristic (gain, int.tc or diff.tc) AND update PID settings (pidSettings)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
@@ -2197,12 +2033,7 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((keyDownTimer > 0) && (keyDownTimer <= 2000)) { keyDownTimer++; }
 
     // time counting (we don't use Arduino time functions based on timer 0)
-    milliSecond++;
-    if (milliSecond == oneSecondCount) {
-        milliSecond = 0;
-        second++;
-    }
-
+    globeTime.incrementMillis();
     millis16bits++;                                                                         // let it overflow
 }
 
@@ -2642,8 +2473,8 @@ SIGNAL(ADC_vect) {
         TTTcontrOut = disabledMagnetOnCycles;
         OCR1A = disabledMagnetOnCycles;                                                         // init: set minimum duty cycle for magnet
 
-        blueLedOn = (milliSecond < 500);
-        if (milliSecond == 0L) {
+        blueLedOn = (globeTime.getMillis() < 500);
+        if (globeTime.getMillis() == 0L) {
             errorLedSequence++;
             if (errorLedSequence >= errorCondition + 1) { errorLedSequence = 0; }               // pause blue led flash after No of flashes indicating error type
         }
@@ -2854,9 +2685,9 @@ SIGNAL(ADC_vect) {
     }
 
     // second event
-    if (milliSecond == 0L) {
+    if (globeTime.getMillis() == 0L) {
         if (globeEvents.addChunk(eSecond, sizeof(SecondData), &messagePtr)) {
-            ((SecondData*)messagePtr)->eventSecond = second;
+            ((SecondData*)messagePtr)->eventSecond = globeTime.getSecond();
             ((SecondData*)messagePtr)->liftingSecond = liftingSecond;
             ((SecondData*)messagePtr)->lockedSecond = lockedSecond;
             ((SecondData*)messagePtr)->realTTTintegrationTerm = (TTTintTerm >> PIDcalculation_BinaryFractionDigits);    // 1 sample every second (slow moving)
@@ -2864,7 +2695,7 @@ SIGNAL(ADC_vect) {
     }
 
     // time cues: events synchronized with fixed parts of a second, without any data to be transferred
-    bool blink = (milliSecond == blinkTimeCount);
+    bool blink = (globeTime.getMillis() == blinkTimeCount);
     bool spareEvent = false;                                                                    // disabled -> if needed, you can create more time cues, for example: bool spareEvent = (milliSecond == spareTimeCount);
     if (blink || spareEvent) {                                                                  // only one event can occur at the same time
         globeEvents.addChunk(blink ? eBlink : eSpareNoDataEvent1, 0, &messagePtr);              // cue only, no data
@@ -2873,8 +2704,8 @@ SIGNAL(ADC_vect) {
     // status change event 
     if (statusChanged || forceStatusEvent) {
         if (globeEvents.addChunk(eStatusChange, sizeof(StatusData), &messagePtr)) {
-            ((StatusData*)messagePtr)->eventMilliSecond = milliSecond;
-            ((StatusData*)messagePtr)->eventSecond = second;
+            ((StatusData*)messagePtr)->eventMilliSecond = globeTime.getMillis();
+            ((StatusData*)messagePtr)->eventSecond = globeTime.getSecond();
             ((StatusData*)messagePtr)->rotationStatus = rotationStatus;
             ((StatusData*)messagePtr)->errorCondition = errorCondition;
             ((StatusData*)messagePtr)->isFloating = isFloating;
@@ -2887,8 +2718,8 @@ SIGNAL(ADC_vect) {
     // globe position sync event: log AFTER status event
     if (isGreenwich) {
         if (globeEvents.addChunk(eGreenwich, sizeof(GreenwichData), &messagePtr)) {
-            ((GreenwichData*)messagePtr)->eventMilliSecond = milliSecond;
-            ((GreenwichData*)messagePtr)->eventSecond = second;
+            ((GreenwichData*)messagePtr)->eventMilliSecond = globeTime.getMillis();
+            ((GreenwichData*)messagePtr)->eventSecond = globeTime.getSecond();
             ((GreenwichData*)messagePtr)->globeRotationTime = globeRotationTime;
             ((GreenwichData*)messagePtr)->lockedRotations = lockedRotations;
             ((GreenwichData*)messagePtr)->rotationOutOfSyncTime = rotationOutOfSyncTime;        // drift since first locked rotations

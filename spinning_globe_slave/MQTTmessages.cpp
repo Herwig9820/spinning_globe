@@ -11,6 +11,8 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :_client(_espClient), _
     _espClient.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
     _client.setServer(MQTT_SERVER, MQTT_PORT);
     _client.setCallback(mqttCallback);
+    _client.setKeepAlive(60);     // seconds; HiveMQ free tier disconnects at 60s idle
+    _client.setSocketTimeout(10); // seconds; don't hang forever on a dead TCP socket
 }
 
 
@@ -20,12 +22,29 @@ void MQTTmessages::loop() {
     bool MQTTconnected = maintainMQTT(WiFiConnected);
     unsigned int tmp;
 
+
+
+
+    // set Wifi and MQTT connection leds
+
+
+
+
+
+
+
+
+
+
+
+
     // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
     if (MQTTconnected) {
         MQTTmsgFromWire* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
             _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
+            _sharedContext.lastMQTTpublish = millis();
             _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
         }
 
@@ -33,7 +52,7 @@ void MQTTmessages::loop() {
         if (!_sharedContext.queueToWire.empty()) {
             pMsgToWire = _sharedContext.queueToWire.front();
 
-            ////Serial.print("**** topic received: "); Serial.print(pMsgToWire->topic); Serial.print(", payload: "); Serial.println(pMsgToWire->payload);
+            Serial.print("**** topic received: "); Serial.print(pMsgToWire->topic); Serial.print(", payload: "); Serial.println(pMsgToWire->payload);
             // ------------------------------------------------------------------------------
             // MQTT has data available (typically a setting) to send to wire master ? 
             // convert to wire message and save in temporary buffer for this msg type.
@@ -265,15 +284,18 @@ bool MQTTmessages::maintainMQTT(bool WiFiConnected) {
         case MQTT_connected:
         {
             //  prepare for reconnection if connection is lost OR per user program request 
-            if (!_client.connected()) {
-                _mqttState = MQTT_notConnected;
+            bool connectionLost = !_client.connected();
+            bool publishStalled = _sharedContext.lastMQTTpublish > 0 &&
+                (millis() - _sharedContext.lastMQTTpublish > MQTT_PUBLISH_TIMEOUT);
 
+            if (connectionLost or publishStalled) {
+                _client.disconnect();
+                _mqttState = MQTT_notConnected;
+                _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
                 if (DEBUG) {
                     char s[100]; sprintf(s, "-- at %11.3fs: %s%d", now / 1000., "MQTT disconnected, client state = ", _client.state());
                     DEBUG_PRINTLN(s);
                 }
-
-                _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
             }
         }
         break;

@@ -113,7 +113,6 @@ void WireSlave::pushIncomingWireMsg(int byteCount) {
     if (byteCount == 1) {                                           // receive one byte only ? must be a WireTransport::M_CTRL_POLL control message 
         if (Wire.read() == (uint8_t)WireTransport::M_CTRL_POLL) {
             waitState = SS_WAIT_FOR_POLL_REPLY_REQUEST;             // new state: wait for request (from master) to send poll reply ctrl message            
-            ////digitalWrite(13, HIGH);                                 //// temp
         }
         else {
             while (Wire.available()) { Wire.read(); }               // not a M_CTRL_POLL message: invalid message
@@ -174,7 +173,6 @@ void WireSlave::popOutgoingWireMsg() {
         uint8_t reply = (empty ? (uint8_t)WireTransport::S_CTRL_BUSY : (uint8_t)WireTransport::S_CTRL_READY);
         Wire.write(reply);
         waitState = SS_WAIT_FOR_REPLY_REQUEST;
-        ////digitalWrite(13, LOW);                  //// test
         return;
     }
 

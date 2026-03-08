@@ -1,9 +1,13 @@
+#include <esp_task_wdt.h>
 #include "slave_messages.h"
 #include "MQTTmessages.h"
 
+constexpr uint32_t WDT_TIMEOUT = 1;
+
 SharedContext sharedContext;
 WireSlaveMessages wireSlaveMessages(sharedContext);
-MQTTmessages* mqttMessages = nullptr;
+
+MQTTmessages* pMqttMessages = nullptr;
 
 
 
@@ -19,10 +23,12 @@ void setup()
     Serial.print(__DATE__); Serial.print(' '); Serial.println(__TIME__);
 
     // do not define before setup() runs
-    mqttMessages = new MQTTmessages(sharedContext);
+    pMqttMessages = new MQTTmessages(sharedContext);
+    pinMode(WIRE_RECEIVE_LED, OUTPUT);
 
-    pinMode(13, OUTPUT);
-
+    // Initialize Task Watchdog Timer (enable, 5s timeout) and add current task (loop) to WDT
+    esp_task_wdt_init(WDT_TIMEOUT, true);
+    esp_task_wdt_add(NULL);
 }
 
 // ============================================================================
@@ -33,8 +39,10 @@ void loop()
     // that's all there is (here): this nano esp32 acts as a bridge between MQTT and the spinning globe classic nano
     
     // maintain both the wire slave and MQTT connections and send messages back and forth
-    if (mqttMessages){mqttMessages->loop();}
+    if (pMqttMessages){pMqttMessages->loop();}
     wireSlaveMessages.loop();
+
+    esp_task_wdt_reset();           // reset the watchdog
 }
 
 

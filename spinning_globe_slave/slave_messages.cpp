@@ -11,8 +11,21 @@ bool WireSlaveMessages::loop() {
     uint8_t payloadSizeIn{};          // as received
     uint8_t payloadIn[MASTER_PAYLOAD_MAX];
 
+    // switch of 'wire data received' LED if no data is received for a set time
+    if(_wireLedOn){
+        if (millis() - _ledOnStart > 15) {                                                  // say on for 15 ms after last data was received
+            _wireLedOn = false;
+            digitalWrite(WIRE_RECEIVE_LED, false);
+        }
+    }
+
     bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn);
     if (!msgAvailable) { return false; }
+
+    // signal that wire data is received
+    _wireLedOn = true;
+    digitalWrite(WIRE_RECEIVE_LED, true);
+    _ledOnStart = millis();
 
     switch (messageTypeIn)
     {
@@ -139,6 +152,7 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_PID_SETTINGS_REQ:
         {
+            Serial.println("PID settings - phase 3");
             wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_PID_SETTINGS_SET, &_sharedContext.committedPIDsettings, sizeof(I2C_s_PIDsettings_set));
             _sharedContext.committedPIDsettings.slaveHasData = 0;
         }
@@ -315,7 +329,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
     }
 
-    
+
     // ---------- PRIO 1: data (settings, ...) to submit to master ? (will include a readback to distribute changed settings to all subscribed clients) ----------
 
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
@@ -323,22 +337,22 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_GLOBE_SETTINGS);        // push readback msg type
     }
 
-    else if(_sharedContext.committedPIDsettings.slaveHasData) {
+    else if (_sharedContext.committedPIDsettings.slaveHasData) {
         msgType = MsgType::M_MSG_PID_SETTINGS_REQ;                                        // inform master: should request globe settings
         _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_PID_SETTINGS);        // push readback msg type
     }
-    
-    else if(_sharedContext.committedVertPosSetpoint.slaveHasData){
+
+    else if (_sharedContext.committedVertPosSetpoint.slaveHasData) {
         msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;                                         // inform master: should request globe settings
         _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_VERT_POS_SETPOINT);            // push readback msg type
     }
-    
-    else if (_sharedContext.committedCoilPhaseAdjust.slaveHasData){
+
+    else if (_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
         msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;                                        // inform master: should request globe settings
         _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_COIL_PHASE_ADJUST);        // push readback msg type
     }
-    
-    
+
+
     // ---------- PRIO 2: no data to submit to master. Slave requests data from master ?  ----------
 
     else if (!_sharedContext.requestDataFromMaster.empty()) {
@@ -355,7 +369,5 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     p.requestMasterMsgType = msgType;
     wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
 }
-
-
 
 
