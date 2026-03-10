@@ -16,32 +16,15 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :_client(_espClient), _
 }
 
 
-void MQTTmessages::loop() {
+MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
     // first, maintain WiFi and MQTT connections
-    bool WiFiConnected = _wifiConnection.maintainWiFi();
-    bool MQTTconnected = maintainMQTT(WiFiConnected);
-    unsigned int tmp;
-
-
-
-
-    // set Wifi and MQTT connection leds
-
-
-
-
-
-
-
-
-
-
-
+    maintainMQTT(WiFiConnected);
 
     // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
-    if (MQTTconnected) {
+    if (_mqttState == MQTT_connected) {
         MQTTmsgFromWire* pMsgToMQTT{};
         if (!_sharedContext.queueToMQTT.empty()) {
+            _MQTTtransmitFlag = true;
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
             _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
             _sharedContext.lastMQTTpublish = millis();
@@ -50,6 +33,7 @@ void MQTTmessages::loop() {
 
         MQTTmsgToWire* pMsgToWire{};
         if (!_sharedContext.queueToWire.empty()) {
+            _MQTTtransmitFlag = true;
             pMsgToWire = _sharedContext.queueToWire.front();
 
             Serial.print("**** topic received: "); Serial.print(pMsgToWire->topic); Serial.print(", payload: "); Serial.println(pMsgToWire->payload);
@@ -90,8 +74,10 @@ void MQTTmessages::loop() {
         }
     }
 
-   // handles MQTT keep-alive, incoming MQTT packets; detects broken connections, calls the MQTT user callback  
-    _client.loop(); // placed at the end, after all states machines ran, after an eventual publish that was just queued                                    
+    // handles MQTT keep-alive, incoming MQTT packets; detects broken connections, calls the MQTT user callback  
+    _client.loop(); // placed at the end, after all states machines ran, after an eventual publish that was just queued  
+    
+    return _mqttState;
 }
 
 // ============================================================================================
@@ -214,14 +200,14 @@ void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int 
 // ============================================================================
 // MQTT RECONNECT
 // ============================================================================
-bool MQTTmessages::maintainMQTT(bool WiFiConnected) {
+MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
 
     // Variable '_mqttState' maintains the state of the MQTT connection('state machine').If this maintained state
     // (e.g., 'MQTT connected') does not correspond to the actual state(e.g., MQTT connection was lost), action is taken
 
     uint32_t now = millis();
 
-    if (!WiFiConnected) { _mqttState = MQTT_notConnected; return false; }
+    if (!WiFiConnected) { _mqttState = MQTT_notConnected; return _mqttState; }
 
     switch (_mqttState) {
 
@@ -301,7 +287,7 @@ bool MQTTmessages::maintainMQTT(bool WiFiConnected) {
         break;
     }
 
-    return (_mqttState == MQTT_connected);
+    return _mqttState;
 
 }
 

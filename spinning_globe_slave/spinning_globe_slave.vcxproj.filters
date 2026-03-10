@@ -31,23 +31,23 @@
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="slave_context.h">
+    <ClCompile Include="wireSlave_messages.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="slave_messages.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="slave_transport.cpp">
+    <ClCompile Include="wireSlave_transport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="slave_transport.h">
+    <ClCompile Include="wireSlave_transport.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="slave_messages.cpp">
+    <ClCompile Include="wireSlave_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WiFiConnection.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bridge_context.h">
+      <Filter>Header Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,4 +1,4 @@
-#include "slave_messages.h"
+#include "wireSlave_messages.h"
 #include "json_helpers.h"
 #include "wire_hw_config.h"
 
@@ -13,7 +13,7 @@ bool WireSlaveMessages::loop() {
 
     // switch of 'wire data received' LED if no data is received for a set time
     if(_wireLedOn){
-        if (millis() - _wireLedOn_start > 15) {                                                  // say on for 15 ms after last data was received
+        if (millis() - _wireLedOn_start > 5) {                                                  // say on for 15 ms after last data was received
             _wireLedOn = false;
             digitalWrite(WIRE_RECEIVE_LED, false);
         }

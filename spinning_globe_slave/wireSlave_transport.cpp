@@ -19,7 +19,7 @@
 ***********************************************************************************************************/
 
 #include <Wire.h>
-#include "slave_transport.h"
+#include "wireSlave_transport.h"
 
 WireSlave* WireSlave::instance = nullptr;
 

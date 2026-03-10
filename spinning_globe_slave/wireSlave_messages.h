@@ -1,8 +1,8 @@
 #ifndef FG_SLAVE_MESSAGES_h
 #define FG_SLAVE_MESSAGES_h
 
-#include "slave_context.h"
-#include "slave_transport.h"
+#include "bridge_context.h"
+#include "wireSlave_transport.h"
 
 
 // MASTER send & receive stats, received as message. Sole purpose: receive wire stats from master 

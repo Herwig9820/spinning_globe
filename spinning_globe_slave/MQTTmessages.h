@@ -4,7 +4,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
-#include "slave_context.h"
+#include "bridge_context.h"
 #include "WiFiConnection.h"
 
 class MQTTmessages {
@@ -47,11 +47,15 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
     static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min
 
+public:
     enum ConnectionState {
         MQTT_notConnected,                                       // MQTT not yet connected
         MQTT_waitForConnecton,                                   // waiting for MQTT to connect
         MQTT_connected                                           // MQTT connected
     };
+
+private:
+    bool _MQTTtransmitFlag{false};
 
     ConnectionState _mqttState{ MQTT_notConnected };
 
@@ -66,7 +70,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 
 
     // ========== methods ==========
-    bool maintainMQTT(bool WiFiConnected);
+    ConnectionState maintainMQTT(bool WiFiConnected);
 
     // --- Callback plumbing ---
     static MQTTmessages* _instance;
@@ -78,7 +82,11 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 public:
 
     MQTTmessages(SharedContext& sharedContext);
-    void loop();
+    ConnectionState loop(bool WiFiConnected);
+    
+    // get flag and clear
+    bool inline getMQTTtransmitFlag(){bool flag = _MQTTtransmitFlag; _MQTTtransmitFlag = false; return flag;}
+
     bool convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire);

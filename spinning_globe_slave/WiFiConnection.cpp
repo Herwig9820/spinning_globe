@@ -1,7 +1,7 @@
 #include "WiFiConnection.h"
 
 
-bool WiFiConnection::maintainWiFi() {
+WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
     // Variable '_wifiState' maintains the state of the WiFi connection('state machine').If this maintained state
     // (e.g., 'WiFi connected') does not correspond to the actual state(e.g., WiFi connection was lost), action is taken
@@ -87,7 +87,7 @@ bool WiFiConnection::maintainWiFi() {
         break;
     }
 
-    return (_wifiState == WiFi_connected);
+    return (_wifiState);
 }
 
 
