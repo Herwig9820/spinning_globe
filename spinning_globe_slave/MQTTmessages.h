@@ -46,6 +46,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
     static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min
+    static constexpr uint8_t MQTT_MAX_FAIL_COUNT = 6;           // before also disconnecting WiFi and starting all over
 
 public:
     enum ConnectionState {
@@ -55,7 +56,8 @@ public:
     };
 
 private:
-    bool _MQTTtransmitFlag{false};
+    bool _MQTTnewMessageFlag{false};
+    uint8_t _mqttFailCount{ 0 };
 
     ConnectionState _mqttState{ MQTT_notConnected };
 
@@ -65,10 +67,10 @@ private:
     SharedContext& _sharedContext;
 
     WiFiConnection _wifiConnection;
-    WiFiClientSecure _espClient;
-    PubSubClient     _client;
+    WiFiClientSecure _tlsSocket;
+    PubSubClient     _MQTTclient;
 
-
+    
     // ========== methods ==========
     ConnectionState maintainMQTT(bool WiFiConnected);
 
@@ -85,12 +87,14 @@ public:
     ConnectionState loop(bool WiFiConnected);
     
     // get flag and clear
-    bool inline getMQTTtransmitFlag(){bool flag = _MQTTtransmitFlag; _MQTTtransmitFlag = false; return flag;}
+    bool inline newMQTTmessage(){bool flag = _MQTTnewMessageFlag; _MQTTnewMessageFlag = false; return flag;}
 
     bool convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire);
+    void holdRequestForWireMasterMsgType(MsgType m_msgtype);
+    void holdRequestForWireMasterAction(Action m_action);
 
 };
 

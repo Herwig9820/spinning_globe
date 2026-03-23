@@ -8,8 +8,8 @@
 #include "bridge_context.h"
 #include "debug.h"
 
-const IPAddress clientAddress(192, 168, 0, 95);     // STATIC client IP (LAN)
-const IPAddress gatewayAddress(192, 168, 0, 1);
+const IPAddress clientAddress(192, 168, 1, 46);     // STATIC client IP (LAN)
+const IPAddress gatewayAddress(192, 168, 1, 254);
 const IPAddress subnetMask(255, 255, 255, 0);
 const IPAddress DNSaddress(195, 130, 130, 5);
 

@@ -5,14 +5,14 @@
 
 MQTTmessages* MQTTmessages::_instance = nullptr;
 
-MQTTmessages::MQTTmessages(SharedContext& sharedContext) :_client(_espClient), _sharedContext(sharedContext) {
+MQTTmessages::MQTTmessages(SharedContext& sharedContext) :_MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
     _instance = this;
 
-    _espClient.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
-    _client.setServer(MQTT_SERVER, MQTT_PORT);
-    _client.setCallback(mqttCallback);
-    _client.setKeepAlive(60);     // seconds; HiveMQ free tier disconnects at 60s idle
-    _client.setSocketTimeout(10); // seconds; don't hang forever on a dead TCP socket
+    _tlsSocket.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
+    _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
+    _MQTTclient.setCallback(mqttCallback);
+    _MQTTclient.setKeepAlive(60);     // seconds; HiveMQ free tier disconnects after this idle time
+    ////_MQTTclient.setSocketTimeout(30); // seconds; don't hang forever on a dead TCP socket
 }
 
 
@@ -20,27 +20,30 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
     // first, maintain WiFi and MQTT connections
     maintainMQTT(WiFiConnected);
 
-    // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
     if (_mqttState == MQTT_connected) {
-        MQTTmsgFromWire* pMsgToMQTT{};
+
+        // ---------------------------
+        // data available to publish ?
+        // ---------------------------
         if (!_sharedContext.queueToMQTT.empty()) {
-            _MQTTtransmitFlag = true;
+            MQTTmsgFromWire* pMsgToMQTT{};
+            _MQTTnewMessageFlag = true;                                                     // cleared by inline .newMQTTmessage() method
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
-            _client.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
+            // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
+            _MQTTclient.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
             _sharedContext.lastMQTTpublish = millis();
             _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
         }
 
-        MQTTmsgToWire* pMsgToWire{};
+        // -----------------------------------------------
+        // topics available the nano esp32 subscribed to ? 
+        // -----------------------------------------------
         if (!_sharedContext.queueToWire.empty()) {
-            _MQTTtransmitFlag = true;
+            MQTTmsgToWire* pMsgToWire{};
+            _MQTTnewMessageFlag = true;
             pMsgToWire = _sharedContext.queueToWire.front();
 
-            Serial.print("**** topic received: "); Serial.print(pMsgToWire->topic); Serial.print(", payload: "); Serial.println(pMsgToWire->payload);
-            // ------------------------------------------------------------------------------
-            // MQTT has data available (typically a setting) to send to wire master ? 
-            // convert to wire message and save in temporary buffer for this msg type.
-            // ------------------------------------------------------------------------------
+            // ---------- data (settings, ...) available for wire master, NOT fitting in a wire slave 'ack' response ----------
 
             if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {                 // MQTT has globe settings available ?
                 convertMQTTtoGlobeSettings(pMsgToWire);
@@ -56,38 +59,38 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
                 convertMQTTtoCoilPhaseAdjust(pMsgToWire);
             }
 
-            else if (true) { Serial.print("WRONG TOPIC: "); Serial.println(pMsgToWire->payload); }//// weg
 
-            // ------------------------------------------------------------------------------
-            // MQTT REQUESTS wire master (spinning globe) to send message:
-            // push the requested message type in a temporary queue
-            // ------------------------------------------------------------------------------
+            // ---------- data (settings, ...) available for wire master, fitting in a wire slave 'ack' response ----------
 
-            // currently not implemented (no need for it)
-            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {}       // MQTT requests globe settings ?            
-            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {}         // MQTT requests PID settings ? 
-            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {}    // MQTT requests vertical pos. setpoint ? 
-            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {}    // MSTT requests coil phase adjustment ?
+            // requests for wire master action:
+            else if (strcmp(pMsgToWire->topic, TOPIC_RING_REQUEST) == 0) {                      // request wire master RING action   
+                holdRequestForWireMasterAction(Action::M_ACTION_RING);
+            }
 
+            // requests for wire master message type (example):       
+            /*
+            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
+                holdRequestForWireMasterMsgType(MsgType::M_MSG_GLOBE_SETTINGS);
+            }
+            */
 
+            // remove entry in MQTT in queue
             _sharedContext.queueToWire.pop(*pMsgToWire);
         }
     }
 
     // handles MQTT keep-alive, incoming MQTT packets; detects broken connections, calls the MQTT user callback  
-    _client.loop(); // placed at the end, after all states machines ran, after an eventual publish that was just queued  
-    
+    _MQTTclient.loop(); // placed at the end, after all states machines ran, after an eventual publish that was just queued  
+
     return _mqttState;
 }
 
 // ============================================================================================
-// MQTT globe settings message - PHASE 1: parse payload into 'pending' globe settings structure
-// [Phases 2 and 3: in wireSlaveMessages.loop()]
+// process MQTT message to wire master - STEP 1: parse MQTT payload into 'pending' globe settings structure
+// [STEP 2: in wireSlaveMessages.loop()]
 // ============================================================================================
 
 bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
-    Serial.print("mqtt to wire. Topic (settings) "); Serial.print(pMsgToWire->topic), Serial.print(", payload "); Serial.println(pMsgToWire->payload);
-
     bool ok{ false };
     unsigned int tmp{};
 
@@ -106,9 +109,7 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept PID settings from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) {
-        return false;   // wrong or missing token: silently ignore
-    }
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }  // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -124,14 +125,10 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
 }
 
 bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
-    Serial.print("mqtt to wire. Topic (vert pos) "); Serial.print(pMsgToWire->topic), Serial.print(", payload "); Serial.println(pMsgToWire->payload);
     // Token check: only accept vertical position setpoint from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) {
-        Serial.println("token not valid");
-        return false;   // wrong or missing token: silently ignore
-    }
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -139,21 +136,14 @@ bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
     ok = JsonParse::getUInt(pMsgToWire->payload, "setVertPosSetpoint", &tmp);
     _sharedContext.pendingVertPosSetpoint.vertPosIndex = tmp;
     _sharedContext.pendingVertPosSetpoint.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
-
-    Serial.print("OK: "); Serial.print(ok);
-    Serial.print(", vertical position index: "); Serial.print(_sharedContext.pendingVertPosSetpoint.slaveHasData); Serial.print(", "); Serial.println(_sharedContext.pendingVertPosSetpoint.vertPosIndex);
     return ok;
 }
 
 bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
-    Serial.print("mqtt to wire. Topic (coil phase) "); Serial.print(pMsgToWire->topic), Serial.print(", payload "); Serial.println(pMsgToWire->payload);
     // Token check: only accept coil phase adjustment from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) {
-        Serial.println("token not valid");
-        return false;   // wrong or missing token: silently ignore
-    }
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -161,13 +151,21 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
     ok = JsonParse::getUInt(pMsgToWire->payload, "setCoilPhaseAdjust", &tmp);
     _sharedContext.pendingCoilPhaseAdjust.coilPhaseAdjust = tmp;
     _sharedContext.pendingCoilPhaseAdjust.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
-
-    Serial.print("OK: "); Serial.print(ok);
-    Serial.print(", coil phase adjust: "); Serial.print(_sharedContext.pendingCoilPhaseAdjust.slaveHasData);
-    Serial.print(", "); Serial.println(_sharedContext.pendingCoilPhaseAdjust.coilPhaseAdjust);
     return ok;
 }
 
+void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
+    AckPayload ackResponse{};
+    ackResponse.action = Action::M_ACTION_NONE;
+    _sharedContext.holdAckResponses.push(ackResponse);
+}
+
+void MQTTmessages::holdRequestForWireMasterAction(Action m_action) {
+    AckPayload ackResponse{};
+    ackResponse.msgType = MsgType::M_MSG_NONE;
+    _sharedContext.holdAckResponses.push(ackResponse);
+
+}
 
 // ============================================================================
 // MQTT CALLBACK
@@ -186,7 +184,6 @@ void MQTTmessages::mqttCallback(char* topic, byte* payload, unsigned int length)
 void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int length)
 {
     // do not loose time here decoding the topic to wire msgType en msgLen
-
     if (_sharedContext.queueToWire.full()) { return; }
     MQTTmsgToWire msg;
     strlcpy(msg.topic, topic, sizeof(msg.topic));
@@ -217,7 +214,10 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         {
             // time for a next MQTT connection attempt ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
-                _client.connect(MQTT_DEVICE_ID, MQTT_USER, MQTT_PASS);
+                _tlsSocket.stop();  // force-close any lingering socket before new attempt                
+                char clientId[48];
+                snprintf(clientId, sizeof(clientId), "spinning-globe-esp32-%s", WiFi.macAddress().c_str());
+                _MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true);       // last will: status "99" means 'offline'
                 _mqttState = MQTT_waitForConnecton;
 
                 if (DEBUG) {
@@ -238,12 +238,21 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         {
             // time for a next MQTT connection check ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
-                if (_client.connected()) {                                        // MQTT is now connected ?
+                if (_MQTTclient.connected()) {                                        // MQTT is now connected ?
+                    _mqttFailCount = 0;
                     _mqttState = MQTT_connected;
-                    _client.subscribe(TOPIC_GLOBE_SETTINGS_SET);
-                    _client.subscribe(TOPIC_PID_SETTINGS_SET);
-                    _client.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
-                    _client.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
+                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_SET);                // MQTT publishing settings etc. 
+                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET);
+                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
+                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
+
+                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_REQUEST);            // MQTT publishing a request for spinning globe to send sends out settings
+                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET);
+                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
+                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
+
+                    _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
+
                     if (DEBUG) {
                         char s[120]; sprintf(s, "-- at %11.3fs: MQTT connected", now / 1000.);
                         DEBUG_PRINTLN(s);
@@ -251,8 +260,15 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 }
 
                 else {                                                                      // MQTT is not yet connected
-                    // regularly report status ('still trying...' etc.)
-                    if (DEBUG) {
+                    // after a number of MQTT connection attempts, also disconnect WiFi and start all over
+                    if (++_mqttFailCount >= MQTT_MAX_FAIL_COUNT) {
+                        _mqttFailCount = 0;
+                        _mqttState = MQTT_notConnected;
+                        // WiFi state machine will detect WL_DISCONNECTED  and trigger a full reconnect including fresh TLS stack
+                        WiFi.disconnect();
+                    }
+
+                    if (DEBUG) {                                                        // regularly report status ('still trying...' etc.)
                         if (now - _lastMqttWaitReportedAt > MQTT_REPORT_INTERVAL) {
                             _lastMqttWaitReportedAt = now;                              // for printing only
                             DEBUG_PRINT(".");
@@ -270,16 +286,17 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         case MQTT_connected:
         {
             //  prepare for reconnection if connection is lost OR per user program request 
-            bool connectionLost = !_client.connected();
+            bool connectionLost = !_MQTTclient.connected();
             bool publishStalled = _sharedContext.lastMQTTpublish > 0 &&
                 (millis() - _sharedContext.lastMQTTpublish > MQTT_PUBLISH_TIMEOUT);
 
             if (connectionLost or publishStalled) {
-                _client.disconnect();
+                _MQTTclient.disconnect();
                 _mqttState = MQTT_notConnected;
+                _MQTTnewMessageFlag = false;
                 _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
                 if (DEBUG) {
-                    char s[100]; sprintf(s, "-- at %11.3fs: %s%d", now / 1000., "MQTT disconnected, client state = ", _client.state());
+                    char s[100]; sprintf(s, "-- at %11.3fs: %s%d", now / 1000., "MQTT disconnected, client state = ", _MQTTclient.state());
                     DEBUG_PRINTLN(s);
                 }
             }

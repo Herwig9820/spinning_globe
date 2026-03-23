@@ -53,10 +53,11 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
 
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
     SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
-    LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing) :
+    LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing, volatile bool& triggerWireCommLed) :
     _greenwichData(greenwichData), _statusData(statusData), _secondData(secondData),
     _smoothedMeasurements(smoothedMeasurements), _pidSettings(pidSettings), _globeMetrics(globeMetrics),
-    _ledStripSettings(ledStripSettings), _globeEventSnapshot(globeEventSnapshot), _visualRing(visualRing) {
+    _ledStripSettings(ledStripSettings), _globeEventSnapshot(globeEventSnapshot), _visualRing(visualRing),
+    _wireMaster(triggerWireCommLed) {
 };
 
 MessageHandling::~MessageHandling() {};
@@ -163,9 +164,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.difTimeCstAdjustSteps = _pidSettings.difTimeCstAdjustSteps;
             p.intTimeCstAdjustSteps = _pidSettings.intTimeCstAdjustSteps;
             _wireMaster.enqueueTx(M_MSG_PID_SETTINGS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
-            ////Serial.print("wire msg out: PID settings = "); Serial.print(p.gainAdjustSteps);
-            ////Serial.print(", "); Serial.print(p.difTimeCstAdjustSteps);
-            ////Serial.print(", "); Serial.println(p.intTimeCstAdjustSteps);
         }
         break;
 
@@ -186,7 +184,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             I2C_m_coilPhaseAdjust p{};
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             p.coilPhaseAdjust = _globeMetrics[attributeIndex_coilPhaseAdjust];               // 0 to 179
-            Serial.print("wire msg out: coil phase adjust = "); Serial.println(p.coilPhaseAdjust);
             _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -255,12 +252,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             _wireMaster.enqueueTx(M_MSG_COIL_PHASE_ADJUST_REQ, 0, nullptr, S_MSG_COIL_PHASE_ADJUST_SET, sizeof(I2C_s_coilPhaseAdjust_set));
         }
         break;
-
-        case MsgType::M_MSG_BUTTON_STATES_REQ:
-        {
-            _wireMaster.enqueueTx(M_MSG_BUTTON_STATES_REQ, 0, nullptr, S_MSG_BUTTON_STATES_SET, sizeof(I2C_s_buttonStates_set));
-        }
-        break;
     }
     msgTypeOut = MsgType::M_MSG_NONE;
     return;
@@ -269,7 +260,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
 // ========== process Wire slave reply ==========
 
-void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
+void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_t& nextAction) {
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };                   // message type received from slave
     uint8_t i2cPayloadSizeIn{ 0 };                              // payload size as reported by slave
     uint8_t plIn[SLAVE_PAYLOAD_MAX];
@@ -290,7 +281,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
     }
 
     switch (msgTypeIn) {
-
         // answer to hello message
         case S_MSG_HELLO_ACK:   // not yet implemented !
         {
@@ -305,6 +295,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
 
             // next requested message type     
             nextMsgTypeOut = p->requestMasterMsgType;
+            nextAction = p->action;
         }
         break;
 
@@ -345,21 +336,13 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
             _pidSettings.intTimeCstAdjustSteps = (uint8_t)p->intTimeCstAdjustSteps;
             _pidSettings.difTimeCstAdjustSteps = (uint8_t)p->difTimeCstAdjustSteps;
 
-            if (_pidSettings.gainAdjustSteps > settingSteps) { _pidSettings.gainAdjustSteps = settingSteps ; }
-            if (_pidSettings.intTimeCstAdjustSteps > settingSteps) { _pidSettings.intTimeCstAdjustSteps = settingSteps ; }
-            if (_pidSettings.difTimeCstAdjustSteps > settingSteps) { _pidSettings.difTimeCstAdjustSteps = settingSteps ; }
-
-            ////Serial.print("wire msg in : PID settings = "); Serial.print(_pidSettings.gainAdjustSteps);
-            //Serial.print(", "); Serial.print(_pidSettings.difTimeCstAdjustSteps);
-            //Serial.print(", "); Serial.println(_pidSettings.intTimeCstAdjustSteps);
+            if (_pidSettings.gainAdjustSteps > settingSteps) { _pidSettings.gainAdjustSteps = settingSteps; }
+            if (_pidSettings.intTimeCstAdjustSteps > settingSteps) { _pidSettings.intTimeCstAdjustSteps = settingSteps; }
+            if (_pidSettings.difTimeCstAdjustSteps > settingSteps) { _pidSettings.difTimeCstAdjustSteps = settingSteps; }
 
             saveAndUseGlobeAttribute(attributeIndex_gainAdjust, _pidSettings.gainAdjustSteps);
             saveAndUseGlobeAttribute(attributeIndex_intTimeConstAdjust, _pidSettings.intTimeCstAdjustSteps);
             saveAndUseGlobeAttribute(attributeIndex_difTimeConstAdjust, _pidSettings.difTimeCstAdjustSteps);
-
-            // initiate a ring sequence
-            Serial.println("initiate ring");
-            _visualRing.startRing(3, 12, 1);
         }
         break;
 
@@ -387,24 +370,11 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut) {
 
             I2C_s_coilPhaseAdjust_set* p = reinterpret_cast<I2C_s_coilPhaseAdjust_set*>(plIn);
             if (!p->slaveHasData) { break; }
-            Serial.print("incoming coil phase adjust: "); Serial.print(p->slaveHasData); Serial.print(", "); Serial.println(p->coilPhaseAdjust);
 
             // set coil phase adjust is stored in the globe attributes array, not in a struct
             // phase adjustment in 2-degree increments (0 to 358 degrees)
             if (p->coilPhaseAdjust > 179) { p->coilPhaseAdjust = 179; }
             saveAndUseGlobeAttribute(attributeIndex_coilPhaseAdjust, p->coilPhaseAdjust);
-        }
-        break;
-
-        case S_MSG_BUTTON_STATES_SET:
-        {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
-
-            I2C_s_buttonStates_set* p = reinterpret_cast<I2C_s_buttonStates_set*>(plIn);
-            if (!p->slaveHasData) { break; }
-            Serial.print("incoming button states: "); Serial.print(p->slaveHasData); Serial.print(", "); Serial.println(p->buttonStates);
-
-            //// trigger visual 'ring' (led strips)
         }
         break;
 

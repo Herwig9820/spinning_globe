@@ -39,6 +39,10 @@ constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPosSetpoint/request";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/request";
+constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/coilPhaseAdjust/request";
+
+// //// comments herzien
+constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";
 
 
 template<typename T, size_t N>
@@ -103,7 +107,9 @@ struct SharedContext {
     SPSCQueue<MQTTmsgToWire, 16> queueToWire;
 
     // MQTT to wire flows: holding queue 
-    SPSCQueue<MsgType, 8> requestDataFromMaster;                // message types to be sent by master to send data to wire slave
+    SPSCQueue<AckPayload, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
+
+    volatile bool triggerWireCommLed{false};
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;

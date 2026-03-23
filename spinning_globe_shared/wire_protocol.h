@@ -253,7 +253,6 @@ enum MsgType : uint8_t {
     M_MSG_PID_SETTINGS_REQ = 0x31,      // master requests PID settings as maintained / known by slave
     M_MSG_VERT_POS_SETPOINT_REQ = 0x32, // master requests vertical position setpoint as maintained / known by slave
     M_MSG_COIL_PHASE_ADJUST_REQ = 0x33, // master requests coil phase adjustment as maintained / known by slave
-    M_MSG_BUTTON_STATES_REQ = 0x34,     // master requests button states as maintained / known by slave 
 
     // ========== 0x40–0x5F: not used ==========
 
@@ -267,11 +266,10 @@ enum MsgType : uint8_t {
     S_MSG_ACK = 0x62,
 
     // the following slave messages types are only sent in response to specific master message types
-    S_MSG_GLOBE_SETTINGS_SET = 0x70,        // send globe settings to master:             response to msg type M_MSG_GLOBE_SETTINGS_REQ
-    S_MSG_PID_SETTINGS_SET = 0x71,          // send PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
-    S_MSG_VERT_POS_SETPOINT_SET = 0x72,     // send vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
-    S_MSG_COIL_PHASE_ADJUST_SET = 0x73,     // send coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
-    S_MSG_BUTTON_STATES_SET = 0x74,         // send button states to master:              response to msg type M_MSG_BUTTON_STATES_REQ
+    S_MSG_GLOBE_SETTINGS_SET = 0x70,        // sending globe settings to master:             response to msg type M_MSG_GLOBE_SETTINGS_REQ
+    S_MSG_PID_SETTINGS_SET = 0x71,          // sending PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
+    S_MSG_VERT_POS_SETPOINT_SET = 0x72,     // sending vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
+    S_MSG_COIL_PHASE_ADJUST_SET = 0x73,     // sending coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
 
 
     // ========== 0x80–0xFE: not used ==========
@@ -280,6 +278,19 @@ enum MsgType : uint8_t {
     // ========== 0xFF: reserved placeholder ==========
 
     MSG_ERROR = 0xFF
+};
+
+
+
+enum Action {
+    M_ACTION_NONE,
+    M_ACTION_RING
+};
+
+
+struct AckPayload {
+    MsgType msgType{ MsgType::M_MSG_NONE };
+    Action action{ Action::M_ACTION_NONE };
 };
 
 
@@ -368,7 +379,8 @@ struct __attribute__((packed)) I2C_s_ack {
     uint8_t ack;                                    // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
-    uint8_t requestMasterMsgType;                   // slave requests master to send message type
+    uint8_t action{ M_ACTION_NONE };                                  // action requested from master
+    uint8_t requestMasterMsgType{M_MSG_NONE};                   // slave requests master to send message type
 
 };
 

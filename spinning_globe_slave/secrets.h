@@ -2,8 +2,8 @@
 #define FG_SECRETS_h
 
     // WiFi: SSID and password
-    #define WIFI_SSID "Mathurot"
-    #define WIFI_PASS "ikbennietgeborenop9augustus"
+    #define WIFI_SSID "Bbox-HTA"
+    #define WIFI_PASS "ibngo9Augibngo9Aug"
 
     // MQTT
     #define MQTT_SERVER "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"
@@ -12,9 +12,7 @@
     #define MQTT_USER "spinning_globe"
     #define MQTT_PASS "*8*twtttj^AG@R79"
 
-    #define MQTT_DEVICE_ID "floating_globe_esp32_B59J4NF4865L"
-
-    constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";
+    constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";      // purpose: restrict access to specific settings if node-red dashboard not on esp32 local network
 
 
 /*

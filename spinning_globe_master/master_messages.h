@@ -76,13 +76,13 @@ class MessageHandling {
 public:
     MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
         SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
-        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing);
+        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing, volatile bool &triggerWireCommLed);
 
     ~MessageHandling();
 
     uint8_t transmit();
     void enqueueI2CmessageToSlave(uint8_t& msgTypeOut);
-    void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut);
+    void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_t& nextAction);
 };
 
 #endif

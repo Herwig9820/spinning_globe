@@ -97,6 +97,8 @@ constexpr uint8_t portB_switchesBufferSelect{ B00010000 };
 constexpr uint8_t portB_ledstripSelect{ B00010001 };
 #endif                                                          
 
+constexpr uint8_t portB_D13ledSelect{ B00100000 };               // port B bit 5 (nano pin D13): onboard led
+
 
 // port C                                                       
 constexpr uint8_t A2_IONotEnablePin{ A2 };                      // port C bit 2 (Nano pin A2): I/O channel not enable (74HCT138 decoder)
@@ -389,6 +391,8 @@ volatile uint8_t LSupdate;                                                      
 volatile uint8_t LSup;                                                              // initial dimming direction up for all brightness items (true if initially counting up OR in a max. brightness period)
 volatile uint8_t LSminReached, LSmaxReached;
 
+// wire interface: trigger wire communication LED
+volatile bool triggerWireCommLed{ false };
 
 // ========== for testing purposes ==========
 
@@ -423,7 +427,8 @@ LedstripData* ledstripDataPtr;
 StepResponseData* stepResponseDataPtr;
 
 #if WITH_WIRE_COMM
-MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, globeMetrics, ledStripSettings, globeEventSnapshot, visualRing);
+MessageHandling messageHandling(greenwichData, statusData, secondData, smoothedMeasurements, pidSettings, globeMetrics, ledStripSettings, globeEventSnapshot, visualRing,
+    triggerWireCommLed);
 #endif
 
 
@@ -653,11 +658,13 @@ void loop()
     checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #if WITH_WIRE_COMM
 
-    static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
-    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
     const uint8_t initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST };
 
-    static uint8_t initialMsg{ 0 };
+    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
+    static uint8_t initialMsgIndex{ 0 };
+    static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
+
+    uint8_t slaveRequestNextAction{Action::M_ACTION_NONE};
 
     // priority 1: answer slave request (requested in last (slave reply) MSG_ACK message) by sending a message
     if (slaveRequestNextMsgTypeOut != M_MSG_NONE) {
@@ -665,7 +672,7 @@ void loop()
     }
 
     // priority 2: messages after startup
-    else if (initialMsg < sizeof(initialMessages)) { nextMsgTypeOut = initialMessages[initialMsg++]; }
+    else if (initialMsgIndex < sizeof(initialMessages)) { nextMsgTypeOut = initialMessages[initialMsgIndex++]; }
 
     // priority 3: messages in response to an ISR event (or user command, but none are available in 'wire comm' mode)
     else {
@@ -675,7 +682,13 @@ void loop()
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
-    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut);                           // if incoming i2c message available, dequeue
+    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction);    // if incoming i2c message available, dequeue
+
+    if(slaveRequestNextAction == Action::M_ACTION_RING){
+        // initiate a ring sequence
+        Serial.println("initiate ring");
+        visualRing.startRing(3, 12, 1);     // 3 times 12 color changes, color change after 1 step (one step is 128 ms - see .advinceRing())
+    }
 
     ////writeStatus();
 
@@ -1100,7 +1113,7 @@ uint8_t processEvent() {
 
             // if a ring is in progress: advance one '128 ms' tick
             visualRing.advanceRing();
-            
+
         #if WITH_WIRE_COMM
             uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
             if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
@@ -1623,7 +1636,7 @@ void writeLedStrip() {
         _ringState &= ~0x80;                                // remove 'state change' flag 
         LSout((uint8_t*)((_ringState == 0) ? colorGammaCorrected : (_ringState == 1) ? ringColorPause :
             (_ringState == 2) ? ringColorOne : ringColorTwo), ledstripMasks);
-        Serial.print(_ringState, HEX); Serial.print(' ');  Serial.println(millis());
+        Serial.print(_ringState, HEX); Serial.print(' ');  Serial.println(millis());////
     }
 
     // outside a ring: normal led cycle color
@@ -1637,7 +1650,7 @@ void writeLedStrip() {
 void LSout(uint8_t* led, uint8_t* ledstripMasks) {                                              // output data to led strip 
     uint8_t startFrame[4]{ 0, 0, 0, 0 }, colorOffAndEndFrame[4]{ 0xFF, 0, 0, 0 };               // brightness, blue, green, red
 
-    // NOTE: only Port C 'IO disable' and, if applicable, 'led strip data' bits, should be written to (altered) by led strip routines
+    // NOTE: only Port C 'IO disable' and, if applicable, 'led strip data' bits, should be written to (changed) by led strip routines
     uint8_t holdPortC = PORTC;                                                                  // read current PORTC bits only once (speed)
     PORTB = ((PORTB & ~portB_IOchannelSelectBitMask) | portB_ledstripSelect);                   // PORT B: select led strip
 
@@ -1646,6 +1659,7 @@ void LSout(uint8_t* led, uint8_t* ledstripMasks) {                              
         LSoneLedOut(holdPortC, led, (ledstripMasks[2] & B1) | ((ledstripMasks[1] & B1) << 1) | ((ledstripMasks[0] & B1) << 2));
     }
     LSoneLedOut(holdPortC, colorOffAndEndFrame);
+    // (port B does not need to be restored: )
 }
 
 
@@ -1996,6 +2010,15 @@ SIGNAL(TIMER1_OVF_vect) {
     PORTB = holdPortBduringInt;                                                             // restore port B contents
     PORTD = holdPortDduringInt;                                                             // restore port D contents
 
+    // optional: trigger led each time a trigger occurs (wire message received)
+     
+    static uint32_t wireCommStartTime{};
+    uint32_t now = millis();
+    if (triggerWireCommLed) { wireCommStartTime = now; triggerWireCommLed = false; }
+    // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
+    if ((now - wireCommStartTime < 1000) && !(now & 0xf)) { PORTB |= portB_D13ledSelect; }  
+    else { PORTB &= ~portB_D13ledSelect; }
+    
 
     // debounce switches / keys and produce (1) switch states and (2) key codes for pressed / released keys
     if ((millis16bits & B1111) == 0) {                                                      // 16 mS debounce time

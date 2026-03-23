@@ -2,7 +2,7 @@
 #include "wireSlave_messages.h"
 #include "MQTTmessages.h"
 
-constexpr uint32_t WDT_TIMEOUT = 5;
+constexpr uint32_t WDT_TIMEOUT = 60;        // 60 seconds
 
 SharedContext sharedContext;
 WireSlaveMessages wireSlaveMessages(sharedContext);
@@ -25,13 +25,14 @@ void setup()
     // do not define before setup() runs
     pWiFiConnection = new WiFiConnection;
     pMqttMessages = new MQTTmessages(sharedContext);
+
     pinMode(WIRE_RECEIVE_LED, OUTPUT);
 
     pinMode(LED_RED, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
     pinMode(LED_BLUE, OUTPUT);
 
-    // Initialize Task Watchdog Timer (enable, 5s timeout) and add current task (loop) to WDT
+    // Initialize Task Watchdog Timer (enable, set timeout) and add current task (loop) to WDT
     esp_task_wdt_init(WDT_TIMEOUT, true);
     esp_task_wdt_add(NULL);
 }
@@ -58,57 +59,97 @@ void loop()
 
 
 // ============================================================================
-// LOOP
+// Use D13 led to indicate wire transmissions are active
+// Use RGB led to display current WiFi / MQTT state
 // ============================================================================
 void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::ConnectionState mqttState) {
 
     uint32_t now = millis();
-    bool dimmedRed{}, dimmedGreen{}, dimmedBlue{};
+
+    // ---------- WiFi and MQTT state ----------
+
+    constexpr int32_t LED_BLINK_ON_MASK = 0x100;    // led blink control: led on if (millis() & LED_BLINK_ON_MASK): 256 ms ON + 256 ms OFF = 512 ms blink period
+    constexpr int32_t LED_NEW_MSG_PERIOD = 0x40;    // new message flash: change color for 64 ms if MQTT message is sent to, or received from broker
+    constexpr int32_t LED_DIM_MASK = 0xF;           // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
+
+    enum COMM_STATE { LED_WiFiNotConnected, LED_WiFiConnecting, LED_WiFiConnected, LED_MQTTconnecting, LED_MQTTconnectedIdle, LED_MQTTconnectedNewMessage };    //  small state machine
 
     static bool red{}, green{}, blue{};
     static bool lastRed{ !red }, lastGreen{ !green }, lastBlue{ !blue };
 
-    static uint32_t indicateMQTTxmit_start{ now };
-    static bool MQTTtransmitFlag{ false };
+    static uint32_t mqttTxmit_startTime{ now };
+    static bool newMQTTmessage{ false };
+    static COMM_STATE comm_state{};
 
-    // no MQTT transmission underway: show connection status
-    if (!MQTTtransmitFlag) {
-        if (pMqttMessages->getMQTTtransmitFlag()) {     // and clear the flag 
-            MQTTtransmitFlag = true;
-            indicateMQTTxmit_start = now;
-            red = blue = true;                                     // 1/16 duty cycle
-            green = false;
-        }
-    }
+    // 1. determine whether an MQTT message was recently transmitted, or is transmitted, just now
+    if (mqttState != MQTTmessages::MQTT_connected) { newMQTTmessage = false; }                              // MQTT even not connected: no new message
+    else if (pMqttMessages->newMQTTmessage()) { mqttTxmit_startTime = now; newMQTTmessage = true; }         // new MQTT message transmitted just now: start timer
+    else if (now - mqttTxmit_startTime > LED_NEW_MSG_PERIOD) { newMQTTmessage = false; }                    // no recent and  no new MQTT message
 
+    // 2. calculate state to report (RGB led)
+    comm_state = (wifiState == WiFiConnection::WiFi_notConnected) ? LED_WiFiNotConnected :
+        (wifiState == WiFiConnection::WiFi_waitForConnecton) ? LED_WiFiConnecting :
+        (mqttState == MQTTmessages::MQTT_notConnected) ? LED_WiFiConnected :
+        (mqttState == MQTTmessages::MQTT_waitForConnecton) ? LED_MQTTconnecting :
+        newMQTTmessage ? LED_MQTTconnectedNewMessage : LED_MQTTconnectedIdle;
 
-    if (MQTTtransmitFlag) {
-        if (millis() - indicateMQTTxmit_start > 100) {                   // stay on for a number of ms after last data was received
+    // 3. set RGB led according to state calculated above
+    switch (comm_state) {
+        case LED_WiFiNotConnected:
+            red = green = blue = false;                             // RGB led: off
+            break;
+
+        case LED_WiFiConnecting:
+            red = green = (bool)(now & LED_BLINK_ON_MASK);          // RGB led: yellow, blinking
+            blue = false;
+            break;
+
+        case LED_WiFiConnected:                                     // RGB led: yellow 
+            red = green = true;
+            blue = false;
+            break;
+
+        case LED_MQTTconnecting:
+            green = (bool)(now & LED_BLINK_ON_MASK);                // RGB led: green, blinking
+            red = blue = false;
+            break;
+
+        case LED_MQTTconnectedIdle:                                 // RGB led: green                               
             green = true;
             red = blue = false;
-            MQTTtransmitFlag = false;
-        }
-    }
-    
-    if(!MQTTtransmitFlag){
-        bool wifiIndicatorOn = (wifiState == WiFiConnection::WiFi_notConnected) ? false : (wifiState == WiFiConnection::WiFi_connected) ? true :
-            (bool)(millis() & 0x00200);                       //1/2 duty cycle, lower frequency to show as blinking (T = 1 s)
-        bool mqttIndicatorOn = (mqttState == MQTTmessages::MQTT_notConnected) ? false : (mqttState == MQTTmessages::MQTT_connected) ? true :
-            (bool)(millis() & 0x00200);                       //1/2 duty cycle, lower frequency to show as blinking (T = 1 s)
+            break;
 
-        red = (wifiIndicatorOn && !mqttIndicatorOn) ; 
-        green = (wifiIndicatorOn || mqttIndicatorOn); 
-        blue = false ;                                
+        case LED_MQTTconnectedNewMessage:                           // RGB led: magenta
+            green = false;
+            red = blue = true;
+            break;
     }
 
-    // reduce brightness to 1/8; fastest led state change = 2 ms; T = 16 ms (no flicker visible)
-    dimmedRed = red && !((millis() & 0x000e));
-    dimmedGreen = green && !((millis() & 0x000e));
-    dimmedBlue = blue && !((millis() & 0x000e));
+    // 4. reduce brightness 
+    bool dimmedRed{}, dimmedGreen{}, dimmedBlue{};
 
-    if (dimmedRed != lastRed) { lastRed = dimmedRed; digitalWrite(LED_RED, !dimmedRed); }             // negative logic          
+    dimmedRed = red && !((now & LED_DIM_MASK));
+    dimmedGreen = green && !((now & LED_DIM_MASK));
+    dimmedBlue = blue && !((now & LED_DIM_MASK));
+
+    // 5. only write to pins when pin output changes
+    if (dimmedRed != lastRed) { lastRed = dimmedRed; digitalWrite(LED_RED, !dimmedRed); }             // note that RGB led is ON when pin output is LOW          
     if (dimmedGreen != lastGreen) { lastGreen = dimmedGreen; digitalWrite(LED_GREEN, !dimmedGreen); }
     if (dimmedBlue != lastBlue) { lastBlue = dimmedBlue; digitalWrite(LED_BLUE, !dimmedBlue); }
+
+
+    // ---------- wire transmission ----------
+
+    static bool ledState{ false }, lastLedState{ false };
+    static uint32_t wireCommStartTime{};
+
+    if (sharedContext.triggerWireCommLed) { wireCommStartTime = now; ledState = true; sharedContext.triggerWireCommLed = false; }
+    if ((ledState) && (now - wireCommStartTime > 1000)) { ledState = false; }
+
+    // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
+    bool dimmedLedState = ledState && !((now & LED_DIM_MASK));
+    if (dimmedLedState != lastLedState) { lastLedState = dimmedLedState; digitalWrite(WIRE_RECEIVE_LED, dimmedLedState); }
+
 }
 
 

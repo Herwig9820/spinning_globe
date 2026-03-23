@@ -11,21 +11,11 @@ bool WireSlaveMessages::loop() {
     uint8_t payloadSizeIn{};          // as received
     uint8_t payloadIn[MASTER_PAYLOAD_MAX];
 
-    // switch of 'wire data received' LED if no data is received for a set time
-    if(_wireLedOn){
-        if (millis() - _wireLedOn_start > 5) {                                                  // say on for 15 ms after last data was received
-            _wireLedOn = false;
-            digitalWrite(WIRE_RECEIVE_LED, false);
-        }
-    }
-
     bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn);
     if (!msgAvailable) { return false; }
 
     // signal that wire data is received
-    _wireLedOn = true;
-    digitalWrite(WIRE_RECEIVE_LED, true);
-    _wireLedOn_start = millis();
+    _sharedContext.triggerWireCommLed = true;
 
     switch (messageTypeIn)
     {
@@ -152,7 +142,6 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_PID_SETTINGS_REQ:
         {
-            Serial.println("PID settings - phase 3");
             wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_PID_SETTINGS_SET, &_sharedContext.committedPIDsettings, sizeof(I2C_s_PIDsettings_set));
             _sharedContext.committedPIDsettings.slaveHasData = 0;
         }
@@ -160,7 +149,6 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_VERT_POS_SETPOINT_REQ:
         {
-            Serial.println("vertical position - phase 3");
             wireSlave.pushOutgoingWireMsg(S_MSG_VERT_POS_SETPOINT_SET, &_sharedContext.committedVertPosSetpoint, sizeof(I2C_s_vertPosSetpoint_set));
             _sharedContext.committedVertPosSetpoint.slaveHasData = 0;
         }
@@ -168,7 +156,6 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_COIL_PHASE_ADJUST_REQ:
         {
-            Serial.println("coil phase adjust - phase 3");
             wireSlave.pushOutgoingWireMsg(S_MSG_COIL_PHASE_ADJUST_SET, &_sharedContext.committedCoilPhaseAdjust, sizeof(I2C_s_coilPhaseAdjust_set));
             _sharedContext.committedCoilPhaseAdjust.slaveHasData = 0;
         }
@@ -199,7 +186,7 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
     if ((p->status == rotUnlocked) || (p->status == rotLocked)) {
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"%.2f s\"", p->actualRotationTime / 1000.);
     }
-    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); Serial.println("**** B"); }
+    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); }
 
     if (p->status == rotLocked) {
         JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
@@ -273,7 +260,6 @@ void WireSlaveMessages::convertVertPosSetpointToMQTT(I2C_m_vertPosSetpoint* pVer
 
 void WireSlaveMessages::convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* pCoilPhaseIn) {
     MQTTmsgFromWire msg{};
-    Serial.print("Wire To MQTT: coil phase "); Serial.println(msg.payload);
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_COIL_PHASE_ADJUST);
     snprintf(msg.payload, sizeof(msg.payload), "%1d", pCoilPhaseIn->coilPhaseAdjust);
     msg.retain = true;
@@ -282,83 +268,71 @@ void WireSlaveMessages::convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* 
 
 
 // ============================================================================================
-// Reply to wire master with an 'ACK' message
-// If an MQTT message is pending and NO MQTT message is committed to be sent to wire master:
-//   MQTT message - PHASE 2: commit pending message and log 'message is committed' 
-//   (next phase: phase 3: answer to wire master requesting data)
+// Reply to message from wire master with an 'ACK' message
 // ============================================================================================
+
 void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
-    MsgType msgType{ M_MSG_NONE };        // init: no message req
+    AckPayload thisAckResponse{}, nextAckResponse{};
 
-    // Each time an 'ack' MsgType is sent to the wire master, the slave can request the master to send a specific message type.
-    // If wire slave:
-    // PRIO 1: has DATA AVAILABLE for wire master: the master is REQUESTED TO send a message type REQUESTING the specific data available 
-    // PRIO 2: REQUESTS DATA from wire master    : the master is REQUESTED TO send a message type CONTAINING the specific data 
+    // ---------- PRIO 1: the slave has data (settings, ...) available, NOT fitting in this THIS ack response, for sending to wire master ? ----------
 
-
-
-    if (_sharedContext.pendingVertPosSetpoint.slaveHasData) { Serial.print("********** vert pos: pending 1, committed "); Serial.println(_sharedContext.committedVertPosSetpoint.slaveHasData); }
-    if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData) { Serial.print("********** coil phase pending 1, committed "); Serial.println(_sharedContext.committedCoilPhaseAdjust.slaveHasData); }
-
-
-
-    // ----------  data (settings, ...) to send ? commit ----------
-
+    // 2 stage buffer: pending -> committed
     if (_sharedContext.pendingGlobeSettings.slaveHasData && !_sharedContext.committedGlobeSettings.slaveHasData) {
-        Serial.println("     globe: phase 2");
         _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingGlobeSettings.slaveHasData = 0;                               // because it was just committed
     }
 
     else if (_sharedContext.pendingPIDsettings.slaveHasData && !_sharedContext.committedPIDsettings.slaveHasData) {
-        Serial.println("     PID: phase 2");
         _sharedContext.committedPIDsettings = _sharedContext.pendingPIDsettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingPIDsettings.slaveHasData = 0;                               // because it was just committed
     }
 
     else if (_sharedContext.pendingVertPosSetpoint.slaveHasData && !_sharedContext.committedVertPosSetpoint.slaveHasData) {
-        Serial.println("     vert.position: phase 2");
         _sharedContext.committedVertPosSetpoint = _sharedContext.pendingVertPosSetpoint;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingVertPosSetpoint.slaveHasData = 0;                                 // because it was just committed
     }
 
     else if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData && !_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
-        Serial.println("     coil phase: phase 2");
         _sharedContext.committedCoilPhaseAdjust = _sharedContext.pendingCoilPhaseAdjust;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
     }
 
-
-    // ---------- PRIO 1: data (settings, ...) to submit to master ? (will include a readback to distribute changed settings to all subscribed clients) ----------
-
+    // THIS ack response only inform wire master that data is available and it should request to send it
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
-        msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_GLOBE_SETTINGS);        // push readback msg type
+        thisAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                           // THIS ack response: inform master it should request this data
+        nextAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS;                               // NEXT ack response: inform master it should send out again this updated data
+        _sharedContext.holdAckResponses.push(nextAckResponse);                                 // hold NEXT ack response until it's time to send the next ack
     }
 
     else if (_sharedContext.committedPIDsettings.slaveHasData) {
-        msgType = MsgType::M_MSG_PID_SETTINGS_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_PID_SETTINGS);        // push readback msg type
+        thisAckResponse.msgType = MsgType::M_MSG_PID_SETTINGS_REQ;
+        nextAckResponse.msgType = MsgType::M_MSG_PID_SETTINGS;
+        _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
     else if (_sharedContext.committedVertPosSetpoint.slaveHasData) {
-        msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;                                         // inform master: should request globe settings
-        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_VERT_POS_SETPOINT);            // push readback msg type
+        thisAckResponse.msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;
+        nextAckResponse.msgType = MsgType::M_MSG_VERT_POS_SETPOINT;
+        _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
     else if (_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
-        msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;                                        // inform master: should request globe settings
-        _sharedContext.requestDataFromMaster.push(MsgType::M_MSG_COIL_PHASE_ADJUST);        // push readback msg type
+        thisAckResponse.msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;
+        nextAckResponse.msgType = MsgType::M_MSG_COIL_PHASE_ADJUST;
+        _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
 
-    // ---------- PRIO 2: no data to submit to master. Slave requests data from master ?  ----------
+    // ---------- PRIO 2: the slave has data available, FITTING in THIS ack response, for sending to wire master ?  ----------
+    
+    else if (!_sharedContext.holdAckResponses.empty()) {
+        // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 
+        thisAckResponse.msgType = _sharedContext.holdAckResponses.front()->msgType;
+        thisAckResponse.action = _sharedContext.holdAckResponses.front()->action;
 
-    else if (!_sharedContext.requestDataFromMaster.empty()) {
-        MsgType dummyMsgType;
-        msgType = *_sharedContext.requestDataFromMaster.front();
-        _sharedContext.requestDataFromMaster.pop(dummyMsgType);
+        AckPayload dummy;
+        _sharedContext.holdAckResponses.pop(dummy);
     }
 
 
@@ -366,8 +340,10 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
     I2C_s_ack p;
     p.ack = 0x0;        // not used
-    p.requestMasterMsgType = msgType;
+    p.requestMasterMsgType = thisAckResponse.msgType;
+    p.action = thisAckResponse.action;
     wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
+
 }
 
 

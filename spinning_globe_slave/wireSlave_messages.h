@@ -9,9 +9,6 @@
 
 class WireSlaveMessages {
 
-    bool _wireLedOn {false};
-    uint32_t _wireLedOn_start{};
-
     WireSlave wireSlave;
 
     struct I2C_m_masterSendStats {////

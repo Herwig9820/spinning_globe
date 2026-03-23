@@ -124,7 +124,7 @@ private:
     static constexpr  uint8_t I2C_SLAVE_ADDR = 9;
     static constexpr uint32_t I2C_CLOCK = 100000UL;                 // 100 or 400 kHz
 
-    // Packet (message) sizing
+    // Packet (message) sizing //// naar wire protocol
     static constexpr uint8_t HEADER_SIZE = 3;                       // message type and length, (not currently used) version byte
 
     // Ring queue
@@ -207,10 +207,15 @@ public:
     volatile I2C_MasterSendStats masterSendStats{};
     volatile I2C_MasterReceiveStats masterReceiveStats{};
 
+private:
+    volatile bool& _triggerWireCommLed;
+
+public:
+
 
     /* ========== METHODS ========== */
 
-    WireMaster();
+    WireMaster(volatile bool &triggerWireCommLed);
     ~WireMaster();
 
     // safe to call from ISR
