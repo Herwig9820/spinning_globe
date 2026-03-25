@@ -39,7 +39,8 @@ constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPosSetpoint/request";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/request";
-constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/coilPhaseAdjust/request";
+
+constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/wireStats/request";
 
 // //// comments herzien
 constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";

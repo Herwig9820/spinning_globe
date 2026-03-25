@@ -68,9 +68,10 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
 
     // ---------- WiFi and MQTT state ----------
 
-    constexpr int32_t LED_BLINK_ON_MASK = 0x100;    // led blink control: led on if (millis() & LED_BLINK_ON_MASK): 256 ms ON + 256 ms OFF = 512 ms blink period
-    constexpr int32_t LED_NEW_MSG_PERIOD = 0x40;    // new message flash: change color for 64 ms if MQTT message is sent to, or received from broker
-    constexpr int32_t LED_DIM_MASK = 0xF;           // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
+    constexpr int32_t LED_CONN_BLINK_PERIOD = 0x100;    // led blink control while WiFi / MQTT are connecting: led on if (millis() & LED_CONN_BLINK_PERIOD): 256 ms ON + 256 ms OFF = 512 ms blink period
+    constexpr int32_t LED_NEW_MSG_PERIOD = 0x40;        // new message flash: change color for 64 ms if MQTT message is sent to, or received from broker
+
+    constexpr int32_t LED_DIM_MASK = 0xF;               // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
 
     enum COMM_STATE { LED_WiFiNotConnected, LED_WiFiConnecting, LED_WiFiConnected, LED_MQTTconnecting, LED_MQTTconnectedIdle, LED_MQTTconnectedNewMessage };    //  small state machine
 
@@ -100,7 +101,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
             break;
 
         case LED_WiFiConnecting:
-            red = green = (bool)(now & LED_BLINK_ON_MASK);          // RGB led: yellow, blinking
+            red = green = (bool)(now & LED_CONN_BLINK_PERIOD);          // RGB led: yellow, blinking
             blue = false;
             break;
 
@@ -110,7 +111,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
             break;
 
         case LED_MQTTconnecting:
-            green = (bool)(now & LED_BLINK_ON_MASK);                // RGB led: green, blinking
+            green = (bool)(now & LED_CONN_BLINK_PERIOD);                // RGB led: green, blinking
             red = blue = false;
             break;
 
@@ -140,14 +141,18 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
 
     // ---------- wire transmission ----------
 
+    constexpr int32_t WIRE_LED_NEW_MSG_PERIOD = 0x100;    // new message flash: change color for 256 ms if MQTT message is sent to, or received from broker
+
+    constexpr int32_t WIRE_LED_DIM_MASK = 0xF;           // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
+
     static bool ledState{ false }, lastLedState{ false };
     static uint32_t wireCommStartTime{};
 
     if (sharedContext.triggerWireCommLed) { wireCommStartTime = now; ledState = true; sharedContext.triggerWireCommLed = false; }
-    if ((ledState) && (now - wireCommStartTime > 1000)) { ledState = false; }
+    if ((ledState) && (now - wireCommStartTime > WIRE_LED_NEW_MSG_PERIOD)) { ledState = false; }
 
     // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
-    bool dimmedLedState = ledState && !((now & LED_DIM_MASK));
+    bool dimmedLedState = ledState && !((now & WIRE_LED_DIM_MASK));
     if (dimmedLedState != lastLedState) { lastLedState = dimmedLedState; digitalWrite(WIRE_RECEIVE_LED, dimmedLedState); }
 
 }

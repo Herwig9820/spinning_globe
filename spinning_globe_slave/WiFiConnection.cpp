@@ -17,13 +17,15 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
             // time for a next WiFi connection attempt ?
             if (now - _lastWiFiMaintenanceTime > WIFI_UP_CHECK_INTERVAL) {
 
-                // DHCP reservation (or 'static lease') instead of static IP address: IP for specific nano esp32 MAC address is set in the router.
+                // If DHCP reservation (or 'static lease') instead of static IP address: IP for specific nano esp32 MAC address is set in the router.
                 // The nano esp32 still goes through the normal DHCP process — it asks the router "give me an IP" — 
                 // but the router always hands out the same one based on the MAC address. From the ESP32's perspective it's just using DHCP normally.
                 // Static IP breaks silently when the network assumptions don't match (different gateway, subnet, DNS, or an IP conflict).
                 // Also, the ESP32's network stack appears to be more sensitive to static IP mismatches than the Nano 33 IoT's NINA chip
                 
-                //WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
+                // Don't forget to outcomment next line (statement : "WiFi.config(...) if using DHCP reservation ('static lease')
+
+                WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
                 WiFi.begin(WIFI_SSID, WIFI_PASS);
                 _wifiState = WiFi_waitForConnecton;
 

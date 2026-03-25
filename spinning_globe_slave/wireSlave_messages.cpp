@@ -275,9 +275,9 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
     AckPayload thisAckResponse{}, nextAckResponse{};
 
-    // ---------- PRIO 1: the slave has data (settings, ...) available, NOT fitting in this THIS ack response, for sending to wire master ? ----------
+    // ---------- PRIO 1: the slave has a message (settings, ...) available for wire master, NOT fitting in this THIS ack response ? ----------
 
-    // 2 stage buffer: pending -> committed
+    // 2 stage buffer: pending -> committed -> send to wire master
     if (_sharedContext.pendingGlobeSettings.slaveHasData && !_sharedContext.committedGlobeSettings.slaveHasData) {
         _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingGlobeSettings.slaveHasData = 0;                               // because it was just committed
@@ -298,7 +298,26 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
     }
 
-    // THIS ack response only inform wire master that data is available and it should request to send it
+    /*
+    Incoming MQTT topic processing (MQTTmessages class method loop() ) has already converted topics to wire messages and stored these messages in a 2-stage buffer
+    per message type. Because these message do not fit in a slave 'ACK' return message, the master must first be notified that a particular message is available.
+    The 'ack' message that will be sent now informs the master that it needs to REQUEST to send that message, which will then be sent by the slave in a next 
+    lock-step message exchange between wire master and slave.
+
+    But to notify ALL potential subscribers of changed settings AND to be informed about changes made by the wire master (e.g., rounding PID values), the master
+    must subsequently send these settings back to the wire slave (this bridge) for MQTT publishing.
+
+    The logic to accomplish that last step is not built into the wire master. Instead, in a NEXT ack reply, the slave will now inform the master that it should send out 
+    the changed settings.
+
+    example:
+
+    node-red                        wire master                     wire slave
+    ---------------------------------------------------------------------------
+                                                                            ////    
+    TOPIC_GLOBE_SETTINGS_SET    ->  
+    */
+
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
         thisAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                           // THIS ack response: inform master it should request this data
         nextAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS;                               // NEXT ack response: inform master it should send out again this updated data
@@ -324,7 +343,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     }
 
 
-    // ---------- PRIO 2: the slave has data available, FITTING in THIS ack response, for sending to wire master ?  ----------
+    // ---------- PRIO 2: the slave has a message (request for action, or data, from master) for wire master, FITTING in THIS ack response ?  ----------
     
     else if (!_sharedContext.holdAckResponses.empty()) {
         // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 

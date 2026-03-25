@@ -43,7 +43,7 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             _MQTTnewMessageFlag = true;
             pMsgToWire = _sharedContext.queueToWire.front();
 
-            // ---------- data (settings, ...) available for wire master, NOT fitting in a wire slave 'ack' response ----------
+            // ---------- message (settings, ...) available for wire master, NOT fitting in a wire slave 'ack' response ----------
 
             if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {                 // MQTT has globe settings available ?
                 convertMQTTtoGlobeSettings(pMsgToWire);
@@ -60,19 +60,26 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             }
 
 
-            // ---------- data (settings, ...) available for wire master, fitting in a wire slave 'ack' response ----------
+            // ---------- message (request for action, or data, from master) available for wire master, fitting in a wire slave 'ack' response ----------
 
             // requests for wire master action:
             else if (strcmp(pMsgToWire->topic, TOPIC_RING_REQUEST) == 0) {                      // request wire master RING action   
                 holdRequestForWireMasterAction(Action::M_ACTION_RING);
             }
 
-            // requests for wire master message type (example):       
-            /*
+            // requests for wire master message types:       
             else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
                 holdRequestForWireMasterMsgType(MsgType::M_MSG_GLOBE_SETTINGS);
             }
-            */
+            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
+                holdRequestForWireMasterMsgType(MsgType::M_MSG_PID_SETTINGS);
+            }
+            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {        // request wire master globe settings
+                holdRequestForWireMasterMsgType(MsgType::M_MSG_VERT_POS_SETPOINT);
+            }
+            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {        // request wire master globe settings
+                holdRequestForWireMasterMsgType(MsgType::M_MSG_COIL_PHASE_ADJUST);
+            }
 
             // remove entry in MQTT in queue
             _sharedContext.queueToWire.pop(*pMsgToWire);
@@ -156,6 +163,7 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
 
 void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
     AckPayload ackResponse{};
+    ackResponse.msgType = m_msgType;
     ackResponse.action = Action::M_ACTION_NONE;
     _sharedContext.holdAckResponses.push(ackResponse);
 }
@@ -163,6 +171,7 @@ void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
 void MQTTmessages::holdRequestForWireMasterAction(Action m_action) {
     AckPayload ackResponse{};
     ackResponse.msgType = MsgType::M_MSG_NONE;
+    ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
 
 }
@@ -241,15 +250,16 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 if (_MQTTclient.connected()) {                                        // MQTT is now connected ?
                     _mqttFailCount = 0;
                     _mqttState = MQTT_connected;
+
                     _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_SET);                // MQTT publishing settings etc. 
                     _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET);
                     _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
                     _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
 
                     _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_REQUEST);            // MQTT publishing a request for spinning globe to send sends out settings
-                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET);
-                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
-                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
+                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_REQUEST);
+                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_REQUEST);
+                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_REQUEST);
 
                     _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
 
