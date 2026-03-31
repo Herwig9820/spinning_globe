@@ -184,17 +184,17 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GREENWICH);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
     if ((p->status == rotUnlocked) || (p->status == rotLocked)) {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"%.2f s\"", p->actualRotationTime / 1000.);
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ACT_TIME, "\"%.2f s\"", p->actualRotationTime / 1000.);
     }
-    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), "actRotTime", "\"--.-- s\""); }
+    else { JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ACT_TIME, "\"--.-- s\""); }
 
     if (p->status == rotLocked) {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"%.2ld degrees\"", p->greenwichLag);      // already in degrees
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ROT_SYNC_ERROR, "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GREENWICH_LAG, "\"%.2ld degrees\"", p->greenwichLag);      // already in degrees
     }
     else {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "rotSyncError", "\"--.-- s\"");
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), "greenwichLag", "\"--- degrees\"");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ROT_SYNC_ERROR, "\"--.-- s\"");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GREENWICH_LAG, "\"--- degrees\"");
     }
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
@@ -213,12 +213,12 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_TELEMETRY);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "heatsinkTemp", "\"%.1f deg.C\"", tempC);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "magnetDutyCycle", "\"%.1f%%\"", magnetDutyCycle);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "ISRduration", "\"%.0f us\"", isrDuration);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "load", "\"%.1f%%\"", load);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "vertPosError", "\"%.1f mV\"", vertPosAvgError);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "TTTintegrTerm", "\"%6ld\"", p->realTTTintegrationTerm);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_HEATSINK_TEMP, "\"%.1f deg.C\"", tempC);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_MAGNET_DUTY_CYCLE, "\"%.1f%%\"", magnetDutyCycle);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ISR_DURATION, "\"%.0f us\"", isrDuration);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_PROC_LOAD, "\"%.1f%%\"", load);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_VERT_POS_ERROR, "\"%.1f mV\"", vertPosAvgError);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_TTT_INTEGR_TERM, "\"%6ld\"", p->realTTTintegrationTerm);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
@@ -229,9 +229,9 @@ void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GLOBE_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setRotTime", "\"%1u\"", pGlobeIn->rotationPeriodIndex);    // rotation speed
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffect", "\"%1u\"", pGlobeIn->ledEffect);            // led effect
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setLedEffectSpeed", "\"%1u\"", pGlobeIn->ledCycleSpeed);   // led effect speed
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_ROT_TIME, "\"%1u\"", pGlobeIn->rotationPeriodIndex);    // rotation speed
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_LED_EFFECT, "\"%1u\"", pGlobeIn->ledEffect);            // led effect
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_LED_EFFECT_SPEED, "\"%1u\"", pGlobeIn->ledCycleSpeed);   // led effect speed
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
@@ -242,9 +242,9 @@ void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_PID_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setGainAdjust", "%1d", pPIDIn->gainAdjustSteps);              // gain adjustment
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setDifTimeAdjust", "%1d", pPIDIn->difTimeCstAdjustSteps);     // diff. time constant adjustment
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), "setIntTimeAdjust", "%1d", pPIDIn->intTimeCstAdjustSteps);     // int. time constant adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_GAIN_ADJUST, "%1d", pPIDIn->gainAdjustSteps);              // gain adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_DIFF_TIME_ADJUST, "%1d", pPIDIn->difTimeCstAdjustSteps);     // diff. time constant adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_INTEGR_TIME_ADJUST, "%1d", pPIDIn->intTimeCstAdjustSteps);     // int. time constant adjustment
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);

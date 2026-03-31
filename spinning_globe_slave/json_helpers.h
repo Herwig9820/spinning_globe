@@ -50,7 +50,7 @@ namespace JsonAssemble {
     inline void endArray(char* buffer, size_t bufferSize) {
         strlcat(buffer, "]", bufferSize);
     }
-}
+} // namespace JsonAssemble
 
 
 namespace JsonParse {

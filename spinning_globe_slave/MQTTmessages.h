@@ -66,7 +66,7 @@ private:
 
     SharedContext& _sharedContext;
 
-    WiFiConnection _wifiConnection;
+    WiFiConnection * _pWiFiConnection;
     WiFiClientSecure _tlsSocket;
     PubSubClient     _MQTTclient;
 

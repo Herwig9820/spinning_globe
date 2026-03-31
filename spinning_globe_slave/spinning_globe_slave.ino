@@ -1,6 +1,7 @@
 #include <esp_task_wdt.h>
 #include "wireSlave_messages.h"
 #include "MQTTmessages.h"
+#include "time_helpers.h"
 
 constexpr uint32_t WDT_TIMEOUT = 60;        // 60 seconds
 
@@ -26,7 +27,7 @@ void setup()
     pWiFiConnection = new WiFiConnection;
     pMqttMessages = new MQTTmessages(sharedContext);
 
-    pinMode(WIRE_RECEIVE_LED, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
 
     pinMode(LED_RED, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
@@ -55,6 +56,18 @@ void loop()
     setWiFiLeds(wifiConnectionState, mqttConnectionState);
 
     esp_task_wdt_reset();           // reset the watchdog
+
+    if (DEBUG) {
+        static bool timeIsPrinted{ false };
+        char ntpTimeBuf[32];
+        if (!timeIsPrinted) {
+            if (timeHelpers::getLocalTimeString(ntpTimeBuf, sizeof(ntpTimeBuf))) {
+                char s[80]; snprintf(s, sizeof(s), "-- at %13.3fs : time is now set to %ls", millis() / 1000., ntpTimeBuf);
+                timeIsPrinted = true;
+                DEBUG_PRINTLN(s);
+            }
+        }
+    }
 }
 
 
@@ -153,7 +166,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
 
     // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
     bool dimmedLedState = ledState && !((now & WIRE_LED_DIM_MASK));
-    if (dimmedLedState != lastLedState) { lastLedState = dimmedLedState; digitalWrite(WIRE_RECEIVE_LED, dimmedLedState); }
+    if (dimmedLedState != lastLedState) { lastLedState = dimmedLedState; digitalWrite(LED_BUILTIN, dimmedLedState); }
 
 }
 

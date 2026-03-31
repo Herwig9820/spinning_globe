@@ -2,17 +2,19 @@
 #include "secrets.h"
 #include "debug.h"
 #include "json_helpers.h"
+#include "time_helpers.h"
 
 MQTTmessages* MQTTmessages::_instance = nullptr;
 
-MQTTmessages::MQTTmessages(SharedContext& sharedContext) :_MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
+MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
+    _MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
+    
     _instance = this;
 
     _tlsSocket.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
     _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
     _MQTTclient.setKeepAlive(60);     // seconds; HiveMQ free tier disconnects after this idle time
-    ////_MQTTclient.setSocketTimeout(30); // seconds; don't hang forever on a dead TCP socket
 }
 
 
@@ -101,11 +103,11 @@ bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     bool ok{ false };
     unsigned int tmp{};
 
-    ok = JsonParse::getUInt(pMsgToWire->payload, "setRotTime", &tmp);
+    ok = JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_ROT_TIME, &tmp);
     _sharedContext.pendingGlobeSettings.rotationPeriodIndex = tmp;
-    ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffect", &tmp);
+    ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_LED_EFFECT, &tmp);
     _sharedContext.pendingGlobeSettings.ledEffect = tmp;
-    ok &= JsonParse::getUInt(pMsgToWire->payload, "setLedEffectSpeed", &tmp);
+    ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_LED_EFFECT_SPEED, &tmp);
     _sharedContext.pendingGlobeSettings.ledCycleSpeed = tmp;
     _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
     return ok;
@@ -115,17 +117,17 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
 
     // Token check: only accept PID settings from local network
     char token[32] = "";
-    JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
+    JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
     if (strcmp(token, SECRET_TOKEN) != 0) { return false; }  // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
 
-    ok = JsonParse::getUInt(pMsgToWire->payload, "setGainAdjust", &tmp);
+    ok = JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_GAIN_ADJUST, &tmp);
     _sharedContext.pendingPIDsettings.gainAdjustSteps = tmp;
-    ok &= JsonParse::getUInt(pMsgToWire->payload, "setDifTimeAdjust", &tmp);
+    ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_DIFF_TIME_ADJUST, &tmp);
     _sharedContext.pendingPIDsettings.difTimeCstAdjustSteps = tmp;
-    ok &= JsonParse::getUInt(pMsgToWire->payload, "setIntTimeAdjust", &tmp);
+    ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_INTEGR_TIME_ADJUST, &tmp);
     _sharedContext.pendingPIDsettings.intTimeCstAdjustSteps = tmp;
     _sharedContext.pendingPIDsettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
     return ok;
@@ -134,13 +136,13 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
 bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept vertical position setpoint from local network
     char token[32] = "";
-    JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
+    JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
     if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
 
-    ok = JsonParse::getUInt(pMsgToWire->payload, "setVertPosSetpoint", &tmp);
+    ok = JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_VERT_POS_SETPOINT, &tmp);
     _sharedContext.pendingVertPosSetpoint.vertPosIndex = tmp;
     _sharedContext.pendingVertPosSetpoint.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
     return ok;
@@ -149,13 +151,13 @@ bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
 bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept coil phase adjustment from local network
     char token[32] = "";
-    JsonParse::getString(pMsgToWire->payload, "token", token, sizeof(token));
+    JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
     if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
 
-    ok = JsonParse::getUInt(pMsgToWire->payload, "setCoilPhaseAdjust", &tmp);
+    ok = JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_COIL_PHASE_ADJUST, &tmp);
     _sharedContext.pendingCoilPhaseAdjust.coilPhaseAdjust = tmp;
     _sharedContext.pendingCoilPhaseAdjust.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
     return ok;
@@ -230,7 +232,10 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 _mqttState = MQTT_waitForConnecton;
 
                 if (DEBUG) {
-                    char s[100]; sprintf(s, "-- at %11.3fs: %s", now / 1000., "Trying to connect to MQTT...");
+                    char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                        snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                    } 
+                    char s[80]; snprintf(s, sizeof(s), "-- %s : Trying to connect to MQTT...", timeBuf);
                     DEBUG_PRINTLN(s);
                 }
 
@@ -264,7 +269,10 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                     _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
 
                     if (DEBUG) {
-                        char s[120]; sprintf(s, "-- at %11.3fs: MQTT connected", now / 1000.);
+                        char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                            snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                        }
+                        char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT connected", timeBuf);
                         DEBUG_PRINTLN(s);
                     }
                 }
@@ -306,7 +314,10 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 _MQTTnewMessageFlag = false;
                 _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
                 if (DEBUG) {
-                    char s[100]; sprintf(s, "-- at %11.3fs: %s%d", now / 1000., "MQTT disconnected, client state = ", _MQTTclient.state());
+                    char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                        snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                    }
+                    char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT disconnected, client state = %d",timeBuf,  _MQTTclient.state());
                     DEBUG_PRINTLN(s);
                 }
             }

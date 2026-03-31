@@ -4,11 +4,15 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
+#include <esp_sntp.h> // needed for sntp_get_sync_status()
 #include "secrets.h"
 #include "bridge_context.h"
 #include "debug.h"
 
-const IPAddress clientAddress(192, 168, 0, 95);     // STATIC client IP (LAN)
+// Note that next 4 definitions will only be used if using a static IP address.
+// If using DHCP instead (with or without a static lease), outcomment line 
+// "WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress)"  in WiFiConnection.cpp 
+const IPAddress clientAddress(192, 168, 0, 96);     // STATIC client IP (LAN)
 const IPAddress gatewayAddress(192, 168, 0, 1);
 const IPAddress subnetMask(255, 255, 255, 0);
 const IPAddress DNSaddress(195, 130, 130, 5);

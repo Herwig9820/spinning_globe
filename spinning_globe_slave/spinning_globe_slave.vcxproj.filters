@@ -63,5 +63,8 @@
     <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="time_helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

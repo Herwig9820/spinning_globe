@@ -1,5 +1,6 @@
+#include <time.h>
 #include "WiFiConnection.h"
-
+#include "time_helpers.h"
 
 WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
@@ -22,17 +23,19 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                 // but the router always hands out the same one based on the MAC address. From the ESP32's perspective it's just using DHCP normally.
                 // Static IP breaks silently when the network assumptions don't match (different gateway, subnet, DNS, or an IP conflict).
                 // Also, the ESP32's network stack appears to be more sensitive to static IP mismatches than the Nano 33 IoT's NINA chip
-                
-                // Don't forget to outcomment next line (statement : "WiFi.config(...) if using DHCP reservation ('static lease')
 
+                // WiFi.config(...) is only needed if using a static IP address (not if DHCP, whether you use DHCP reservation ('static lease') or not).
+                // => Outcomment next line if using DHCP (with or without a static lease) instead of assigning a static IP.
                 WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
                 WiFi.begin(WIFI_SSID, WIFI_PASS);
                 _wifiState = WiFi_waitForConnecton;
 
                 if (DEBUG) {
-                    char s[100]; sprintf(s, "-- at %11.3fs: %s", now / 1000., "Trying to connect to WiFi...");
+                    char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                        snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                    }
+                    char s[80]; snprintf(s, sizeof(s), "-- %s : Trying to connect to WiFi. MAC is %s...", timeBuf, WiFi.macAddress().c_str());
                     DEBUG_PRINTLN(s);
-                    DEBUG_PRINTLN(WiFi.macAddress().c_str()); ////
                 }
 
                 // remember time of this WiFi connection attempt; this is also the time of the last debug print (if enabled)
@@ -51,10 +54,16 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                 if (WiFi.status() == WL_CONNECTED) {                                        // WiFi is now connected ?
                     _wifiState = WiFi_connected;
 
+                    // Central European Time, Automatic daylight saving
+                    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "pool.ntp.org");                                                                  // set time zone
+
                     if (DEBUG) {
+                        char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                            snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                        }
                         IPAddress IP = WiFi.localIP();
-                        char s[120]; sprintf(s, "-- at %11.3fs: WiFi connected, Local IP %d.%d.%d.%d (%ld dBm)",
-                            now / 1000., IP[0], IP[1], IP[2], IP[3], WiFi.RSSI());
+                        char s[80]; snprintf(s, sizeof(s), "-- %s : WiFi connected, Local IP %d.%d.%d.%d(%d dBm)",
+                            timeBuf, IP[0], IP[1], IP[2], IP[3], WiFi.RSSI());
                         DEBUG_PRINTLN(s);
                     }
                 }
@@ -83,7 +92,10 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                 _wifiState = WiFi_notConnected;
 
                 if (DEBUG) {
-                    char s[100]; sprintf(s, "-- at %11.3fs: %s", now / 1000., "WiFi disconnected");
+                    char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                        snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                    }
+                    char s[80]; snprintf(s, sizeof(s), "-- %s : WiFi disconnected", timeBuf);
                     DEBUG_PRINTLN(s);
                 }
                 WiFi.disconnect();

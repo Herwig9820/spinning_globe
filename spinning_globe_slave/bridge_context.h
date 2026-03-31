@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <pins_arduino.h>
 
-constexpr int WIRE_RECEIVE_LED{ LED_BUILTIN };              // pin 13 (receive only)
 
 enum rotStatus :uint8_t {
     rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked, // rotNoPosSync: also if rotation OFF or not floating   
@@ -17,33 +16,58 @@ enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
 
-// wire to MQTT
-constexpr const char* TOPIC_STATUS = "globe/status";
+// ========== MQTT topics ==========
+
+// ---------- publish ----------
+constexpr const char* TOPIC_STATUS = "globe/status";                                        // publish spinning globe status and settings
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
 
-// wire to MQTT
 constexpr const char* TOPIC_GLOBE_SETTINGS = "globe/settings";
 constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
 constexpr const char* TOPIC_VERT_POS_SETPOINT = "globe/vertPosSetpoint";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST = "globe/coilPhaseAdjust";
 
-// MQTT to Wire: settings changed by MQTT client (e.g., node-red)
-constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";
+// ---------- subscribed to ----------
+constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";                      // spinning globe settings published by node-red or other dashboard
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPosSetpoint/set";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/coilPhaseAdjust/set";
 
-// MQTT to Wire: MQTT client requests data from wire master (spinning globe) 
-constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";
+constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";              // node-red (or other dashboard) request to publish spinning globe settings
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPosSetpoint/request";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/request";
 
-constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/wireStats/request";
+constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/wireStats/request";////
 
-// //// comments herzien
-constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";
+constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";                            // node-red (or other dashboard) request for 'visual ring' action
+
+
+// ========== MQTT payloads: JSON payload field keys ==========
+
+// ---------- settings ----------
+constexpr const char* PAYLOAD_SECRET_TOKEN = "token";
+
+constexpr const char* PL_KEY_SET_ROT_TIME = "setRotTime";
+constexpr const char* PL_KEY_SET_LED_EFFECT = "setLedEffect";
+constexpr const char* PL_KEY_SET_LED_EFFECT_SPEED = "setLedEffectSpeed";
+constexpr const char* PL_KEY_SET_GAIN_ADJUST = "setGainAdjust";
+constexpr const char* PL_KEY_SET_DIFF_TIME_ADJUST = "setDifTimeAdjust";
+constexpr const char* PL_KEY_SET_INTEGR_TIME_ADJUST = "setIntTimeAdjust";
+constexpr const char* PL_KEY_SET_VERT_POS_SETPOINT = "setVertPosSetpoint";
+constexpr const char* PL_KEY_SET_COIL_PHASE_ADJUST = "setCoilPhaseAdjust";
+
+// ---------- actual values, measurements ----------
+constexpr const char* PL_KEY_ACT_TIME = "actRotTime";
+constexpr const char* PL_KEY_ROT_SYNC_ERROR = "rotSyncError";
+constexpr const char* PL_KEY_GREENWICH_LAG = "greenwichLag";
+constexpr const char* PL_KEY_HEATSINK_TEMP = "heatsinkTemp";
+constexpr const char* PL_KEY_MAGNET_DUTY_CYCLE = "magnetDutyCycle";
+constexpr const char* PL_KEY_ISR_DURATION = "ISRduration";
+constexpr const char* PL_KEY_PROC_LOAD = "load";
+constexpr const char* PL_KEY_VERT_POS_ERROR = "vertPosError";
+constexpr const char* PL_KEY_TTT_INTEGR_TERM = "TTTintegrTerm";
 
 
 template<typename T, size_t N>
@@ -135,6 +159,7 @@ struct SharedContext {
     I2C_s_vertPosSetpoint_set pendingVertPosSetpoint;
     I2C_s_vertPosSetpoint_set committedVertPosSetpoint;
 };
+
 
 #endif
 
