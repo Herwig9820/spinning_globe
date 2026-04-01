@@ -54,8 +54,10 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                 if (WiFi.status() == WL_CONNECTED) {                                        // WiFi is now connected ?
                     _wifiState = WiFi_connected;
 
-                    // Central European Time, Automatic daylight saving
-                    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "pool.ntp.org");                                                                  // set time zone
+                    // CET: Central European Time; -1: 1 hour east of ETC (UTC+1); CEST: Central European Summer Time (Automatic daylight saving)
+                    // CEST = CET+1 = UTC+2
+                    // last Sunday of March, at 2:00 AM clocks go forward to 3:00 AM; last Sunday of October, at 3:00 AM clocks go back to 2:00 AM
+                    configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");          
 
                     if (DEBUG) {
                         char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
