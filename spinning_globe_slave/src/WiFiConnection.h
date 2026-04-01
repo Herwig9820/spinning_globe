@@ -5,7 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <esp_sntp.h> // needed for sntp_get_sync_status()
-#include "secrets.h"
+#include "../secrets.h"
 #include "bridge_context.h"
 #include "debug.h"
 

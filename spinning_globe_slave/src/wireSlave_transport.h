@@ -69,7 +69,7 @@ Polling does not advance protocol state
 #define FG_SLAVE_TRANSPORT_h
 
 #include <arduino.h>
-#include "wire_protocol.h"
+#include "shared/wire_protocol.h"
 
 // Full memory fence for ESP32 / GCC
 #define MEMORY_BARRIER() __sync_synchronize()

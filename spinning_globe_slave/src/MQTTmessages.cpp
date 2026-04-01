@@ -1,5 +1,5 @@
 #include "MQTTmessages.h"
-#include "secrets.h"
+#include "../secrets.h"
 #include "debug.h"
 #include "json_helpers.h"
 #include "time_helpers.h"

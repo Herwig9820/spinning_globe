@@ -16,30 +16,30 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="spinning_globe_master.ino" />
-    <ClCompile Include="master_context.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="master_messages.cpp">
+    <ClCompile Include="src\master_context.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="master_transport.cpp">
+    <ClCompile Include="src\master_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="master_transport.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="master_context.cpp">
+    <ClCompile Include="src\master_transport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h">
+    <ClInclude Include="src\master_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="master_messages.h">
+    <ClInclude Include="src\master_messages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\master_transport.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">

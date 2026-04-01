@@ -1,7 +1,7 @@
 #ifndef FG_SLAVE_CONTEXT_h
 #define FG_SLAVE_CONTEXT_h
 
-#include "wire_protocol.h"
+#include "shared/wire_protocol.h"
 #include <stddef.h>
 #include <pins_arduino.h>
 

@@ -114,7 +114,7 @@ incoming wire data in method 'i2cReadMessage()'.
 
 #include "arduino.h"
 #include <util/atomic.h>                                            // atomic operations
-#include "wire_protocol.h"
+#include "shared/wire_protocol.h"
 
 class  WireMaster {
 

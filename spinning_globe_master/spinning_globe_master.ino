@@ -44,11 +44,11 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #include <avr/wdt.h>                                        // watchdog timer
 #include <limits.h>                                         // specific constants
 
-#include "wire_hw_config.h"
-#include "master_context.h"
+#include "src/shared/wire_hw_config.h"
+#include "src/master_context.h"
 #if WITH_WIRE_COMM                                          // 0: earlier floating globe version without WiFi
-#include "master_messages.h"
-#include "wire_protocol.h"  
+#include "src/master_messages.h"
+#include "src/shared/wire_protocol.h"  
 #endif
 
 #define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B

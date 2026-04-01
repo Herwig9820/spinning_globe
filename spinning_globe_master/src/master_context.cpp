@@ -1,6 +1,6 @@
 #include <util/atomic.h>                                    // atomic operations
 #include "master_context.h"
-#include "wire_hw_config.h"
+#include "shared/wire_hw_config.h"
 
 
 /*

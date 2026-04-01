@@ -16,54 +16,48 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="spinning_globe_slave.ino" />
-    <ClCompile Include="debug.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="json_helpers.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MQTTmessages.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MQTTmessages.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="secrets.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_messages.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wireSlave_transport.cpp">
+    <ClCompile Include="src\MQTTmessages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="wireSlave_transport.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="wireSlave_messages.cpp">
+    <ClCompile Include="src\WiFiConnection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WiFiConnection.cpp">
+    <ClCompile Include="src\wireSlave_messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bridge_context.h">
-      <Filter>Header Files</Filter>
+    <ClCompile Include="src\wireSlave_transport.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.spinning_globe_slave.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="WiFiConnection.h">
+    <ClInclude Include="src\bridge_context.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h">
+    <ClInclude Include="src\debug.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h">
+    <ClInclude Include="src\json_helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="time_helpers.h">
+    <ClInclude Include="src\MQTTmessages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\time_helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\WiFiConnection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\wireSlave_messages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\wireSlave_transport.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,6 @@
 #include "wireSlave_messages.h"
 #include "json_helpers.h"
-#include "wire_hw_config.h"
+#include "shared/wire_hw_config.h"
 
 WireSlaveMessages::WireSlaveMessages(SharedContext& sharedContext) : _sharedContext(sharedContext) {
 };

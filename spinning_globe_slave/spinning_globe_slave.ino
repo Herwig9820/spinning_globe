@@ -1,7 +1,7 @@
 #include <esp_task_wdt.h>
-#include "wireSlave_messages.h"
-#include "MQTTmessages.h"
-#include "time_helpers.h"
+#include "src/wireSlave_messages.h"
+#include "src/MQTTmessages.h"
+#include "src/time_helpers.h"
 
 constexpr uint32_t WDT_TIMEOUT = 60;        // 60 seconds
 
