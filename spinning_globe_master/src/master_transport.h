@@ -27,7 +27,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
-An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
 Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
@@ -123,9 +123,6 @@ class  WireMaster {
 private:
     static constexpr  uint8_t I2C_SLAVE_ADDR = 9;
     static constexpr uint32_t I2C_CLOCK = 100000UL;                 // 100 or 400 kHz
-
-    // Packet (message) sizing //// naar wire protocol
-    static constexpr uint8_t HEADER_SIZE = 3;                       // message type and length, (not currently used) version byte
 
     // Ring queue
     static constexpr uint8_t TX_QUEUE_SIZE = 4;                     // queue depths     

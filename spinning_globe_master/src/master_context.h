@@ -27,7 +27,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
-An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
 Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
@@ -63,8 +63,8 @@ enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow,
 constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps     //// overal implementeren   
 constexpr uint8_t centerPointStep{ settingSteps / 2 };      //// overal implementeren
 
-constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };                      // milliseconds
-constexpr uint32_t spareTimeCount{ 500 };                                               // milliseconds
+constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };  // milliseconds
+constexpr uint32_t spareTimeCount{ 500 };                           // milliseconds
 
 // ========== indexes in globe attributes list: attributes with user selectable values ==========
 
@@ -81,11 +81,11 @@ constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((v
 
 
 /*v1.0.1 high speed rotation times adapted or created new*/
-constexpr long const rotationTimes[] = { 0, 750, 1500, 3000, 4500, 6000, 7500, 9000, 12000 }; ////  // values must be divisible by 12 (steps), 0 means OFF
+constexpr long const rotationTimes[] = { 0, 750, 1500, 3000, 4500, 6000, 7500, 9000, 12000 }; //// 900  // values must be divisible by 12 (steps), 0 means OFF
 #if highAnalogGain                                                                              // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #else
-constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                       // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
+constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };                           // ADC setpoint expressed in mV (hall output after 10 x amplification by opamp, converted to mVolt)
 #endif
 
 
@@ -93,7 +93,7 @@ constexpr long const hallMilliVolts[] = { 1000, 1200, 1400, 1600, 1800 };       
 // array 'globeMetricsLabels' contains the corresponding labels 
 
 // globe attributes: '1': editable setting / '0': calculated value
-constexpr long const globeMetrics_editableFlags{ 0b11110000010000001 };                           // LSB: first globe selectedAttribute in list
+constexpr long const globeMetrics_editableFlags{ 0b11110000010000001 };                         // LSB: first globe selectedAttribute in list
 
 // globe attributes: lengths of individual value lists (0 if no value list (value range) or not a setting
 constexpr int const globeMetrics_listLengths[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
@@ -202,7 +202,7 @@ The ring consists of m (m>=1) identical sequences, separated by a pause.
 A sequence consists of n (n>=1) alternating states A and B (e.g., 3 states: ABA).
 Each alternating state (A and B) has a common duration (d>=1), expressed in steps. The pause p has a fixed duration (expressed in steps).
 
-Use: control the ringing of a bell, the flashing of a led... based on the output signal produced by a VisualRing object. 
+Use: control the ringing of a bell, the flashing of a led... based on the output signal produced by a VisualRing object.
 
 Example: m = 2, n = 3, d=4. Sequential states:  AAAA BBBB AAAA pppppppp AAAA BBBB AAAA (end of ring)
 
@@ -228,13 +228,13 @@ class VisualRing {
 
     uint8_t _stateCount;            // number of states per sequence (counted in steps)
     uint8_t _stateDuration;         // duration of normal states (counted in steps)
-    
+
     uint8_t _sequenceCounter;       // remaining sequences in the ring; counts down
     uint8_t _stateCounter;          // remaining states in current sequence; counts down; b0: state A or B, b7: 'state changes NOW'
     uint8_t stepCounter;            // remaining steps to next state change (in steps); counts down
-    
+
     uint8_t _ringState;             // current state (0 = no ring underway, 1 = pause between two ring sequences, 2, 3 = state A, B)
-    
+
 public:
     // public interface
     bool startRing(uint8_t sequenceCount, uint8_t stateCount, uint8_t stateDuration);
@@ -252,7 +252,7 @@ private:
     volatile uint32_t milliSecond{ 0 }, second{ 0 };
 
 public:
-    
+
     uint32_t inline getSecond();
     uint32_t inline getMillis(uint32_t* secondsPtr = nullptr);
     uint32_t inline incrementMillis();
@@ -261,14 +261,14 @@ public:
 
 uint32_t inline GlobeTime::getSecond() {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        return second;                                                 // 0 to 999
+        return second;                                                 
     }
 }
 
-uint32_t inline GlobeTime::getMillis(uint32_t* secondsPtr) {                       // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
+uint32_t inline GlobeTime::getMillis(uint32_t* secondsPtr) {            // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
-        return milliSecond;                                                 // 0 to 999
+        return milliSecond;                                             
     }
 }
 
@@ -276,7 +276,7 @@ uint32_t inline GlobeTime::incrementMillis() {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         milliSecond++;            // total
         if (milliSecond == oneSecondCount) { milliSecond = 0; second++; }
-        return milliSecond;                                                 // 0 to 999
+        return milliSecond;                                             
     }
 }
 

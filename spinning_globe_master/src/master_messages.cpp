@@ -27,7 +27,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
-An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
 Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
@@ -63,7 +63,7 @@ MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statu
 MessageHandling::~MessageHandling() {};
 
 uint8_t MessageHandling::transmit() {
-    return (uint8_t)_wireMaster.sendAndReceiveMessage();                                // return master or slave message in error
+    return (uint8_t)_wireMaster.sendAndReceiveMessage();                                    // return master or slave message in error
 }
 
 // ========== enqueue data to send buffer ==========
@@ -80,7 +80,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         case MsgType::M_MSG_HELLO: //not yet implemented !                                                    
         {
-            _wireMaster.enqueueTx(M_MSG_HELLO, 0, nullptr, S_MSG_HELLO_ACK, 0);         // no payload
+            _wireMaster.enqueueTx(M_MSG_HELLO, 0, nullptr, S_MSG_HELLO_ACK, 0);             // no payload
         }
         break;
 
@@ -88,8 +88,8 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         case MsgType::M_MSG_PING:
         {
-           // sent regularly; allows slave to reply and ingorm master that either it has data for, or it requests data from master
-            _wireMaster.enqueueTx(M_MSG_PING, 0, nullptr, S_MSG_ACK, sizeof(I2C_s_ack));                // no payload
+           // sent regularly; allows slave to reply and inform master that either it has data for, or it requests data from master
+            _wireMaster.enqueueTx(M_MSG_PING, 0, nullptr, S_MSG_ACK, sizeof(I2C_s_ack));    // no payload
         }
         break;
 
@@ -134,7 +134,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         case  MsgType::M_MSG_TELEMETRY:
         {
             I2C_m_secondCue p{};
-            p.tempSmooth = _smoothedMeasurements.tempSmooth;                            // raw input for wire slave
+            p.tempSmooth = _smoothedMeasurements.tempSmooth;                                // raw input for wire slave
             p.magnetOnCyclesSmooth = _smoothedMeasurements.magnetOnCyclesSmooth;
             p.ISRdurationSmooth = _smoothedMeasurements.ISRdurationSmooth;
             p.idleLoopMicrosSmooth = _smoothedMeasurements.idleLoopMicrosSmooth;

@@ -1,7 +1,44 @@
-#include <util/atomic.h>                                    // atomic operations
+/*
+==================================================================================================
+Floating and spinning earth globe
+---------------------------------
+Copyright 2019, 2026 Herwig Taveirne
+
+Program written and tested for classic (8-bit) Arduino Nano.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of this project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+---------------------------------------------------------------------------------------------------
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
+over WiFi, e.g. using MQTT.
+
+Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
+...will be inoperable (switches are still functioning). USB terminal is not used except for a welcome message.
+
+===============================================================================================
+*/
+
+#include <util/atomic.h>                                    
 #include "master_context.h"
 #include "shared/wire_hw_config.h"
-
 
 /*
 ============================================================================
@@ -32,6 +69,10 @@ bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** me
             OK = (freeChunkSize >= newChunkSize);
             wrap = OK;
         }
+
+    #if TRACK_FREE_MEM
+        trackFree();
+    #endif
 
         if (OK) {                                                                                   // room available to store next message
             if (isEmpty) { oldestMessageStartPtr = eventBuffer; newestMessageStartPtr = eventBuffer; }
@@ -126,7 +167,7 @@ Class: getMillis and getMicros function based on timer1 and own time counting lo
 
 
 // execution time is very close to 20 microSeconds (16MHz clock)
-uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {                       // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
+uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         if (secondsPtr != nullptr) { *secondsPtr = second; }            // total running
         m_milliSecond = milliSecond;                                    // 0 to 999
@@ -172,6 +213,10 @@ bool VisualRing::startRing(uint8_t sequenceCount, uint8_t stateCount, uint8_t st
 
 // ========== advance one step in the ring sequence ==========
 void VisualRing::advanceRing() {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
     if (_sequenceCounter != 0) {                        // Still sequences to process ?
         // end of a sequence ? Decrement sequence counter and (if not all sequences handled) reload state counter 
         if (_stateCounter == 0) {

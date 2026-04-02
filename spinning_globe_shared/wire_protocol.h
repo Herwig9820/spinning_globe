@@ -27,7 +27,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
-An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
 Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
@@ -218,6 +218,8 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 
 #include <stdint.h> 
 
+// Packet (message) sizing 
+static constexpr uint8_t HEADER_SIZE = 3;                       
 static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;                   // max. payload sizes in bytes 
 static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
 
@@ -300,7 +302,7 @@ struct __attribute__((packed)) I2C_globeSettings {
     uint8_t rotationPeriodIndex;                // index into array with defined rotation periods 
     uint8_t ledEffect;                          // led effect number
     uint8_t ledCycleSpeed;                      // led effect speed number
-    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
+    uint8_t slaveHasData{ 0 };                  // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_PIDsettings {
@@ -312,7 +314,7 @@ struct __attribute__((packed)) I2C_PIDsettings {
 
 struct __attribute__((packed)) I2C_vertPosSetpoint {
     uint8_t vertPosIndex;                       // index into array with vert. positions (in mV)
-    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
+    uint8_t slaveHasData{ 0 };                  // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_coilPhaseAdjust {
@@ -367,8 +369,8 @@ using I2C_m_buttonStates = I2C_buttonStates;
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
 struct __attribute__((packed))I2C_messageStats {
-    uint32_t I_stats_replyReceived{ 0 };     // reply message received
-    uint32_t E_stats_lockStepError{ 0 };     // this is not a wire level error but a message level error
+    uint32_t I_stats_replyReceived{ 0 };        // reply message received
+    uint32_t E_stats_lockStepError{ 0 };        // this is not a wire level error but a message level error
 };
 using I2C_m_msgStats = I2C_messageStats;
 
@@ -379,8 +381,8 @@ struct __attribute__((packed)) I2C_s_ack {
     uint8_t ack;                                    // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
-    uint8_t action{ M_ACTION_NONE };                                  // action requested from master
-    uint8_t requestMasterMsgType{M_MSG_NONE};                   // slave requests master to send message type
+    uint8_t action{ M_ACTION_NONE };            // action requested from master
+    uint8_t requestMasterMsgType{M_MSG_NONE};   // slave requests master to send message type
 
 };
 

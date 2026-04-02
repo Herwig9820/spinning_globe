@@ -27,7 +27,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
-An Arduino nano esp32, acting as wire slave, will control the spinning globe (change settings, check states)
+An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
 Note that, if the program is compiled with this option enabled, hardware buttons and LCD (connector SV2)...
@@ -95,6 +95,10 @@ RING BUFFER IMPLEMENTATION
 //  ========== enqueueTx: safe from ISR. Returns true if enqueued, false if queue full ==========
 
 bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyMsgType, uint8_t expReplyPayloadSize) {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
     uint8_t next = (txHead + 1) % TX_QUEUE_SIZE;
     if (next == txTail) {                                           // queue full ?
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterSendStats.E_stats_tx_full++; }
@@ -125,6 +129,10 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
 // ========== dequeueRx: safe from ISR. Returns true if enqueued, false if queue empty ==========
 
 bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload, uint8_t& expReplyMsgType) {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
 
     // 8-bit index: atomic access by nature
     if (rxHead == rxTail) { return false; }                         // rx queue empty ?
@@ -153,6 +161,10 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
 // must be frequently called from within main loop 
 
 WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
 
     static uint8_t expReplyMsgType, expReplyMsgSize{};
 
@@ -319,6 +331,10 @@ void WireMaster::getReceiveStats(I2C_MasterReceiveStats& receiveStatSnapshot) {
 // ================= HELPERS: SEND TX QUEUE TAIL  =================
 
 bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize) {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
     uint8_t head, tail;
     head = txHead;
     tail = txTail;
@@ -338,6 +354,10 @@ bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgTy
 
 
 bool WireMaster::i2cWriteMessage(const uint8_t* out) {
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
 
     uint8_t msgLength = HEADER_SIZE + out[1] + 1;                   // message ID, payload length, checksum
     bool ok{ false };
@@ -353,7 +373,11 @@ bool WireMaster::i2cWriteMessage(const uint8_t* out) {
 // ========== HELPERS: RECEIVE RX QUEUE HEAD ===========
 
 bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
-    // if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
+// if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
 
     const uint32_t timeoutValue = 250 + 50 * expReplyMsgSize;       // microseconds; allowed timeout depends on message size  
     Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)expReplyMsgSize);
@@ -379,7 +403,11 @@ bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t ex
 
 
 WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
-    // compute next head index in standard SPSC ring-buffer
+#if TRACK_FREE_MEM
+    trackFree();
+#endif
+
+// compute next head index in standard SPSC ring-buffer
     uint8_t head = rxHead;
     uint8_t next = (head + 1) % RX_QUEUE_SIZE;
 
