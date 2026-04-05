@@ -51,7 +51,7 @@ Wire master: message handling layer
 
 class MessageHandling {
 
-    I2C_messageStats _msgStats{};       // message level stats
+    I2C_m_messageStats _msgStats{};       // message level stats
 
     GreenwichData& _greenwichData;
     StatusData& _statusData;
@@ -66,9 +66,6 @@ class MessageHandling {
     int* _globeMetrics;
 
     WireMaster _wireMaster;
-
-    using I2C_m_masterSendStats = WireMaster::I2C_MasterSendStats;
-    using I2C_m_masterReceiveStats = WireMaster::I2C_MasterReceiveStats;
 
         
     /* ========== METHODS ========== */

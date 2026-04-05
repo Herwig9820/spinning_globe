@@ -186,27 +186,11 @@ public:
         E_rx_full
     };
 
-    // keep track of master send & receive stats
-    struct I2C_MasterSendStats {
-        uint32_t I_stats_tx_sent = 0;                               // info: counts     
-        uint32_t W_stats_tx_retrying = 0;                           // warning: count 
-        uint32_t E_stats_tx_wireXmitError = 0;
-        uint32_t E_stats_tx_full = 0;                               // errors: counts
-    };
-
-    struct I2C_MasterReceiveStats {
-        uint32_t I_stats_rx_received = 0;
-        uint32_t E_stats_rx_checksum = 0;
-        uint32_t E_stats_rx_timeOut = 0;
-        uint32_t E_stats_rx_full = 0;
-    };
-
-    volatile I2C_MasterSendStats masterSendStats{};
-    volatile I2C_MasterReceiveStats masterReceiveStats{};
-
 private:
     volatile bool& _triggerWireCommLed;
 
+    I2C_m_masterSendStats masterSendStats;
+    I2C_m_masterReceiveStats masterReceiveStats;
 public:
 
 
@@ -223,8 +207,8 @@ public:
     // should be called frequently from application main loop
     WireStatus sendAndReceiveMessage();
 
-    void getSendStats(I2C_MasterSendStats& sendStatSnapshot);
-    void getReceiveStats(I2C_MasterReceiveStats& receiveStatSnapshot);
+    void getSendStats(I2C_m_masterSendStats& sendStatSnapshot);
+    void getReceiveStats(I2C_m_masterReceiveStats& receiveStatSnapshot);
 
 private:
     // helpers: called from sendAndReceiveMessage()

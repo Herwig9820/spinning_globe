@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="shared">
+      <UniqueIdentifier>{9de414e7-8031-4629-9ae0-14c515dc6b55}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="spinning_globe_slave.ino" />
@@ -59,6 +62,12 @@
     </ClInclude>
     <ClInclude Include="src\wireSlave_transport.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\wire_hw_config.h">
+      <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shared\wire_protocol.h">
+      <Filter>shared</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

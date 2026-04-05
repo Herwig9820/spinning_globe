@@ -121,7 +121,7 @@ private:
 
     enum SlaveWaitState { SS_WAIT_FOR_POLL_REPLY_REQUEST, SS_WAIT_FOR_REPLY_REQUEST };
 
-    struct I2C_slaveCommStats {
+    struct I2C_wireSlaveCommStats {
         uint32_t I_stats_sent = 0;              // send: msg from tx queue -> wire out
         uint32_t I_stats_received = 0;          // receive: msg from wire in -> rx queue
         uint32_t E_stats_tx_full = 0;           // send: tx queue full (enqueue failed)
@@ -133,7 +133,7 @@ private:
     /* ================= METHODS ================= */
 
     volatile SlaveWaitState waitState{ SS_WAIT_FOR_POLL_REPLY_REQUEST };
-    volatile I2C_slaveCommStats slaveCommStats{};
+    volatile I2C_wireSlaveCommStats wireSlaveCommStats{};
 
     static void wireReceiveEvent(int byteCount);
     static void wireRequestEvent();
@@ -150,7 +150,7 @@ public:
 
     bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize);
     bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize);
-    void getCommStats(I2C_slaveCommStats& commStatSnapshot);
+    void getCommStats(I2C_wireSlaveCommStats& commStatSnapshot);
 };
 
 #endif

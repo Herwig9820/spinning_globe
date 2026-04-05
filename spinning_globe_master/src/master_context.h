@@ -81,7 +81,7 @@ constexpr uint8_t LSmaxBrightnessLevel{ 0xff };             // 0x7f or 0xff; ((v
 
 
 /*v1.0.1 high speed rotation times adapted or created new*/
-constexpr long const rotationTimes[] = { 0, 750, 1500, 3000, 4500, 6000, 7500, 9000, 12000 }; //// 900  // values must be divisible by 12 (steps), 0 means OFF
+constexpr long const rotationTimes[] = { 0, 900, 1500, 3000, 4500, 6000, 7500, 9000, 12000 };   // values must be divisible by 12 (steps), 0 means OFF
 #if highAnalogGain                                                                              // TWO limits: voltage before opamp >= 100 mV, voltage after opamp <= 2700 mV (prevent output saturation)
 constexpr long const hallMilliVolts[] = { 1500, 1800, 2100, 2400, 2700 };                       // ADC setpoint expressed in mV (hall output after 15 x amplification by opamp, converted to mVolt)
 #else
@@ -253,32 +253,30 @@ private:
 
 public:
 
-    uint32_t inline getSecond();
-    uint32_t inline getMillis(uint32_t* secondsPtr = nullptr);
-    uint32_t inline incrementMillis();
     uint32_t getMicros(uint32_t* secondsPtr = nullptr);
+
+    uint32_t inline incrementMillis999() {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            milliSecond++;            // total
+            if (milliSecond == oneSecondCount) { milliSecond = 0; second++; }
+            return milliSecond;
+        }
+    }
+
+    uint32_t inline getSecond() {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            return second;
+        }
+    }
+
+    uint32_t inline getMillis(uint32_t* secondsPtr = nullptr) {            // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+            if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
+            return milliSecond;
+        }
+    }
 };
 
-uint32_t inline GlobeTime::getSecond() {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        return second;                                                 
-    }
-}
-
-uint32_t inline GlobeTime::getMillis(uint32_t* secondsPtr) {            // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
-        return milliSecond;                                             
-    }
-}
-
-uint32_t inline GlobeTime::incrementMillis() {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        milliSecond++;            // total
-        if (milliSecond == oneSecondCount) { milliSecond = 0; second++; }
-        return milliSecond;                                             
-    }
-}
 
 class GlobeEvents {
 private:

@@ -22,6 +22,7 @@ enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow,
 constexpr const char* TOPIC_STATUS = "globe/status";                                        // publish spinning globe status and settings
 constexpr const char* TOPIC_GREENWICH = "globe/greenwich";
 constexpr const char* TOPIC_TELEMETRY = "globe/telemetry";
+constexpr const char* TOPIC_TELEMETRY_EXTRA = "globe/telemetryExtra";
 
 constexpr const char* TOPIC_GLOBE_SETTINGS = "globe/settings";
 constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
@@ -68,7 +69,10 @@ constexpr const char* PL_KEY_ISR_DURATION = "ISRduration";
 constexpr const char* PL_KEY_PROC_LOAD = "load";
 constexpr const char* PL_KEY_VERT_POS_ERROR = "vertPosError";
 constexpr const char* PL_KEY_TTT_INTEGR_TERM = "TTTintegrTerm";
-
+constexpr const char* PL_KEY_SECONDS_FLOATING ="secondsFloating";
+constexpr const char* PL_KEY_EVENTS_MISSED ="eventsMissed";
+constexpr const char* PL_KEY_MAX_EVENTS_PENDING ="maxEventsPending";
+constexpr const char* PL_KEY_MAX_EVENT_QUEUE_BYTES_USED ="maxEventQueueBytesUsed";
 
 template<typename T, size_t N>
 
@@ -134,15 +138,16 @@ struct SharedContext {
     // MQTT to wire flows: holding queue 
     SPSCQueue<AckPayload, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
 
+    
+    // ---------- other variables ----------
     volatile bool triggerWireCommLed{false};
+
+    // MQTT publish timestamp
+    uint32_t lastMQTTpublish = 0;
 
     // Optional: shared counters
     uint32_t mqttMessagesSent = 0;
     uint32_t wireMessagesSent = 0;
-
-    // Optional: timestamps
-    uint32_t lastMQTTpublish = 0;
-    uint32_t lastWireActivity = 0;
 
 
     // ---------- wire slave has data for wire master ----------

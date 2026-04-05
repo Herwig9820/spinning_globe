@@ -78,7 +78,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         // ========== message type requesting a hello acknowledge from slave ==========
 
-        case MsgType::M_MSG_HELLO: //not yet implemented !                                                    
+        case MsgType::M_MSG_HELLO:                                                          //NOTE: logic not yet implemented !                                                    
         {
             _wireMaster.enqueueTx(M_MSG_HELLO, 0, nullptr, S_MSG_HELLO_ACK, 0);             // no payload
         }
@@ -133,7 +133,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
         case  MsgType::M_MSG_TELEMETRY:
         {
-            I2C_m_secondCue p{};
+            I2C_m_telemetry p{};
             p.tempSmooth = _smoothedMeasurements.tempSmooth;                                // raw input for wire slave
             p.magnetOnCyclesSmooth = _smoothedMeasurements.magnetOnCyclesSmooth;
             p.ISRdurationSmooth = _smoothedMeasurements.ISRdurationSmooth;
@@ -141,6 +141,17 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
             p.errSignalMagnitudeSmooth = _smoothedMeasurements.errSignalMagnitudeSmooth;
             p.realTTTintegrationTerm = _secondData.realTTTintegrationTerm;
             _wireMaster.enqueueTx(M_MSG_TELEMETRY, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
+        }
+        break;
+
+        case  MsgType::M_MSG_TELEMETRY_EXTRA:
+        {
+            I2C_m_telemetry_extra p{};
+            p.secondsFloating = _secondData.liftingSecond;                                   // raw input for wire slave
+            p.eventsMissed = _globeEventSnapshot.eventsMissed;
+            p.currentMaxEventsPending = _globeEventSnapshot.largestEventsPending;
+            p.largestEventBufferBytesUsed = _globeEventSnapshot.largestEventBufferBytesUsed;
+            _wireMaster.enqueueTx(M_MSG_TELEMETRY_EXTRA, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 
@@ -212,17 +223,6 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
         {
             // note: _msgStats is already up to date 
             _wireMaster.enqueueTx(M_MSG_MESSAGE_STATS, sizeof(_msgStats), &_msgStats, S_MSG_ACK, sizeof(I2C_s_ack));
-        }
-        break;
-
-        // send spinning globe stats to wire slave
-        case MsgType::M_MSG_GLOBE_STATS:
-        {
-            I2C_m_GlobeStats p{};
-            p.eventsMissed = _globeEventSnapshot.eventsMissed;
-            p.largestEventsPending = _globeEventSnapshot.largestEventsPending;
-            p.largestEventBufferBytesUsed = _globeEventSnapshot.largestEventBufferBytesUsed;
-            _wireMaster.enqueueTx(M_MSG_GLOBE_STATS, sizeof(_globeEventSnapshot), &_globeEventSnapshot, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
 

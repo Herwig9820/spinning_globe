@@ -42,10 +42,10 @@
     <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\spinning_globe_shared\wire_hw_config.h">
+    <ClInclude Include="src\shared\wire_hw_config.h">
       <Filter>shared</Filter>
     </ClInclude>
-    <ClInclude Include="..\spinning_globe_shared\wire_protocol.h">
+    <ClInclude Include="src\shared\wire_protocol.h">
       <Filter>shared</Filter>
     </ClInclude>
   </ItemGroup>

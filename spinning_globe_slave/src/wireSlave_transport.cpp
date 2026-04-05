@@ -49,7 +49,7 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
     bool empty = txEmpty;                   // atomic read (8 bit)
 
     if (!empty) {
-        slaveCommStats.E_stats_tx_full++;   // single writer
+        wireSlaveCommStats.E_stats_tx_full++;   // single writer
         return false;
     }
 
@@ -96,10 +96,10 @@ bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t&
 
 // ========== GET slave send and receive stats ==========
 
-void WireSlave::getCommStats(I2C_slaveCommStats& commStatSnapshot) {
+void WireSlave::getCommStats(I2C_wireSlaveCommStats& commStatSnapshot) {
 
     portENTER_CRITICAL(&wireMux);
-    commStatSnapshot = const_cast<const I2C_slaveCommStats&>(slaveCommStats);
+    commStatSnapshot = const_cast<const I2C_wireSlaveCommStats&>(wireSlaveCommStats);
     portEXIT_CRITICAL(&wireMux);
 }
 
@@ -138,7 +138,7 @@ void WireSlave::pushIncomingWireMsg(int byteCount) {
 
     if (tmp[byteCount - 1] != sum) {
         // increment stats_errors atomically
-        slaveCommStats.E_stats_rx_checksum++;
+        wireSlaveCommStats.E_stats_rx_checksum++;
         return;                                 // invalid message
     }
 
@@ -146,13 +146,13 @@ void WireSlave::pushIncomingWireMsg(int byteCount) {
 
     bool empty = rxEmpty;
     if (!empty) {                               // Buffer full -> drop packet
-        slaveCommStats.E_stats_rx_full++;
+        wireSlaveCommStats.E_stats_rx_full++;
         return;
     }
 
     for (int i = 0; i < byteCount; i++) { rxQueue[i] = tmp[i]; }
 
-    slaveCommStats.I_stats_received++;
+    wireSlaveCommStats.I_stats_received++;
 
     RELEASE_BARRIER();                          // Ensure packet bytes are visible BEFORE publishing
 
@@ -183,7 +183,7 @@ void WireSlave::popOutgoingWireMsg() {
     uint8_t msgSize = txQueue[1] + HEADER_SIZE + 1;
     Wire.write((uint8_t*)(txQueue), msgSize);
 
-    slaveCommStats.I_stats_sent++;
+    wireSlaveCommStats.I_stats_sent++;
 
     txEmpty = true;
 

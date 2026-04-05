@@ -237,12 +237,12 @@ enum MsgType : uint8_t {
     M_MSG_GREENWICH = 0x23,             // globe Greenwich meridian passes hall detector
     M_MSG_STATUS = 0x24,                // globe status changes
     M_MSG_TELEMETRY = 0x25,             // heatsink temp., magnet duty cycle, ...
+    M_MSG_TELEMETRY_EXTRA = 0x26,       // number of minutes the globe is floating
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
-    M_MSG_SEND_STATS = 0x26,            // master library: send stats
-    M_MSG_RECEIVE_STATS = 0x27,         // master library: receive stats
-    M_MSG_MESSAGE_STATS = 0x28,         // message library: message stats
-    M_MSG_GLOBE_STATS = 0x29,           // floating globe stats
+    M_MSG_SEND_STATS = 0x28,            // wire transport send stats
+    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats
+    M_MSG_MESSAGE_STATS = 0x2A,         // wire message stats
 
     // message types to send current master settings to slave. Slave reply: ACK message type
     M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...
@@ -322,7 +322,7 @@ struct __attribute__((packed)) I2C_coilPhaseAdjust {
     uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
 };
 
-struct __attribute__((packed))   I2C_buttonStates {
+struct __attribute__((packed)) I2C_buttonStates {
     uint8_t buttonStates;
     uint8_t slaveHasData{ 0 };
 };
@@ -341,7 +341,7 @@ struct __attribute__((packed)) I2C_m_greenwich {
     uint8_t status;
 };
 
-struct __attribute__((packed)) I2C_m_secondCue {
+struct __attribute__((packed)) I2C_m_telemetry {
     int32_t tempSmooth;
     float magnetOnCyclesSmooth;
     float ISRdurationSmooth;
@@ -350,11 +350,11 @@ struct __attribute__((packed)) I2C_m_secondCue {
     int32_t realTTTintegrationTerm;
 };
 
-struct __attribute__((packed))I2C_m_GlobeStats {
-    uint8_t largestEventsPending{ 0 };              // No of ISR events currently logged for processing in main loop 
+struct __attribute__((packed)) I2C_m_telemetry_extra {
+    float secondsFloating;
+    uint8_t currentMaxEventsPending{ 0 };              // No of ISR events currently logged for processing in main loop 
     uint16_t largestEventBufferBytesUsed{ 0 };      // No of ISR events logged for processing in main loop: all-time max
     uint32_t eventsMissed{ 0 };                     // keeps track of events missed (not used at this stage)    
-
 };
 
 // ensure consistency between master and slave
@@ -365,14 +365,28 @@ using I2C_m_vertPosSetpoint = I2C_vertPosSetpoint;
 using I2C_m_buttonStates = I2C_buttonStates;
 
 
-
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
-struct __attribute__((packed))I2C_messageStats {
-    uint32_t I_stats_replyReceived{ 0 };        // reply message received
-    uint32_t E_stats_lockStepError{ 0 };        // this is not a wire level error but a message level error
+struct __attribute__((packed))I2C_m_messageStats {
+    // message level counters; not wire level
+    uint32_t I_stats_replyReceived{ 0 };        
+    uint32_t E_stats_lockStepError{ 0 };        
 };
-using I2C_m_msgStats = I2C_messageStats;
+
+// keep track of master send & receive stats
+struct I2C_m_masterSendStats {
+    uint32_t I_stats_tx_sent = 0;                               // info: counts     
+    uint32_t W_stats_tx_retrying = 0;                           // warning: count 
+    uint32_t E_stats_tx_wireXmitError = 0;
+    uint32_t E_stats_tx_full = 0;                               // errors: counts
+};
+
+struct I2C_m_masterReceiveStats {
+    uint32_t I_stats_rx_received = 0;
+    uint32_t E_stats_rx_checksum = 0;
+    uint32_t E_stats_rx_timeOut = 0;
+    uint32_t E_stats_rx_full = 0;
+};
 
 
 // ========== I2C message payloads: messages from slave to master ==========

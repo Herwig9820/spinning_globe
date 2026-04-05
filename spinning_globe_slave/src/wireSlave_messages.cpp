@@ -55,8 +55,16 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_TELEMETRY:
         {
-            I2C_m_secondCue* pSecondCue = reinterpret_cast<I2C_m_secondCue*>(payloadIn);
-            convertSecondCueToMQTT(pSecondCue);
+            I2C_m_telemetry* pTelemetry = reinterpret_cast<I2C_m_telemetry*>(payloadIn);
+            convertTelemetryToMQTT(pTelemetry);
+            replyAndFlagSlaveDataAvailable();
+        }
+        break;
+
+        case MsgType::M_MSG_TELEMETRY_EXTRA:
+        {
+            I2C_m_telemetry_extra* pTelemetryExtra = reinterpret_cast<I2C_m_telemetry_extra*>(payloadIn);
+            convertTelemetryExtraToMQTT(pTelemetryExtra);
             replyAndFlagSlaveDataAvailable();
         }
         break;
@@ -80,13 +88,6 @@ bool WireSlaveMessages::loop() {
 
         // receive wire master message library stats
         case MsgType::M_MSG_MESSAGE_STATS:
-        {
-            replyAndFlagSlaveDataAvailable();
-        }
-        break;
-
-        // receive spinning globe event stats
-        case MsgType::M_MSG_GLOBE_STATS:
         {
             replyAndFlagSlaveDataAvailable();
         }
@@ -201,7 +202,7 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
     _sharedContext.queueToMQTT.push(msg);
 };
 
-void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
+void WireSlaveMessages::convertTelemetryToMQTT(I2C_m_telemetry* p) {
     float tempC = p->tempSmooth / 100.0f;
     float magnetDutyCycle = (p->magnetOnCyclesSmooth / fastDataRateSamplingPeriods) * 100.0f / (float)timer1Top;
     float isrDuration = p->ISRdurationSmooth / fastDataRateSamplingPeriods;
@@ -220,6 +221,21 @@ void WireSlaveMessages::convertSecondCueToMQTT(I2C_m_secondCue* p) {
     JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_VERT_POS_ERROR, "\"%.1f mV\"", vertPosAvgError);
     JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_TTT_INTEGR_TERM, "\"%6ld\"", p->realTTTintegrationTerm);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    msg.retain = true;
+    _sharedContext.queueToMQTT.push(msg);
+}
+
+void WireSlaveMessages::convertTelemetryExtraToMQTT(I2C_m_telemetry_extra* p){
+    MQTTmsgFromWire msg{};
+    // JSON
+    snprintf(msg.topic, sizeof(msg.topic), TOPIC_TELEMETRY_EXTRA);
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_SECONDS_FLOATING, "\"%lu\"", (uint32_t)(p->secondsFloating));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_EVENTS_MISSED, "\"%lu\"", p->eventsMissed);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENTS_PENDING, "\"%u\"", p->currentMaxEventsPending);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENT_QUEUE_BYTES_USED, "\"%u\"", p->largestEventBufferBytesUsed);
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
+    Serial.print("topic "); Serial.print(msg.topic); Serial.print(", payload "); Serial.println(msg.payload);
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
 }

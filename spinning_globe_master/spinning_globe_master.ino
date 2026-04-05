@@ -145,7 +145,7 @@ constexpr char str_build_start[] PROGMEM = "=== Spinning Globe Master  v";
 constexpr char str_build_end[] PROGMEM = " ===\r\n";
 constexpr char str_copyRight[] PROGMEM = "Copyright 2019, 2026 ";
 constexpr char str_herwig[] PROGMEM = "Herwig Taveirne";
-constexpr char str_star_line[] PROGMEM =  "******************";
+constexpr char str_star_line[] PROGMEM = "******************";
 
 constexpr char str_empty16[] PROGMEM = "                ";
 
@@ -643,7 +643,7 @@ void setup()
     Serial.print(strcpy_P(s30, str_star_line));
     Serial.println(strcpy_P(s30, str_star_line));
     Serial.println();
-    
+
 
 #if WITH_WIRE_COMM
     Serial.println(F("Control over I2C enabled. Hardware buttons, LCD and USB input disabled.\r\nUse on-board switches to change settings locally.\r\n"));
@@ -720,8 +720,7 @@ void loop()
 
     if (slaveRequestNextAction == Action::M_ACTION_RING) {
         // initiate a ring sequence
-        Serial.println("initiate ring");
-        visualRing.startRing(3, 12, 1);     // 3 times 12 color changes, color change after 1 step (one step is 128 ms - see .advinceRing())
+        visualRing.startRing(3, 16, 1);             // <p1> times <p2> color changes, color change after <p3> steps (one step is 128 ms - see .advinceRing())
     }
 
 #if DEBUG
@@ -1025,9 +1024,9 @@ void processCommand() {
                     case attributeIndex_gainAdjust:         pidSettings.gainAdjustSteps = selectedAttribute.attributeValue; break;
                     case attributeIndex_intTimeConstAdjust: pidSettings.intTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                     case attributeIndex_difTimeConstAdjust: pidSettings.difTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
-                    case attributeIndex_coilPhaseAdjust:        phaseAdjustSteps = selectedAttribute.attributeValue; break;
-                    default:                         globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
+                    case attributeIndex_coilPhaseAdjust:    phaseAdjustSteps = selectedAttribute.attributeValue; break;
                 }
+                globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue;
                 doSaveParams = true;
             }
         }
@@ -1038,9 +1037,9 @@ void processCommand() {
                 case attributeIndex_gainAdjust:         pidSettings.gainAdjustSteps = selectedAttribute.attributeValue; break;
                 case attributeIndex_intTimeConstAdjust: pidSettings.intTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
                 case attributeIndex_difTimeConstAdjust: pidSettings.difTimeCstAdjustSteps = selectedAttribute.attributeValue; break;
-                case attributeIndex_coilPhaseAdjust:        phaseAdjustSteps = selectedAttribute.attributeValue; break;
-                default:                         globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue; break;
+                case attributeIndex_coilPhaseAdjust:    phaseAdjustSteps = selectedAttribute.attributeValue; break;
             }
+            globeMetrics[selectedAttribute.attributeIndex] = selectedAttribute.attributeValue;
             selectedAttribute.attributeChangeMode = false;
             doSaveParams = true;
             break;
@@ -1051,8 +1050,8 @@ void processCommand() {
                 case attributeIndex_intTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.intTimeCstAdjustSteps; break;
                 case attributeIndex_difTimeConstAdjust: selectedAttribute.attributeValue = pidSettings.difTimeCstAdjustSteps; break;
                 case attributeIndex_coilPhaseAdjust: selectedAttribute.attributeValue = phaseAdjustSteps; break;
-                default: selectedAttribute.attributeValue = globeMetrics[selectedAttribute.attributeIndex]; break;
             }
+            selectedAttribute.attributeValue = globeMetrics[selectedAttribute.attributeIndex];
             selectedAttribute.attributeChangeMode = false;
             break;
 
@@ -1165,7 +1164,7 @@ uint8_t processEvent() {
             visualRing.advanceRing();
 
         #if WITH_WIRE_COMM
-            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth 128 ms cue = every 512 millis
+            constexpr uint8_t clockDividerBitMask = 0b11;                                   // 0b0011: every fourth 128 ms cue = every 512 millis
             if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
         #endif    
         }
@@ -1174,10 +1173,28 @@ uint8_t processEvent() {
         case eSecond:
         {
         #if WITH_WIRE_COMM
-            uint8_t clockDividerBitMask = 0b11;                                             // 0b0011: every fourth second cue = every 4 seconds
-            if (!(secondData.eventSecond & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }             //send telemetry 
-        #endif
+            // ---------- telemetry messages sent every 4 seconds ----------
+             
+            constexpr uint8_t clockDividerBitMask4sec = 0b11;
+            constexpr uint8_t clockDividerBitMask32sec = 0b11111;
 
+            // second i x 4 (second 0, 4, 8, ...)
+            if (!(secondData.eventSecond & clockDividerBitMask4sec)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }                     
+
+            // ---------- extended telemetry and stat messages sent every 32 seconds, NOT concurrent with other stat messages  ----------
+            
+            // second i x 2**5 + 1 (1, 33, 65, ...): not concurrent with telemetry cue because same eSecond event 
+            if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }    
+
+            // second i x 2**5 + 6 (6, 38, 70, ...): not concurrent with telemetry cue because same eSecond event 
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }    
+
+            // second i x 2**5 + 7 (7, 39, 71, ...): not concurrent with telemetry cue because same eSecond event 
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }    
+
+            // second i x 2**5 + 5 (5, 37, 69, ...): not concurrent with telemetry cue because same eSecond event 
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }    
+        #endif
             /*
             // 3 seconds after reset
             if (secondData.eventSecond == 3) {
@@ -1440,7 +1457,7 @@ void writeStatus() {
 }
 
 
-// ========== write an selectedAttribute label and its value to LCD and Serial ==========
+// ========== write a 'selectedAttribute' label and its value to LCD and Serial ==========
 
 void writeAttributeLabelAndValue() {
 
@@ -1470,6 +1487,8 @@ void writeAttributeLabelAndValue() {
         || ((userCommand >= 0) && (userCommand != uMeasure));
 
     if (ISRevent == eStepResponseData) { SerialWriteValue = SerialWriteValue || (stepResponseDataPtr->count > printPIDperiod); }    // pointer is only defined if step response event
+
+    if (!(LCDeraseValue || LCDwriteValue || SerialWriteValue)) { return; }
 
     strcpy_P(longText, (char*)pgm_read_word(&(globeMetricsLabels[selectedAttribute.attributeIndex])));                           // selectedAttribute label
 
@@ -1503,10 +1522,9 @@ void writeAttributeLabelAndValue() {
     }
 
 }
-#endif
 
 
-// ========== fetch an selectedAttribute value ==========
+// ========== fetch a 'selectedAttribute' value ==========
 
 void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
     long paramValue{ 0 };                                       // !!! do not define variables within a case clause unless you put the case clause in curly brackets
@@ -1638,7 +1656,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
         }
     }
 }
-
+#endif
 
 
 // ========== write to led strip ==========
@@ -2081,15 +2099,13 @@ SIGNAL(TIMER1_OVF_vect) {
     PORTB = holdPortBduringInt;                                                             // restore port B contents
     PORTD = holdPortDduringInt;                                                             // restore port D contents
 
-    // optional: trigger led each time a trigger occurs (wire message received)
-
+    // trigger led each time a trigger occurs (wire message received)
     static uint32_t wireCommStartTime{};
     uint32_t now = millis();
     if (triggerWireCommLed) { wireCommStartTime = now; triggerWireCommLed = false; }
     // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
-    if ((now - wireCommStartTime < 1000) && !(now & 0xf)) { PORTB |= portB_D13ledSelect; }
+    if ((now - wireCommStartTime < 1000) && !(millis16bits & 0xf)) { PORTB |= portB_D13ledSelect; }
     else { PORTB &= ~portB_D13ledSelect; }
-
 
     // debounce switches / keys and produce (1) switch states and (2) key codes for pressed / released keys
     if ((millis16bits & B1111) == 0) {                                                      // 16 mS debounce time
@@ -2127,7 +2143,7 @@ SIGNAL(TIMER1_OVF_vect) {
     if ((keyDownTimer > 0) && (keyDownTimer <= 2000)) { keyDownTimer++; }
 
     // time counting (we don't use Arduino time functions based on timer 0)
-    globeTime.incrementMillis();
+    globeTime.incrementMillis999();
     millis16bits++;                                                                         // let it overflow
 
 #if TRACK_FREE_MEM

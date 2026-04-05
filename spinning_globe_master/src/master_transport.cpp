@@ -313,17 +313,17 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
 // ========== GET master send and receive stats ==========
 
-void WireMaster::getSendStats(I2C_MasterSendStats& sendStatSnapshot) {
+void WireMaster::getSendStats(I2C_m_masterSendStats& sendStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         // constant cast needed because it removes 'volatile' implicitly (can not assign volatile to non-volatile)
-        sendStatSnapshot = const_cast<const I2C_MasterSendStats&>(masterSendStats);
+        sendStatSnapshot = const_cast<const I2C_m_masterSendStats&>(masterSendStats);
     }
 }
 
-void WireMaster::getReceiveStats(I2C_MasterReceiveStats& receiveStatSnapshot) {
+void WireMaster::getReceiveStats(I2C_m_masterReceiveStats& receiveStatSnapshot) {
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         // constant cast needed because it removes 'volatile' implicitly (can not assign volatile to non-volatile)
-        receiveStatSnapshot = const_cast<const I2C_MasterReceiveStats&>(masterReceiveStats);
+        receiveStatSnapshot = const_cast<const I2C_m_masterReceiveStats&>(masterReceiveStats);
     }
 }
 
