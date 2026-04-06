@@ -212,10 +212,10 @@ A ring is started by calling startRing(...), specifying:
 - the duration of each alternating state (d).
 
 This state machine counts *steps*, not time.
-Each time advanceRing() is called, the state machine advances 1 step.
-Example: if advanceRing() is called every 128 ms and d = 2 steps, then each state lasts 256 ms.
+Each time advanceRingOneStep() is called, the state machine advances 1 step.
+Example: if advanceRingOneStep() is called every 128 ms and d = 2 steps, then each state lasts 256 ms.
 
-checkRingStateChanged() returns the current ring state (as last updated by advanceRing()):
+ringState() returns the current ring state (as last updated by advanceRingOneStep()):
     0 = end of sequence
     1 = pause between sequences
     2 = state A
@@ -225,26 +225,27 @@ checkRingStateChanged() returns the current ring state (as last updated by advan
 
 class VisualRing {
 public:
-    enum RingState { ring_rest, ring_pause, ring_red, ring_white, state_changed = 0x80};
+    enum RingState: uint8_t { ring_rest, ring_start, ring_state_A, ring_state_B, ring_pause};
 
 
 private:
+    bool _changeStateNow{false};
     RingState _ringState = ring_rest;
 
-    uint8_t _colorChangesInSequence;      // number of states in 1 sequence (counted in steps)
-    uint8_t _altColorSteps;         // duration of normal states (counted in steps)
-    uint8_t _pauseSteps;
+    uint8_t _altColorChangesInSequence;         // number of color changes in 1 sequence (counted in steps)
+    uint8_t _altColorSteps;                     // duration of an alternating color within a sequence (counted in steps)
+    uint8_t _pauseSteps;                        // pause duration (counted in steps)
 
-    uint8_t _pauseCounter;       // remaining sequences in the ring; counts down
-    uint8_t _altColorCounter;          // remaining states in current sequence; counts down; b0: state A or B, b7: 'state changes NOW'
-    uint8_t _stepCounter;           // remaining steps to next state change (in steps); counts down
+    uint8_t _altColorCounter;                   // remaining color changes in current sequence; counts down; b0: state A or B, b7: 'state changes NOW'
+    uint8_t _pauseCounter;                      // remaining sequences in the ring; counts down
+    uint8_t _stepCounter;                       // remaining steps to next color change (in steps); counts down
 
 
 public:
     // public interface
-    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorLength, uint8_t pauseLength);
-    void advanceRing();
-    bool checkRingStateChanged(RingState &ringState);
+    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps);
+    void advanceRingOneStep();
+    RingState ringState(bool &changeNow);
 };
 
 

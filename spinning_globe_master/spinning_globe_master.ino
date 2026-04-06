@@ -639,7 +639,7 @@ void setup()
     Serial.print(strcpy_P(s30, str_copyRight));
     Serial.println(strcpy_P(s30, str_herwig));
     Serial.print(F("Build date:    "));
-    Serial.print(__DATE__); Serial.print("  "); Serial.println(__TIME__);
+    Serial.print(__DATE__); Serial.print(F("  ")); Serial.println(__TIME__);
     Serial.print(strcpy_P(s30, str_star_line));
     Serial.println(strcpy_P(s30, str_star_line));
     Serial.println();
@@ -720,7 +720,7 @@ void loop()
 
     if (slaveRequestNextAction == Action::M_ACTION_RING) {
         // initiate a ring sequence
-        visualRing.startRing(3, 4, 4, 4);          // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
+        visualRing.startRing(3, 4, 4, 8);          // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
     }
 
 #if DEBUG
@@ -1161,7 +1161,7 @@ uint8_t processEvent() {
             }
 
             // if a ring is in progress: advance one '128 ms' tick
-            visualRing.advanceRing();
+            visualRing.advanceRingOneStep();
 
         #if WITH_WIRE_COMM
             constexpr uint8_t clockDividerBitMask = 0b11;                                   // 0b0011: every fourth 128 ms cue = every 512 millis
@@ -1174,26 +1174,26 @@ uint8_t processEvent() {
         {
         #if WITH_WIRE_COMM
             // ---------- telemetry messages sent every 4 seconds ----------
-             
+
             constexpr uint8_t clockDividerBitMask4sec = 0b11;
             constexpr uint8_t clockDividerBitMask32sec = 0b11111;
 
             // second i x 4 (second 0, 4, 8, ...)
-            if (!(secondData.eventSecond & clockDividerBitMask4sec)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }                     
+            if (!(secondData.eventSecond & clockDividerBitMask4sec)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }
 
             // ---------- extended telemetry and stat messages sent every 32 seconds, NOT concurrent with other stat messages  ----------
-            
+
             // second i x 2**5 + 1 (1, 33, 65, ...): not concurrent with telemetry cue because same eSecond event 
-            if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }    
-
-            // second i x 2**5 + 6 (6, 38, 70, ...): not concurrent with telemetry cue because same eSecond event 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }    
-
-            // second i x 2**5 + 7 (7, 39, 71, ...): not concurrent with telemetry cue because same eSecond event 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }    
+            if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }
 
             // second i x 2**5 + 5 (5, 37, 69, ...): not concurrent with telemetry cue because same eSecond event 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }    
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }
+
+            // second i x 2**5 + 6 (6, 38, 70, ...): not concurrent with telemetry cue because same eSecond event 
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }
+
+            // second i x 2**5 + 7 (7, 39, 71, ...): not concurrent with telemetry cue because same eSecond event 
+            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }
         #endif
             /*
             // 3 seconds after reset
@@ -1310,7 +1310,7 @@ void writeStatus() {
         }
     }
 
-    Serial.print("Status: ");     Serial.println(s30);
+    Serial.print(F("Status: "));     Serial.println(s30);
 
     // next lines: print metrics, telemetry, ...
     for (long attributeIndex = 0; attributeIndex < globeMetricsCount; attributeIndex++) {
@@ -1709,15 +1709,22 @@ void writeLedStrip() {
         }
     }
 
-     
     // visual ring overrides current color setting
-    VisualRing::RingState ringState{};
-    if(visualRing.checkRingStateChanged(ringState)){      // ring color changed now
-        LSout((uint8_t*)((ringState == VisualRing::RingState::ring_rest) ? colorGammaCorrected : 
+    bool changeRingColorNow{};
+    VisualRing::RingState ringState = visualRing.ringState(changeRingColorNow);
+    bool endOfRing = (ringState == VisualRing::RingState::ring_rest) && changeRingColorNow;
+
+    // inside a ring and ring color must change now ?
+    if (changeRingColorNow) {        // this includes the final change to ring_rest state
+        LSout((uint8_t*)(endOfRing ? colorGammaCorrected :
             (ringState == VisualRing::RingState::ring_pause) ? ringColorPause :
-            (ringState == VisualRing::RingState::ring_red) ? ringColorOne : ringColorTwo), ledstripMasks);
+            (ringState == VisualRing::RingState::ring_state_A) ? ringColorOne : ringColorTwo), ledstripMasks);
     }
-    // outside a ring: normal led cycle color
+
+    // inside a ring, but no color change
+    else if (ringState != VisualRing::RingState::ring_rest){}
+
+    // outside a ring: normal led cycle color, triggered by eLedstripData event
     else if (ISRevent == eLedstripData) {
         LSout((uint8_t*)colorGammaCorrected, ledstripMasks);
     }

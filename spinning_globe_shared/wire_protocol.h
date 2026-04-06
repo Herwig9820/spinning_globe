@@ -352,7 +352,7 @@ struct __attribute__((packed)) I2C_m_telemetry {
 
 struct __attribute__((packed)) I2C_m_telemetry_extra {
     float secondsFloating;
-    uint8_t currentMaxEventsPending{ 0 };              // No of ISR events currently logged for processing in main loop 
+    uint8_t currentMaxEventsPending{ 0 };           // No of ISR events currently logged for processing in main loop 
     uint16_t largestEventBufferBytesUsed{ 0 };      // No of ISR events logged for processing in main loop: all-time max
     uint32_t eventsMissed{ 0 };                     // keeps track of events missed (not used at this stage)    
 };

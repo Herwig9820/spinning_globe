@@ -301,8 +301,6 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_
 
         // receive user settings from wire slave
         case S_MSG_GLOBE_SETTINGS_SET:
-        #if 0
-        #endif
         {
             nextMsgTypeOut = MsgType::M_MSG_NONE;
 
