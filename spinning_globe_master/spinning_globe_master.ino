@@ -720,7 +720,7 @@ void loop()
 
     if (slaveRequestNextAction == Action::M_ACTION_RING) {
         // initiate a ring sequence
-        visualRing.startRing(3, 16, 1);             // <p1> times <p2> color changes, color change after <p3> steps (one step is 128 ms - see .advinceRing())
+        visualRing.startRing(3, 4, 4, 4);          // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
     }
 
 #if DEBUG
@@ -1709,14 +1709,14 @@ void writeLedStrip() {
         }
     }
 
+     
     // visual ring overrides current color setting
-    uint8_t _ringState = visualRing.checkRingState();      // ring underway, change ring color now
-    if (_ringState & 0x80) {                               // ring state change now
-        _ringState &= ~0x80;                                // remove 'state change' flag 
-        LSout((uint8_t*)((_ringState == 0) ? colorGammaCorrected : (_ringState == 1) ? ringColorPause :
-            (_ringState == 2) ? ringColorOne : ringColorTwo), ledstripMasks);
+    VisualRing::RingState ringState{};
+    if(visualRing.checkRingStateChanged(ringState)){      // ring color changed now
+        LSout((uint8_t*)((ringState == VisualRing::RingState::ring_rest) ? colorGammaCorrected : 
+            (ringState == VisualRing::RingState::ring_pause) ? ringColorPause :
+            (ringState == VisualRing::RingState::ring_red) ? ringColorOne : ringColorTwo), ledstripMasks);
     }
-
     // outside a ring: normal led cycle color
     else if (ISRevent == eLedstripData) {
         LSout((uint8_t*)colorGammaCorrected, ledstripMasks);

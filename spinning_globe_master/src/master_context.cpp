@@ -197,16 +197,20 @@ uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // retur
 
  // ========== VisualRing: small state machine to create a timed 'ring' ==========
 
-
 // ========== start a ring ==========
-bool VisualRing::startRing(uint8_t sequenceCount, uint8_t stateCount, uint8_t stateDuration) {
+bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorLength, uint8_t pauseLength) {
 
     // in rest, sequence and state counters are zero
-    if ((_sequenceCounter != 0) || (_stateCounter != 0)) { return false; }              // not during an ongoing ring
+    if (_ringState != ring_rest) { return false; }  // not during an ongoing ring
+    _ringState = ring_red;                          // init
 
-    _sequenceCounter = sequenceCount;                   // ring sequences 
-    _stateCount = _stateCounter = stateCount + 1;       // number of (alternating) ring states within ring sequence
-    stepCounter = _stateDuration = stateDuration;       // number of steps between two state changes within a ring sequence
+    _altColorSteps = altColorLength;      // number of steps between two state changes within a ring sequence
+    _pauseSteps = pauseLength;             // number of steps in a pause
+
+    // counters for pauses, alternating colors in a sequence, steps within a color   
+    _pauseCounter = sequences - 1;                   // ring sequences - 1 (no pause after last ring)
+    _altColorCounter = _colorChangesInSequence = colorChangesInSequence;   // number of (alternating) ring states within ring sequence
+    _stepCounter = _altColorSteps;         // start with an alternating color
     return true;
 };
 
@@ -217,39 +221,97 @@ void VisualRing::advanceRing() {
     trackFree();
 #endif
 
-    if (_sequenceCounter != 0) {                        // Still sequences to process ?
-        // end of a sequence ? Decrement sequence counter and (if not all sequences handled) reload state counter 
-        if (_stateCounter == 0) {
-            _sequenceCounter--;
-            if (_sequenceCounter != 0) { _stateCounter = _stateCount; }
-        }
+    if (_ringState != ring_rest) {
+        Serial.print("\r\nenter: alt.color change counter: ");  Serial.print(_altColorCounter);
+        Serial.print(", pause counter: ");  Serial.print(_pauseCounter);
+        Serial.print(", step counter = "); Serial.print(_stepCounter);
+        Serial.print(", state = "); Serial.println(_ringState);
     }
 
-    if (_stateCounter != 0) {                           // Still states to process ?
-        // end of a state ? Decrement state counter and flag 'new state'
-        if (stepCounter == _stateDuration) {
-            _stateCounter--; _stateCounter |= SET_RING_STATE_NOW;
+    switch (_ringState) {
+        case ring_rest:
+        {
+            return;                 // nothing to do
+        }
+        break;
+
+        case ring_red:
+        case ring_white:
+        {
+            if (_stepCounter == 0) {        // this was the last step within a color (red or white - not the last color in a sequence) 
+                _altColorCounter--;
+
+                if (_altColorCounter == 0) {       // this was the last color (red or white) in a sequence: go to pause or end ?      
+                    _stepCounter = _pauseSteps;    // in case a pause still follows
+                    _ringState = ((_pauseCounter == 0) ? ring_rest : ring_pause) | state_changed;
+                }
+
+                else {
+                    _stepCounter = _altColorSteps;
+                    _ringState = ((_ringState == ring_red) ? ring_white : ring_red) | state_changed;
+                }
+            }
+            else { _stepCounter--; }      // ring state does not change
+        }
+        break;
+
+        case ring_pause:
+        {
+            if (_stepCounter == 0) {        // this was the last step within a pause: a next sequence will follow
+                _altColorCounter = _colorChangesInSequence;
+                _pauseCounter--;
+                _stepCounter = _altColorSteps;
+                _ringState = ring_red | state_changed;
+            }
+            else { _stepCounter--; }      // ring state does not change
+        }
+        break;
+    }
+
+    if (_ringState != ring_rest) {
+        Serial.print(" exit: alt.color change counter: ");  Serial.print(_altColorCounter);
+        Serial.print(", pause counter: ");  Serial.print(_pauseCounter);
+        Serial.print(", step counter = "); Serial.print(_stepCounter);
+        Serial.print(", state = "); Serial.println(_ringState);
+    }
+    else {Serial.println("exit: state rest"); }
+
+
+
+    if (_ringState & state_changed) {
+        Serial.print("advance to new state: "); Serial.print(_ringState & ~state_changed); Serial.println(", time "); millis();
+    }
+
+        /*
+        if (_pauseCounter != 0) {                        // Still sequences to process ?
+            // end of a sequence ? Decrement sequence counter and (if not all sequences handled) reload state counter
+            if (_altColorCounter == 0) {
+                _pauseCounter--;
+                if (_pauseCounter != 0) { _altColorCounter = _colorChangesInSequence; }
+            }
         }
 
-        // decrement step counter; when reaching zero, reload with step count of next state
-        stepCounter--;
-        if (stepCounter == 0) {
-            bool nextStateIsPause = ((_stateCounter & ~SET_RING_STATE_NOW) == 1);
-            stepCounter = (nextStateIsPause ? 12 : _stateDuration);
+        if (_altColorCounter != 0) {                           // Still states to process ?
+            // end of a state ? Decrement state counter and flag 'new state'
+            if (_stepCounter == _altColorLength) {
+                _altColorCounter--; _altColorCounter |= SET_RING_STATE_NOW;
+            }
+
+            // decrement step counter; when reaching zero, reload with step count of next state
+            _stepCounter--;
+            if (_stepCounter == 0) {
+                bool nextStateIsPause = ((_altColorCounter & ~SET_RING_STATE_NOW) == 1);
+                _stepCounter = (nextStateIsPause ? 12 : _altColorLength);
+            }
         }
-    }
+        */
 };
 
 // ========== check the current ring state ==========
-int8_t VisualRing::checkRingState() {
-    if (!(_stateCounter & SET_RING_STATE_NOW)) { return _ringState; }   // return ring state
-
-    _stateCounter &= ~SET_RING_STATE_NOW;                               // clear 'change state now' flag
-    bool endOfRingSequence = (_stateCounter == 0) && (_sequenceCounter == 1);
-    bool endOffSingleRing = (_stateCounter == 0);                       // end of ring
-
-    // 0: end of ring, 1: pause between two sequences, 2 and 3: alternating states 
-    _ringState = endOfRingSequence ? 0 : endOffSingleRing ? 1 : (_stateCounter & 0b1) ? 2 : 3;
-
-    return _ringState | SET_RING_STATE_NOW;                             // return ring state and flag 'changing state now'
+bool VisualRing::checkRingStateChanged(RingState& ringState) {
+    if (!(_ringState & state_changed)) { return false; }            // return 'ring state'ring state was not changed'
+    Serial.print("       set new state: "); Serial.print(_ringState & ~state_changed); Serial.print(", time "); millis();
+    ringState = _ringState &= ~state_changed;                       // clear 'change state now' flag
+    return true;                                                    // return 'ring state was changed'
 };
+
