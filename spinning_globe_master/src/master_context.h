@@ -198,38 +198,32 @@ struct StepResponseData {
 
 // ========== class VisualRing: state machine creating a signal used to produce a 'ring' sequence  ==========
 /*
-The ring consists of m (m>=1) identical sequences, separated by a pause.
-A sequence consists of n (n>=1) alternating states A and B (e.g., 3 states: ABA).
-Each alternating state (A and B) has a common duration (d>=1), expressed in steps. The pause p has a fixed duration (expressed in steps).
+The ring consists of 'm' identical sequences 's', separated by a pause.
+A sequence consists of 'n' alternating states A and B (e.g., 3 states: A->B->A).
+Each alternating state (A and B) has a common duration 'd', expressed in steps. The pause has a fixed duration 'p' (expressed in steps).
 
 Use: control the ringing of a bell, the flashing of a led... based on the output signal produced by a VisualRing object.
 
-Example: m = 2, n = 3, d=4. Sequential states:  AAAA BBBB AAAA pppppppp AAAA BBBB AAAA (end of ring)
+Example: m = 2, n = 3, d = 4, p = 8. Sequential states:  AAAA BBBB AAAA pppppppp AAAA BBBB AAAA (end of ring)
 
 A ring is started by calling startRing(...), specifying:
-- the number of sequences (m),
-- the number of alternating states in each sequence (n),
-- the duration of each alternating state (d).
+- the number of sequences (m). If m is 0, the ring will last until it is stopped by calling 'stopRing()'
+- the number of alternating states in each sequence (n>0),
+- the duration of each alternating state (d>0), counted in steps
+- the duration of the pause (p>0), counted in steps (not relevant if only one sequence
 
 This state machine counts *steps*, not time.
 Each time advanceRingOneStep() is called, the state machine advances 1 step.
 Example: if advanceRingOneStep() is called every 128 ms and d = 2 steps, then each state lasts 256 ms.
-
-ringState() returns the current ring state (as last updated by advanceRingOneStep()):
-    0 = end of sequence
-    1 = pause between sequences
-    2 = state A
-    3 = state B
-    Bit 7 set in the returned value indicates that the state changed in this step.
 */
 
 class VisualRing {
 public:
-    enum RingState: uint8_t { ring_rest, ring_start, ring_state_A, ring_state_B, ring_pause};
+    enum RingState : uint8_t { ring_rest, ring_start, ring_state_A, ring_state_B, ring_pause, ring_stop };
 
 
 private:
-    bool _changeStateNow{false};
+    bool _changeStateNow{ false };
     RingState _ringState = ring_rest;
 
     uint8_t _altColorChangesInSequence;         // number of color changes in 1 sequence (counted in steps)
@@ -244,8 +238,9 @@ private:
 public:
     // public interface
     bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps);
+    bool stopRing();
     void advanceRingOneStep();
-    RingState ringState(bool &changeNow);
+    RingState ringState(bool& changeNow);
 };
 
 
@@ -275,7 +270,7 @@ public:
         }
     }
 
-    uint32_t inline getMillis(uint32_t* secondsPtr = nullptr) {            // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
+    uint32_t inline getMillis(uint32_t* secondsPtr = nullptr) {             // return millis in current second & seconds as well (run time in micros = seconds * 1E6 + micros)
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
             if (secondsPtr != nullptr) { *secondsPtr = second; }            // total
             return milliSecond;

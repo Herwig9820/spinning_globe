@@ -69,10 +69,15 @@ constexpr const char* PL_KEY_ISR_DURATION = "ISRduration";
 constexpr const char* PL_KEY_PROC_LOAD = "load";
 constexpr const char* PL_KEY_VERT_POS_ERROR = "vertPosError";
 constexpr const char* PL_KEY_TTT_INTEGR_TERM = "TTTintegrTerm";
-constexpr const char* PL_KEY_SECONDS_FLOATING ="secondsFloating";
-constexpr const char* PL_KEY_EVENTS_MISSED ="eventsMissed";
-constexpr const char* PL_KEY_MAX_EVENTS_PENDING ="maxEventsPending";
-constexpr const char* PL_KEY_MAX_EVENT_QUEUE_BYTES_USED ="maxEventQueueBytesUsed";
+constexpr const char* PL_KEY_SECONDS_FLOATING = "secondsFloating";
+constexpr const char* PL_KEY_EVENTS_MISSED = "eventsMissed";
+constexpr const char* PL_KEY_MAX_EVENTS_PENDING = "maxEventsPending";
+constexpr const char* PL_KEY_MAX_EVENT_QUEUE_BYTES_USED = "maxEventQueueBytesUsed";
+
+constexpr const char* PL_KEY_START_RING = "start ring";
+constexpr const char* PL_KEY_STOP_RING = "stop ring";
+constexpr const char* PL_KEY_START_ALARM = "start alarm";
+
 
 template<typename T, size_t N>
 
@@ -138,9 +143,9 @@ struct SharedContext {
     // MQTT to wire flows: holding queue 
     SPSCQueue<AckPayload, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
 
-    
+
     // ---------- other variables ----------
-    volatile bool triggerWireCommLed{false};
+    volatile bool triggerWireCommLed{ false };
 
     // MQTT publish timestamp
     uint32_t lastMQTTpublish = 0;

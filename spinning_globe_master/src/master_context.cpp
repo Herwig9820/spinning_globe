@@ -197,10 +197,11 @@ uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // retur
 
  // ========== VisualRing: small state machine to create a timed 'ring' ==========
 
-// ========== start a ring ==========
+// ========== start a ring (all arguments except 'sequences' must be > 0) ==========
 bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps) {
 
-    // in rest, sequence and state counters are zero
+    // if 'sequences' is zero, the ring will continue until it is stopped by calling 'stopRing()'
+
     if (_ringState != ring_rest) { return false; }          // not during an ongoing ring
     _ringState = ring_start;                                // init ring
 
@@ -217,13 +218,20 @@ bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, ui
 };
 
 
+// ========== stop a ring ==========
+bool VisualRing::stopRing() {
+    if (_ringState == ring_rest) { return false; }          // not during an ongoing ring
+    _ringState = ring_stop;
+    return true;
+}
+
 // ========== advance one step in the ring sequence ==========
 void VisualRing::advanceRingOneStep() {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
 
-    _changeStateNow = false;           
+    _changeStateNow = false;
 
     // a small state machine to control ring color timing
     switch (_ringState) {
@@ -235,7 +243,7 @@ void VisualRing::advanceRingOneStep() {
 
         case ring_start:
         {
-            _ringState = ring_state_A; 
+            _ringState = ring_state_A;
             _changeStateNow = true;
         }
         break;
@@ -259,15 +267,24 @@ void VisualRing::advanceRingOneStep() {
         }
         break;
 
+        // pause between two ring sequences
         case ring_pause:
         {
             if (--_stepCounter == 0) {                      // this was the last step within a pause: a next sequence will follow
                 _altColorCounter = _altColorChangesInSequence;
-                _pauseCounter--;
+                if (_pauseCounter != 255) { _pauseCounter--; }  // 0 sequences = 255 pauses means never ending ring 
                 _stepCounter = _altColorSteps;
                 _ringState = ring_state_A;
                 _changeStateNow = true;
             }
+        }
+        break;
+
+        // stop ring sequence immediately
+        case ring_stop:
+        {
+            _ringState = ring_rest;
+            _changeStateNow = true;
         }
         break;
     }
@@ -280,7 +297,7 @@ void VisualRing::advanceRingOneStep() {
 };
 
 // ========== check the current ring state ==========
-VisualRing::RingState VisualRing::ringState(bool &changeNow) {
+VisualRing::RingState VisualRing::ringState(bool& changeNow) {
     changeNow = _changeStateNow;
     return _ringState;                                                    // return 'ring state was changed'
 };

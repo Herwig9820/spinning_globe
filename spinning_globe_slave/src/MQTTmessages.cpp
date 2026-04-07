@@ -66,7 +66,9 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
 
             // requests for wire master action:
             else if (strcmp(pMsgToWire->topic, TOPIC_RING_REQUEST) == 0) {                      // request wire master RING action   
-                holdRequestForWireMasterAction(Action::M_ACTION_RING);
+                Action action = (strcmp(pMsgToWire->payload, PL_KEY_START_RING) == 0) ? M_ACTION_START_RING: 
+                    (strcmp(pMsgToWire->payload, PL_KEY_STOP_RING) == 0) ? M_ACTION_STOP_RING : M_ACTION_START_ALARM;
+                holdRequestForWireMasterAction(action);
             }
 
             // requests for wire master message types:       
@@ -166,13 +168,13 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
 void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
     AckPayload ackResponse{};
     ackResponse.msgType = m_msgType;
-    ackResponse.action = Action::M_ACTION_NONE;
+    ackResponse.action = Action::M_ACTION_NONE;                             // ack response is a message type, not an action
     _sharedContext.holdAckResponses.push(ackResponse);
 }
 
 void MQTTmessages::holdRequestForWireMasterAction(Action m_action) {
     AckPayload ackResponse{};
-    ackResponse.msgType = MsgType::M_MSG_NONE;
+    ackResponse.msgType = MsgType::M_MSG_NONE;                              // ack response is an action, not a message type 
     ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
 

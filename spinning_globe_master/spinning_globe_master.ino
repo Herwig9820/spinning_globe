@@ -718,10 +718,24 @@ void loop()
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction);    // if incoming i2c message available, dequeue
 
-    if (slaveRequestNextAction == Action::M_ACTION_RING) {
+    if (slaveRequestNextAction == Action::M_ACTION_START_RING) {
         // initiate a ring sequence
-        visualRing.startRing(3, 4, 4, 8);          // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
+        // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
+        // The total ring time = ) x 128 ms (step time) = [(p1 x p2 x p3 + (p1 - 1) x p4] x 128 ms
+        visualRing.startRing(5, 9, 2, 8);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
     }
+
+    else if (slaveRequestNextAction == Action::M_ACTION_START_ALARM) {
+            // initiate an alarm sequence ('sequences = 0 => until stopped)
+        visualRing.startRing(0, 3, 1, 5);           // in each sequence, 1 color; color duration = 1 step; pause duration = 2 steps            
+    }
+
+    else if (slaveRequestNextAction == Action::M_ACTION_STOP_RING) {
+        // stop any ring or alarm that is underway
+        visualRing.stopRing();
+    }
+
+
 
 #if DEBUG
     writeStatus();
@@ -1160,7 +1174,7 @@ uint8_t processEvent() {
                 }
             }
 
-            // if a ring is in progress: advance one '128 ms' tick
+            // if a ring is in progress: advance one step, which is '128 ms' as this routine is called every 128 ms
             visualRing.advanceRingOneStep();
 
         #if WITH_WIRE_COMM
@@ -1173,6 +1187,8 @@ uint8_t processEvent() {
         case eSecond:
         {
         #if WITH_WIRE_COMM
+            // several telemetry and stat message types are triggered by the second cue: space different messages in time in order not to fill the 'wire tx queue completely 
+
             // ---------- telemetry messages sent every 4 seconds ----------
 
             constexpr uint8_t clockDividerBitMask4sec = 0b11;
@@ -1181,18 +1197,19 @@ uint8_t processEvent() {
             // second i x 4 (second 0, 4, 8, ...)
             if (!(secondData.eventSecond & clockDividerBitMask4sec)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }
 
+
             // ---------- extended telemetry and stat messages sent every 32 seconds, NOT concurrent with other stat messages  ----------
 
-            // second i x 2**5 + 1 (1, 33, 65, ...): not concurrent with telemetry cue because same eSecond event 
+            // second i x 2**5 + 1 (1, 33, 65, ...) 
             if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }
 
-            // second i x 2**5 + 5 (5, 37, 69, ...): not concurrent with telemetry cue because same eSecond event 
+            // second i x 2**5 + 5 (5, 37, 69, ...) 
             else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }
 
-            // second i x 2**5 + 6 (6, 38, 70, ...): not concurrent with telemetry cue because same eSecond event 
+            // second i x 2**5 + 6 (6, 38, 70, ...) 
             else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }
 
-            // second i x 2**5 + 7 (7, 39, 71, ...): not concurrent with telemetry cue because same eSecond event 
+            // second i x 2**5 + 7 (7, 39, 71, ...) 
             else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }
         #endif
             /*
@@ -1722,7 +1739,7 @@ void writeLedStrip() {
     }
 
     // inside a ring, but no color change
-    else if (ringState != VisualRing::RingState::ring_rest){}
+    else if (ringState != VisualRing::RingState::ring_rest) {}
 
     // outside a ring: normal led cycle color, triggered by eLedstripData event
     else if (ISRevent == eLedstripData) {

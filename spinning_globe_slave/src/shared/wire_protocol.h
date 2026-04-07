@@ -219,7 +219,7 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 #include <stdint.h> 
 
 // Packet (message) sizing 
-static constexpr uint8_t HEADER_SIZE = 3;                       
+static constexpr uint8_t HEADER_SIZE = 3;
 static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;                   // max. payload sizes in bytes 
 static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
 
@@ -286,7 +286,9 @@ enum MsgType : uint8_t {
 
 enum Action {
     M_ACTION_NONE,
-    M_ACTION_RING
+    M_ACTION_START_RING,
+    M_ACTION_STOP_RING,         // or stop alarm
+    M_ACTION_START_ALARM        // alarm can also be stopped by action 'M_ACTION_STOP_RING'
 };
 
 
@@ -369,8 +371,8 @@ using I2C_m_buttonStates = I2C_buttonStates;
 
 struct __attribute__((packed))I2C_m_messageStats {
     // message level counters; not wire level
-    uint32_t I_stats_replyReceived{ 0 };        
-    uint32_t E_stats_lockStepError{ 0 };        
+    uint32_t I_stats_replyReceived{ 0 };
+    uint32_t E_stats_lockStepError{ 0 };
 };
 
 // keep track of master send & receive stats
@@ -396,7 +398,7 @@ struct __attribute__((packed)) I2C_s_ack {
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
     uint8_t action{ M_ACTION_NONE };            // action requested from master
-    uint8_t requestMasterMsgType{M_MSG_NONE};   // slave requests master to send message type
+    uint8_t requestMasterMsgType{ M_MSG_NONE };   // slave requests master to send message type
 
 };
 
