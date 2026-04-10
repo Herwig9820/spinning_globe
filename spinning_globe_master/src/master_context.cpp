@@ -214,16 +214,10 @@ bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, ui
     _altColorCounter = colorChangesInSequence;              // number of (alternating) colors within ring sequence
     _pauseCounter = sequences - 1;                          // number of ring sequences - 1 (no pause after last ring)
     _stepCounter = _altColorSteps;                          // start with an alternating color
+    
     return true;
 };
 
-
-// ========== stop a ring ==========
-bool VisualRing::stopRing() {
-    if (_ringState == ring_rest) { return false; }          // not during an ongoing ring
-    _ringState = ring_stop;
-    return true;
-}
 
 // ========== advance one step in the ring sequence ==========
 void VisualRing::advanceRingOneStep() {
@@ -289,16 +283,10 @@ void VisualRing::advanceRingOneStep() {
         break;
     }
 
-    Serial.print(_ringState, HEX); Serial.print(' ');
+    ////Serial.print(_ringState, HEX); Serial.print(' ');
 
     if (_changeStateNow) {
-        Serial.print(F("\r\nadvance to new state: ")); Serial.print(_ringState); Serial.print(F(", time ")); Serial.println(millis());
+        ////Serial.print(F("\r\nadvance to new state: ")); Serial.print(_ringState); Serial.print(F(", time ")); Serial.println(millis());
     }
-};
-
-// ========== check the current ring state ==========
-VisualRing::RingState VisualRing::ringState(bool& changeNow) {
-    changeNow = _changeStateNow;
-    return _ringState;                                                    // return 'ring state was changed'
 };
 

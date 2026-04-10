@@ -60,6 +60,7 @@ enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, e
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
+constexpr uint32_t BROKER_ALIVE_TIMEOUT {30 * 1000};                // 30 s
 constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps     //// overal implementeren   
 constexpr uint8_t centerPointStep{ settingSteps / 2 };      //// overal implementeren
 
@@ -236,11 +237,24 @@ private:
 
 
 public:
+    // ========== stop a ring ==========
+    bool inline stopRing() {
+        if (_ringState == ring_rest) { return false; }          // not during an ongoing ring
+        _ringState = ring_stop;
+        return true;
+    }
+
+    // ========== check the current ring state ==========
+    VisualRing::RingState inline ringState(bool& changeNow) {
+        changeNow = _changeStateNow;                                            // indicates that the state just changed: the calling program should take action to reflect that 
+        return _ringState;                                                    // return 'ring state was changed'
+    };
+
+
+
     // public interface
     bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps);
-    bool stopRing();
     void advanceRingOneStep();
-    RingState ringState(bool& changeNow);
 };
 
 

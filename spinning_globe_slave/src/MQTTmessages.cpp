@@ -8,7 +8,7 @@ MQTTmessages* MQTTmessages::_instance = nullptr;
 
 MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
     _MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
-    
+
     _instance = this;
 
     _tlsSocket.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
@@ -66,9 +66,17 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
 
             // requests for wire master action:
             else if (strcmp(pMsgToWire->topic, TOPIC_RING_REQUEST) == 0) {                      // request wire master RING action   
-                Action action = (strcmp(pMsgToWire->payload, PL_KEY_START_RING) == 0) ? M_ACTION_START_RING: 
-                    (strcmp(pMsgToWire->payload, PL_KEY_STOP_RING) == 0) ? M_ACTION_STOP_RING : M_ACTION_START_ALARM;
-                holdRequestForWireMasterAction(action);
+                Action action = (strcmp(pMsgToWire->payload, PL_KEY_START_RING) == 0) ? M_ACTION_START_RING :
+                    (strcmp(pMsgToWire->payload, PL_KEY_START_ALARM) == 0) ? M_ACTION_START_ALARM :
+                    (strcmp(pMsgToWire->payload, PL_KEY_STOP_RING) == 0) ? M_ACTION_STOP_RING : M_ACTION_NONE;
+
+                if (action != M_ACTION_NONE) { holdRequestForWireMasterAction(action); }       // test: safety only
+                if (action != M_ACTION_NONE) { Serial.print("MQTT in: action "); Serial.println(action); }
+            }
+
+            else if (strcmp(pMsgToWire->topic, TOPIC_HEARTBEAT_SET) == 0) {                     // node-red heartbeat
+                holdRequestForWireMasterAction(M_ACTION_HEARTBEAT);
+                Serial.print("MQTT in: action "); Serial.println(M_ACTION_HEARTBEAT);
             }
 
             // requests for wire master message types:       
@@ -166,15 +174,15 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
 }
 
 void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
-    AckPayload ackResponse{};
-    ackResponse.msgType = m_msgType;
+    I2C_s_ack ackResponse{};
+    ackResponse.requestMasterMsgType = m_msgType;
     ackResponse.action = Action::M_ACTION_NONE;                             // ack response is a message type, not an action
     _sharedContext.holdAckResponses.push(ackResponse);
 }
 
 void MQTTmessages::holdRequestForWireMasterAction(Action m_action) {
-    AckPayload ackResponse{};
-    ackResponse.msgType = MsgType::M_MSG_NONE;                              // ack response is an action, not a message type 
+    I2C_s_ack ackResponse{};
+    ackResponse.requestMasterMsgType = MsgType::M_MSG_NONE;                              // ack response is an action, not a message type 
     ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
 
@@ -236,7 +244,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 if (DEBUG) {
                     char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
                         snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
-                    } 
+                    }
                     char s[80]; snprintf(s, sizeof(s), "-- %s : Trying to connect to MQTT...", timeBuf);
                     DEBUG_PRINTLN(s);
                 }
@@ -263,13 +271,15 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                     _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
                     _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
 
+                    _MQTTclient.subscribe(TOPIC_HEARTBEAT_SET);                     // 'node red' heartbeat
+
                     _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_REQUEST);            // MQTT publishing a request for spinning globe to send sends out settings
                     _MQTTclient.subscribe(TOPIC_PID_SETTINGS_REQUEST);
                     _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_REQUEST);
                     _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_REQUEST);
 
                     _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
-
+                    
                     if (DEBUG) {
                         char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
                             snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
@@ -319,7 +329,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                     char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
                         snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
                     }
-                    char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT disconnected, client state = %d",timeBuf,  _MQTTclient.state());
+                    char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT disconnected, client state = %d", timeBuf, _MQTTclient.state());
                     DEBUG_PRINTLN(s);
                 }
             }

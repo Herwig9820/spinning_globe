@@ -235,7 +235,6 @@ void WireSlaveMessages::convertTelemetryExtraToMQTT(I2C_m_telemetry_extra* p){
     JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENTS_PENDING, "\"%u\"", p->currentMaxEventsPending);
     JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENT_QUEUE_BYTES_USED, "\"%u\"", p->largestEventBufferBytesUsed);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
-    Serial.print("topic "); Serial.print(msg.topic); Serial.print(", payload "); Serial.println(msg.payload);
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
 }
@@ -289,7 +288,7 @@ void WireSlaveMessages::convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* 
 
 void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
-    AckPayload thisAckResponse{}, nextAckResponse{};
+    I2C_s_ack thisAckResponse{}, nextAckResponse{};
 
     // ---------- PRIO 1: the slave has a message (settings, ...) available for wire master, NOT fitting in this THIS ack response ? ----------
 
@@ -335,26 +334,26 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     */
 
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
-        thisAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                           // THIS ack response: inform master it should request this data
-        nextAckResponse.msgType = MsgType::M_MSG_GLOBE_SETTINGS;                               // NEXT ack response: inform master it should send out again this updated data
+        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                           // THIS ack response: inform master it should request this data
+        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS;                               // NEXT ack response: inform master it should send out again this updated data
         _sharedContext.holdAckResponses.push(nextAckResponse);                                 // hold NEXT ack response until it's time to send the next ack
     }
 
     else if (_sharedContext.committedPIDsettings.slaveHasData) {
-        thisAckResponse.msgType = MsgType::M_MSG_PID_SETTINGS_REQ;
-        nextAckResponse.msgType = MsgType::M_MSG_PID_SETTINGS;
+        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_PID_SETTINGS_REQ;
+        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_PID_SETTINGS;
         _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
     else if (_sharedContext.committedVertPosSetpoint.slaveHasData) {
-        thisAckResponse.msgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;
-        nextAckResponse.msgType = MsgType::M_MSG_VERT_POS_SETPOINT;
+        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_VERT_POS_SETPOINT_REQ;
+        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_VERT_POS_SETPOINT;
         _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
     else if (_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
-        thisAckResponse.msgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;
-        nextAckResponse.msgType = MsgType::M_MSG_COIL_PHASE_ADJUST;
+        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_COIL_PHASE_ADJUST_REQ;
+        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_COIL_PHASE_ADJUST;
         _sharedContext.holdAckResponses.push(nextAckResponse);
     }
 
@@ -363,10 +362,10 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     
     else if (!_sharedContext.holdAckResponses.empty()) {
         // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 
-        thisAckResponse.msgType = _sharedContext.holdAckResponses.front()->msgType;
+        thisAckResponse.requestMasterMsgType = _sharedContext.holdAckResponses.front()->requestMasterMsgType;
         thisAckResponse.action = _sharedContext.holdAckResponses.front()->action;
-
-        AckPayload dummy;
+        Serial.print("Ack response - msg type "); Serial.print(thisAckResponse.requestMasterMsgType); Serial.print(", action "); Serial.println(thisAckResponse.action);
+        I2C_s_ack dummy;
         _sharedContext.holdAckResponses.pop(dummy);
     }
 
@@ -375,7 +374,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
     I2C_s_ack p;
     p.ack = 0x0;        // not used
-    p.requestMasterMsgType = thisAckResponse.msgType;
+    p.requestMasterMsgType = thisAckResponse.requestMasterMsgType;
     p.action = thisAckResponse.action;
     wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
 

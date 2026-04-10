@@ -283,18 +283,12 @@ enum MsgType : uint8_t {
 };
 
 
-
-enum Action {
+enum Action:uint8_t {
     M_ACTION_NONE,
     M_ACTION_START_RING,
     M_ACTION_STOP_RING,         // or stop alarm
-    M_ACTION_START_ALARM        // alarm can also be stopped by action 'M_ACTION_STOP_RING'
-};
-
-
-struct AckPayload {
-    MsgType msgType{ MsgType::M_MSG_NONE };
-    Action action{ Action::M_ACTION_NONE };
+    M_ACTION_START_ALARM,        // alarm can also be stopped by action 'M_ACTION_STOP_RING'
+    M_ACTION_HEARTBEAT              // no payload
 };
 
 
@@ -394,11 +388,11 @@ struct I2C_m_masterReceiveStats {
 // ========== I2C message payloads: messages from slave to master ==========
 
 struct __attribute__((packed)) I2C_s_ack {
-    uint8_t ack;                                    // currently not used 
+    uint8_t ack{0xaa};////                                    // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
-    uint8_t action{ M_ACTION_NONE };            // action requested from master
-    uint8_t requestMasterMsgType{ M_MSG_NONE };   // slave requests master to send message type
+    Action action{ M_ACTION_NONE };            // action requested from master
+    MsgType requestMasterMsgType{ M_MSG_NONE };   // slave requests master to send message type
 
 };
 

@@ -53,14 +53,19 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
         return false;
     }
 
+    ////Serial.print("sending: ");
+
     txQueue[0] = messageType;               // struct copy
     txQueue[1] = payloadSize;
     uint8_t sum = messageType ^ payloadSize;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[HEADER_SIZE + i] = ((uint8_t*)payload)[i];
+        ////Serial.print(txQueue[HEADER_SIZE + i], HEX); Serial.print(' ');
         sum ^= ((uint8_t*)payload)[i];
     }
     txQueue[HEADER_SIZE + payloadSize] = sum;
+    ////Serial.print("checksum OUT : "); Serial.println(txQueue[HEADER_SIZE + payloadSize], HEX);
+
 
     RELEASE_BARRIER();                      // Ensure packet bytes are visible BEFORE publishing
 

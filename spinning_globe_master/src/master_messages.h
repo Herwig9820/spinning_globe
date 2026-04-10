@@ -78,8 +78,8 @@ public:
     ~MessageHandling();
 
     uint8_t transmit();
-    void enqueueI2CmessageToSlave(uint8_t& msgTypeOut);
-    void dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_t& nextAction);
+    void enqueueI2CmessageToSlave(MsgType& msgTypeOut);
+    bool dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& brokerIsAliveAt);
 };
 
 #endif

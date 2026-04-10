@@ -150,7 +150,8 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
 
     rxTail = (rxTail + 1) % RX_QUEUE_SIZE;
 
-
+    ////Serial.print("receiving ACK: requested action "); Serial.print(Serial.println(((uint8_t*)payload)[1])); 
+    ////Serial.print(', requested msg type '); Serial.println(((uint8_t*) payload)[2]);
     return true;
 
 };
@@ -278,7 +279,6 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
         if (reply == (uint8_t)WireTransport::S_CTRL_READY) {
             state = MasterState::MS_RECEIVE;
-            _triggerWireCommLed = true;                                         // handled in timer interrupt
         }
     }
 
@@ -303,6 +303,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         }
 
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
+        _triggerWireCommLed = true;                                         // handled in timer interrupt
         state = MasterState::MS_IDLE;
         return wireStatus;
     }
@@ -416,12 +417,15 @@ WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_
         return WireStatus::E_rx_full;
     }
 
+    ////Serial.print("received: "); 
     uint8_t sum = 0;
     for (uint8_t i = 0; i < expReplyMsgSize - 1; ++i) {                         // includes header and payload, excludes received checksum from checksum calculation
+        ////Serial.print(in[i], HEX); Serial.print(' ');
         rxQueue[head][i] = in[i];
         sum ^= in[i];
     }
     rxQueue[head][expReplyMsgSize - 1] = in[expReplyMsgSize - 1];
+    ////Serial.print("checksum IN : "); Serial.print(in[expReplyMsgSize - 1], HEX);Serial.print(F("<checksum calc")); Serial.println(sum, HEX);
     rxExpReplyMsgType[head] = expReplyMsgType;                                  // OK because strict lockstep (was not sent/received but was locally stored in between)
 
     if (sum != rxQueue[head][expReplyMsgSize - 1]) {                            // checksum correct ?

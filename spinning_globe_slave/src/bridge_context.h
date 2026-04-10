@@ -34,6 +34,7 @@ constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";          
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPosSetpoint/set";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/coilPhaseAdjust/set";
+constexpr const char* TOPIC_HEARTBEAT_SET = "globe/heartbeat/set";
 
 constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";              // node-red (or other dashboard) request to publish spinning globe settings
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
@@ -42,7 +43,7 @@ constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/r
 
 constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/wireStats/request";////
 
-constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";                            // node-red (or other dashboard) request for 'visual ring' action
+constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";                            // node-red (or other dashboard) request for 'visual ring' action (ring or alarm)
 
 
 // ========== MQTT payloads: JSON payload field keys ==========
@@ -141,7 +142,7 @@ struct SharedContext {
     SPSCQueue<MQTTmsgToWire, 16> queueToWire;
 
     // MQTT to wire flows: holding queue 
-    SPSCQueue<AckPayload, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
+    SPSCQueue<I2C_s_ack, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
 
 
     // ---------- other variables ----------

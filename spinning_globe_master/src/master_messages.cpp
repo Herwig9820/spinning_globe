@@ -68,7 +68,7 @@ uint8_t MessageHandling::transmit() {
 
 // ========== enqueue data to send buffer ==========
 
-void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
+void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
 
     if (msgTypeOut == MsgType::M_MSG_NONE) { return; }
 
@@ -260,7 +260,7 @@ void MessageHandling::enqueueI2CmessageToSlave(uint8_t& msgTypeOut) {
 
 // ========== process Wire slave reply ==========
 
-void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_t& nextAction) {
+bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& brokerIsAliveAt) {
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };                   // message type received from slave
     uint8_t i2cPayloadSizeIn{ 0 };                              // payload size as reported by slave
     uint8_t plIn[SLAVE_PAYLOAD_MAX];
@@ -270,14 +270,14 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_
     bool msgAvailable = _wireMaster.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn, expMsgType);
     if (!msgAvailable) {
         nextMsgTypeOut = M_MSG_NONE;
-        return;
+        return false;
     }
 
     // this is not the expected message type (strict lockStep implemented)
     // (note that, if the message type is correct, then the message size is as well (handled in WireMaster library) 
     if (msgTypeIn != expMsgType) {
         _msgStats.E_stats_lockStepError++;
-        return;
+        return false;
     }
 
     switch (msgTypeIn) {
@@ -296,6 +296,8 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_
             // next requested message type     
             nextMsgTypeOut = p->requestMasterMsgType;
             nextAction = p->action;
+            // !!! setting brokerIsAliveAt: ONLY FOR ACK MSG PAYLOADS (broker requests a msg or action from master) ORIGINATING FROM BROKER !!!
+            if ((nextMsgTypeOut != M_MSG_NONE) || (nextAction != M_ACTION_NONE)) { brokerIsAliveAt = millis();  }
         }
         break;
 
@@ -378,7 +380,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_
 
         default:
         {
-            nextMsgTypeOut = MsgType::M_MSG_NONE;
+            nextMsgTypeOut = MsgType::M_MSG_NONE;                       // safety
         }
         break;
 
@@ -386,7 +388,7 @@ void MessageHandling::dequeueI2CmessageFromSlave(uint8_t& nextMsgTypeOut, uint8_
 
     _msgStats.I_stats_replyReceived++;
 
-    return;
+    return true;
 }
 
 

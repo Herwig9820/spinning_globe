@@ -254,6 +254,9 @@ volatile unsigned int idleLoopNanos500{ 0 };                                    
 volatile unsigned int millis16bits{ 0 };
 volatile long tempSmooth{ 0 };                                                      // temperature smoothed by first order filter; long for speed, used by ISR
 
+#if WITH_WIRE_COMM
+uint32_t brokerIsAliveAt{ millis() };
+#endif
 
 // ========== PID controller ==========
 
@@ -399,6 +402,7 @@ volatile uint8_t LSminReached, LSmaxReached;
 // wire interface: trigger wire communication LED
 volatile bool triggerWireCommLed{ false };
 
+
 // ========== for testing purposes ==========
 
 constexpr bool enableSafety{ true };                                                // enable safety checks lifting magnet ? (Note: temperature check lifting magnet is always ON)
@@ -446,7 +450,8 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
 void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
 void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
-uint8_t processEvent();                                         // process one event, if available
+MsgType processEvent();                                         // process one event, if available
+void handleActions(Action);
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
 void writeStatus();                                             // print on event or on command
@@ -692,18 +697,16 @@ void loop()
     checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #if WITH_WIRE_COMM
 
-    constexpr uint8_t initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST };
+    constexpr MsgType initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST };
 
-    static uint8_t nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
+    static MsgType nextMsgTypeOut{ MsgType::M_MSG_NONE };               // next to enqueue
     static uint8_t initialMsgIndex{ 0 };
-    static uint8_t slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
+    static MsgType slaveRequestNextMsgTypeOut{ MsgType::M_MSG_NONE };   // master message type requested by slave
 
-    uint8_t slaveRequestNextAction{ Action::M_ACTION_NONE };
+    Action slaveRequestNextAction{ Action::M_ACTION_NONE };
 
     // priority 1: answer slave request (requested in last (slave reply) MSG_ACK message) by sending a message
-    if (slaveRequestNextMsgTypeOut != M_MSG_NONE) {
-        nextMsgTypeOut = slaveRequestNextMsgTypeOut;
-    }
+    if (slaveRequestNextMsgTypeOut != M_MSG_NONE) { nextMsgTypeOut = slaveRequestNextMsgTypeOut; }
 
     // priority 2: messages after startup
     else if (initialMsgIndex < sizeof(initialMessages)) { nextMsgTypeOut = initialMessages[initialMsgIndex++]; }
@@ -716,26 +719,8 @@ void loop()
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
-    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction);    // if incoming i2c message available, dequeue
-
-    if (slaveRequestNextAction == Action::M_ACTION_START_RING) {
-        // initiate a ring sequence
-        // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
-        // The total ring time = ) x 128 ms (step time) = [(p1 x p2 x p3 + (p1 - 1) x p4] x 128 ms
-        visualRing.startRing(5, 9, 2, 8);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
-    }
-
-    else if (slaveRequestNextAction == Action::M_ACTION_START_ALARM) {
-            // initiate an alarm sequence ('sequences = 0 => until stopped)
-        visualRing.startRing(0, 3, 1, 5);           // in each sequence, 1 color; color duration = 1 step; pause duration = 2 steps            
-    }
-
-    else if (slaveRequestNextAction == Action::M_ACTION_STOP_RING) {
-        // stop any ring or alarm that is underway
-        visualRing.stopRing();
-    }
-
-
+    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction, brokerIsAliveAt);   // if incoming i2c message available, dequeue
+    handleActions(slaveRequestNextAction);
 
 #if DEBUG
     writeStatus();
@@ -748,6 +733,8 @@ void loop()
     writeStatus();                                  // print status to Serial and LCD (if connected)
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
+
+    if (millis() - brokerIsAliveAt > BROKER_ALIVE_TIMEOUT) { visualRing.stopRing(); }
 
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
@@ -828,7 +815,44 @@ void getISRevent() {
 
 // ========== parse multiple characters until either a command is complete OR no characters available (even if command is not yet complete) ==========
 
-#if !WITH_WIRE_COMM
+#if WITH_WIRE_COMM
+void handleActions(Action slaveRequestNextAction) {
+
+    if (slaveRequestNextAction == M_ACTION_NONE) { return; }
+
+    switch (slaveRequestNextAction) {
+        case Action::M_ACTION_START_RING:
+        {
+            // initiate a ring sequence
+            // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
+            // The total ring time = ) x 128 ms (step time) = [(p1 x p2 x p3 + (p1 - 1) x p4] x 128 ms
+            visualRing.startRing(5, 9, 2, 8);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
+        }
+        break;
+
+        case Action::M_ACTION_START_ALARM:
+        {
+            // initiate an alarm sequence ('sequences = 0 => until stopped)
+            visualRing.startRing(0, 5, 1, 5);           // in each sequence: 5 color changes; color duration = 1 step; pause duration = 5 steps            
+        }
+        break;
+
+        case Action::M_ACTION_STOP_RING:
+        {
+            // stop any ring or alarm that is underway
+            visualRing.stopRing();
+        }
+        break;
+
+        case M_ACTION_HEARTBEAT:
+        {
+            // do nothing
+        }
+        break;
+    }
+}
+
+#else
 void getCommand() {
 
     // all user commands are 1 character, without the need for a CR or LF (both are ignored) because globe buttons do not have these keys
@@ -1103,7 +1127,7 @@ void processCommand() {
 
 // ========== process an event (except printing) ==========
 
-uint8_t processEvent() {
+MsgType processEvent() {
     constexpr int averagingPeriodsMagnetLoad{ 10 };
     constexpr long maxOnCycles = (long)((averagingPeriodsMagnetLoad * 256 * fastDataRateSamplingPeriods * timer1Top) * 0.8);               // can normally not occur, but as this concerns safety ...
     constexpr int tempTimeCst_BinaryFractionDigits{ 16 };
