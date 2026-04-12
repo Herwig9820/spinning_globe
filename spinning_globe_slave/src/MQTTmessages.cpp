@@ -70,27 +70,26 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
                     (strcmp(pMsgToWire->payload, PL_KEY_START_ALARM) == 0) ? M_ACTION_START_ALARM :
                     (strcmp(pMsgToWire->payload, PL_KEY_STOP_RING) == 0) ? M_ACTION_STOP_RING : M_ACTION_NONE;
 
-                if (action != M_ACTION_NONE) { holdRequestForWireMasterAction(action); }       // test: safety only
-                if (action != M_ACTION_NONE) { Serial.print("MQTT in: action "); Serial.println(action); }
+                // wire master: perform action and respond with status
+                if (action != M_ACTION_NONE) { holdRequestForWireMaster(M_MSG_STATUS, action); }        // test: safety only
             }
 
             else if (strcmp(pMsgToWire->topic, TOPIC_HEARTBEAT_SET) == 0) {                     // node-red heartbeat
-                holdRequestForWireMasterAction(M_ACTION_HEARTBEAT);
-                Serial.print("MQTT in: action "); Serial.println(M_ACTION_HEARTBEAT);
+                holdRequestForWireMaster(Action::M_ACTION_HEARTBEAT);
             }
 
             // requests for wire master message types:       
             else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
-                holdRequestForWireMasterMsgType(MsgType::M_MSG_GLOBE_SETTINGS);
+                holdRequestForWireMaster(MsgType::M_MSG_GLOBE_SETTINGS);
             }
             else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
-                holdRequestForWireMasterMsgType(MsgType::M_MSG_PID_SETTINGS);
+                holdRequestForWireMaster(MsgType::M_MSG_PID_SETTINGS);
             }
             else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {        // request wire master globe settings
-                holdRequestForWireMasterMsgType(MsgType::M_MSG_VERT_POS_SETPOINT);
+                holdRequestForWireMaster(MsgType::M_MSG_VERT_POS_SETPOINT);
             }
             else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {        // request wire master globe settings
-                holdRequestForWireMasterMsgType(MsgType::M_MSG_COIL_PHASE_ADJUST);
+                holdRequestForWireMaster(MsgType::M_MSG_COIL_PHASE_ADJUST);
             }
 
             // remove entry in MQTT in queue
@@ -173,16 +172,16 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
     return ok;
 }
 
-void MQTTmessages::holdRequestForWireMasterMsgType(MsgType m_msgType) {
+void MQTTmessages::holdRequestForWireMaster(MsgType m_msgType, Action m_action) {
     I2C_s_ack ackResponse{};
     ackResponse.requestMasterMsgType = m_msgType;
-    ackResponse.action = Action::M_ACTION_NONE;                             // ack response is a message type, not an action
+    ackResponse.action = m_action;                             
     _sharedContext.holdAckResponses.push(ackResponse);
 }
 
-void MQTTmessages::holdRequestForWireMasterAction(Action m_action) {
+void MQTTmessages::holdRequestForWireMaster(Action m_action) {
     I2C_s_ack ackResponse{};
-    ackResponse.requestMasterMsgType = MsgType::M_MSG_NONE;                              // ack response is an action, not a message type 
+    ackResponse.requestMasterMsgType = MsgType::M_MSG_NONE;                               
     ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
 
@@ -279,7 +278,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                     _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_REQUEST);
 
                     _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
-                    
+
                     if (DEBUG) {
                         char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
                             snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);

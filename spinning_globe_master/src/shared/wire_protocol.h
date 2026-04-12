@@ -223,8 +223,18 @@ static constexpr uint8_t HEADER_SIZE = 3;
 static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;                   // max. payload sizes in bytes 
 static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
 
+
+// !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
+enum class WireTransport :uint8_t {
+    NONE = 0x00,
+    M_CTRL_POLL = 0x01,                                         // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
+    S_CTRL_BUSY,                                                // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
+    S_CTRL_READY                                                // idem
+};
+
+
 enum MsgType : uint8_t {
-    // ========== 0x00-0x1F RESERVED for CONTROL SIGNALS between master and slave libraries ==========
+    // 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries
 
 
     // ========== 0x20–0x3F: master → slave (bit b2 clear) ==========
@@ -283,12 +293,12 @@ enum MsgType : uint8_t {
 };
 
 
-enum Action:uint8_t {
+enum Action :uint8_t {
     M_ACTION_NONE,
     M_ACTION_START_RING,
-    M_ACTION_STOP_RING,         // or stop alarm
-    M_ACTION_START_ALARM,        // alarm can also be stopped by action 'M_ACTION_STOP_RING'
-    M_ACTION_HEARTBEAT              // no payload
+    M_ACTION_STOP_RING,                         // or stop alarm
+    M_ACTION_START_ALARM,                       // alarm can also be stopped by action 'M_ACTION_STOP_RING'
+    M_ACTION_HEARTBEAT                          // no payload
 };
 
 
@@ -302,10 +312,10 @@ struct __attribute__((packed)) I2C_globeSettings {
 };
 
 struct __attribute__((packed)) I2C_PIDsettings {
-    uint8_t gainAdjustSteps;                     // 0 (minimum) to settingSteps (maximum)
+    uint8_t gainAdjustSteps;                    // 0 (minimum) to settingSteps (maximum)
     uint8_t intTimeCstAdjustSteps;
     uint8_t difTimeCstAdjustSteps;
-    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
+    uint8_t slaveHasData{ 0 };                  // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_vertPosSetpoint {
@@ -314,8 +324,8 @@ struct __attribute__((packed)) I2C_vertPosSetpoint {
 };
 
 struct __attribute__((packed)) I2C_coilPhaseAdjust {
-    uint8_t coilPhaseAdjust;                     // coil phase in 2-degrees increments (0: 0 degrees, 89: 178 degrees, 90: -180 degrees, 179: -2 degrees   
-    uint8_t slaveHasData{ 0 };                   // slave=>master only: the slave data the master requested is available
+    uint8_t coilPhaseAdjust;                    // coil phase in 2-degrees increments (0: 0 degrees, 89: 178 degrees, 90: -180 degrees, 179: -2 degrees   
+    uint8_t slaveHasData{ 0 };                  // slave=>master only: the slave data the master requested is available
 };
 
 struct __attribute__((packed)) I2C_buttonStates {
@@ -328,6 +338,7 @@ struct __attribute__((packed)) I2C_buttonStates {
 
 struct __attribute__((packed)) I2C_m_status {
     uint8_t status;
+    uint8_t stateFlags;
 };
 
 struct __attribute__((packed)) I2C_m_greenwich {
@@ -363,13 +374,13 @@ using I2C_m_buttonStates = I2C_buttonStates;
 
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
+// message level counters
 struct __attribute__((packed))I2C_m_messageStats {
-    // message level counters; not wire level
     uint32_t I_stats_replyReceived{ 0 };
     uint32_t E_stats_lockStepError{ 0 };
 };
 
-// keep track of master send & receive stats
+// transport level counters
 struct I2C_m_masterSendStats {
     uint32_t I_stats_tx_sent = 0;                               // info: counts     
     uint32_t W_stats_tx_retrying = 0;                           // warning: count 
@@ -388,7 +399,7 @@ struct I2C_m_masterReceiveStats {
 // ========== I2C message payloads: messages from slave to master ==========
 
 struct __attribute__((packed)) I2C_s_ack {
-    uint8_t ack{0xaa};////                                    // currently not used 
+    uint8_t ack{ 0x00 };                                    // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
     Action action{ M_ACTION_NONE };            // action requested from master

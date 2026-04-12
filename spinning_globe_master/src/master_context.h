@@ -60,9 +60,9 @@ enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, e
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
-constexpr uint32_t BROKER_ALIVE_TIMEOUT {30 * 1000};                // 30 s
-constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps     //// overal implementeren   
-constexpr uint8_t centerPointStep{ settingSteps / 2 };      //// overal implementeren
+constexpr uint32_t DASHBOARD_ALIVE_TIMEOUT{ 30 * 1000 };    // mqtt dashboard timeout = 30 s
+constexpr uint8_t settingSteps{ 32 };                       // must be even; from 0 to settingSteps        
+constexpr uint8_t centerPointStep{ settingSteps / 2 };
 
 constexpr uint32_t oneSecondCount{ 1000L }, blinkTimeCount{ 800 };  // milliseconds
 constexpr uint32_t spareTimeCount{ 500 };                           // milliseconds
@@ -212,6 +212,7 @@ A ring is started by calling startRing(...), specifying:
 - the number of alternating states in each sequence (n>0),
 - the duration of each alternating state (d>0), counted in steps
 - the duration of the pause (p>0), counted in steps (not relevant if only one sequence
+- color scheme to use
 
 This state machine counts *steps*, not time.
 Each time advanceRingOneStep() is called, the state machine advances 1 step.
@@ -220,12 +221,13 @@ Example: if advanceRingOneStep() is called every 128 ms and d = 2 steps, then ea
 
 class VisualRing {
 public:
-    enum RingState : uint8_t { ring_rest, ring_start, ring_state_A, ring_state_B, ring_pause, ring_stop };
-
+    enum RingState : uint8_t { ring_rest, ring_start, ring_state_A, ring_state_B, ring_pause };
+    enum RingType : uint8_t { ring_off, ringing, alarm };
 
 private:
     bool _changeStateNow{ false };
-    RingState _ringState = ring_rest;
+    RingState _ringState{ ring_rest };
+    RingType _ringType{ ring_off };
 
     uint8_t _altColorChangesInSequence;         // number of color changes in 1 sequence (counted in steps)
     uint8_t _altColorSteps;                     // duration of an alternating color within a sequence (counted in steps)
@@ -235,25 +237,34 @@ private:
     uint8_t _pauseCounter;                      // remaining sequences in the ring; counts down
     uint8_t _stepCounter;                       // remaining steps to next color change (in steps); counts down
 
+    uint8_t _colorScheme{ 0 };
 
 public:
     // ========== stop a ring ==========
     bool inline stopRing() {
         if (_ringState == ring_rest) { return false; }          // not during an ongoing ring
-        _ringState = ring_stop;
+        // immediately stop ring or alarm
+        _ringState = ring_rest;                                 // will be stopped now in advanceRing()
+        _ringType = ring_off;                                   // ring, alarm or off
         return true;
     }
 
     // ========== check the current ring state ==========
-    VisualRing::RingState inline ringState(bool& changeNow) {
-        changeNow = _changeStateNow;                                            // indicates that the state just changed: the calling program should take action to reflect that 
-        return _ringState;                                                    // return 'ring state was changed'
+    VisualRing::RingState inline ringState(bool& changeNow, uint8_t& ringColorScheme) {
+        // 'changeNow': state just changed: the calling program should take appropriate action BEFORE the next call to ringState()
+        changeNow = _changeStateNow;
+        ringColorScheme = _colorScheme;
+        return _ringState;                                      // return 'ring state was changed'
+    };
+
+    VisualRing::RingType inline ringType() {
+        return _ringType;                                       // return 'ring state was changed'
     };
 
 
 
     // public interface
-    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps);
+    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t colorScheme);
     void advanceRingOneStep();
 };
 
@@ -268,7 +279,7 @@ private:
 
 public:
 
-    uint32_t getMicros(uint32_t* secondsPtr = nullptr);
+    uint32_t inline getMicros(uint32_t* secondsPtr = nullptr);
 
     uint32_t inline incrementMillis999() {
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {

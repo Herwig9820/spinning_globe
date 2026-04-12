@@ -27,6 +27,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 ===============================================================================================
 Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
 ---------------------------------------------------------------------------------------------------
+Include this line:
+#define WITH_WIRE_COMM 1
 An Arduino nano esp32, acting as a bridge, will control the spinning globe (changing settings, checking states)
 over WiFi, e.g. using MQTT.
 
@@ -37,7 +39,7 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 */
 
 
-#define WITH_WIRE_COMM 1                                    // select the operating mode with the Wire extension (see above)
+#define WITH_WIRE_COMM 1                                    // select the operating mode: with or without the Wire extension (see above)
 
 #include <LiquidCrystal.h>                                  // LCD
 #include <util/atomic.h>                                    // atomic operations
@@ -255,7 +257,7 @@ volatile unsigned int millis16bits{ 0 };
 volatile long tempSmooth{ 0 };                                                      // temperature smoothed by first order filter; long for speed, used by ISR
 
 #if WITH_WIRE_COMM
-uint32_t brokerIsAliveAt{ millis() };
+uint32_t dashboardIsAliveAt{ millis() };                                            // time of last msg received from mqtt dashboard
 #endif
 
 // ========== PID controller ==========
@@ -450,8 +452,12 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
 void getEventOrUserCommand();                                   // retrieve an event or a user command - exit if nothing available
 void getISRevent();                                             // copy one ISR event (Greenwich, status change, second cue, blink, fast rate data events, ...) for processing, if available
 void getCommand();                                              // parse one user command - exit if no more characters available or command is complete 
-MsgType processEvent();                                         // process one event, if available
+#if WITH_WIRE_COMM
 void handleActions(Action);
+#else
+enum MsgType :uint8_t { dummyValue };
+#endif
+MsgType processEvent();                                         // process one event, if available
 void processCommand();                                          // process one user command, if available
 void checkSwitches(bool forceSwitchCheck = false);              // if SW3 to SW0 to be interpreted as switches only (instead of buttons
 void writeStatus();                                             // print on event or on command
@@ -694,7 +700,7 @@ Arduino loop()
 
 void loop()
 {
-    checkSwitches();                                // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
+    checkSwitches();        // only if SW3 to SW0 to be interpreted as switches (instead of buttons) as determined during setup
 #if WITH_WIRE_COMM
 
     constexpr MsgType initialMessages[4]{ M_MSG_GLOBE_SETTINGS, M_MSG_PID_SETTINGS, M_MSG_VERT_POS_SETPOINT, M_MSG_COIL_PHASE_ADJUST };
@@ -719,8 +725,11 @@ void loop()
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
     uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
-    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction, brokerIsAliveAt);   // if incoming i2c message available, dequeue
+    messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction, dashboardIsAliveAt);   // if incoming i2c message available, dequeue
     handleActions(slaveRequestNextAction);
+
+    // stop ring or alarm if contact with dashboard lost
+    if (millis() - dashboardIsAliveAt > DASHBOARD_ALIVE_TIMEOUT) { visualRing.stopRing(); }
 
 #if DEBUG
     writeStatus();
@@ -733,8 +742,6 @@ void loop()
     writeStatus();                                  // print status to Serial and LCD (if connected)
     writeAttributeLabelAndValue();                  // print selectedAttribute label and value to Serial and LCD (if connected)
 #endif
-
-    if (millis() - brokerIsAliveAt > BROKER_ALIVE_TIMEOUT) { visualRing.stopRing(); }
 
     writeLedStrip();                                // write led strip on event      
     globeEvents.removeOldestChunk(ISRevent != eNoEvent);   // has an event been processed now ? remove from message queue
@@ -826,14 +833,14 @@ void handleActions(Action slaveRequestNextAction) {
             // initiate a ring sequence
             // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
             // The total ring time = ) x 128 ms (step time) = [(p1 x p2 x p3 + (p1 - 1) x p4] x 128 ms
-            visualRing.startRing(5, 9, 2, 8);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
+            visualRing.startRing(5, 9, 2, 8, 0);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
         }
         break;
 
         case Action::M_ACTION_START_ALARM:
         {
             // initiate an alarm sequence ('sequences = 0 => until stopped)
-            visualRing.startRing(0, 5, 1, 5);           // in each sequence: 5 color changes; color duration = 1 step; pause duration = 5 steps            
+            visualRing.startRing(0, 5, 1, 2, 1);           // in each sequence: 5 color changes; color duration = 1 step; pause duration = 5 steps            
         }
         break;
 
@@ -1133,7 +1140,7 @@ MsgType processEvent() {
     constexpr int tempTimeCst_BinaryFractionDigits{ 16 };
     constexpr long tempTimeCst1024 = (long)(samplingPeriod * fastDataRateSamplingPeriods * (1L << tempTimeCst_BinaryFractionDigits));      // temp time cst * 2^n for added accuracy (long integer)
 
-    static uint8_t fastRateDataEventCounter{ 0 };                                                           // overflows at 255
+    static uint8_t fastRateDataEventCounter{ 0 };                                                   // overflows at 255
     static long partialSumMagnetOnCycles{ 0 };
     static long movingSumMagnetOnCycles{ 0 };
     static long sumMagnetOnCycles[averagingPeriodsMagnetLoad] = { 0 };
@@ -1149,7 +1156,7 @@ MsgType processEvent() {
     switch (ISRevent) {
         case eStatusChange:
         {
-            if (!statusData.isFloating) { smoothedMeasurements.errSignalMagnitudeSmooth = 0.f; }            // globe currently not floating ? reset smoothed error value immediately
+            if (!statusData.isFloating) { smoothedMeasurements.errSignalMagnitudeSmooth = 0.f; }    // globe currently not floating ? reset smoothed error value immediately
         #if WITH_WIRE_COMM
             msgTypeOut = MsgType::M_MSG_STATUS;
         #endif
@@ -1182,18 +1189,18 @@ MsgType processEvent() {
             // tempSmooth: in °C * 100
             long temp = ((fastRateDataPtr->sumADCtemp * 500/*mV at 0°C*/ * 100L /*in °C x 100*/ - ((long)ADCvolt << 10)/*mV/step*/) >> 10);     // convert to degrees Celsius x 100 (multiply or divide by 1024 = ADC resolution: shift 10 bits)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                         // note that (volatile) 'tempSmooth' is read back to ISR for safety check high temperature
-                smoothedMeasurements.tempSmooth =                       //   
+                smoothedMeasurements.tempSmooth =
                     tempSmooth = tempSmooth + ((((temp - tempSmooth) * tempTimeCst1024) / 5L) >> tempTimeCst_BinaryFractionDigits);
             }
 
             partialSumMagnetOnCycles += fastRateDataPtr->sumMagnetOnCycles;
-            fastRateDataEventCounter++;                                                     // overflows at 255 idle events = 255 * 128 mS, period = 32768 milliseconds
+            fastRateDataEventCounter++;                                 // overflows at 255 idle events = 255 * 128 mS, period = 32768 milliseconds
             if (fastRateDataEventCounter == 0) {
                 movingSumMagnetOnCycles = movingSumMagnetOnCycles + partialSumMagnetOnCycles - sumMagnetOnCycles[averagingPeriodsMagnetLoad - 1];   // spans more than 5 minutes
                 for (int i = averagingPeriodsMagnetLoad - 2; i >= 0; i--) { sumMagnetOnCycles[i + 1] = sumMagnetOnCycles[i]; }
                 sumMagnetOnCycles[0] = partialSumMagnetOnCycles;
                 partialSumMagnetOnCycles = 0;
-                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                         // highLoad is passed back to ISR for safety check high magnet load
+                ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                     // highLoad is passed back to ISR for safety check high magnet load
                     highLoad = (movingSumMagnetOnCycles >= maxOnCycles);
                 }
             }
@@ -1202,8 +1209,9 @@ MsgType processEvent() {
             visualRing.advanceRingOneStep();
 
         #if WITH_WIRE_COMM
-            constexpr uint8_t clockDividerBitMask = 0b11;                                   // 0b0011: every fourth 128 ms cue = every 512 millis
+            constexpr uint8_t clockDividerBitMask = 0b11;               // 0b0011: every fourth 128 ms cue = every 512 millis
             if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
+            else { msgTypeOut = MsgType::M_MSG_PING; }                  // send ping (early detection of slave request to send data)
         #endif    
         }
         break;
@@ -1239,8 +1247,8 @@ MsgType processEvent() {
             /*
             // 3 seconds after reset
             if (secondData.eventSecond == 3) {
-                cli();                                                                      // interrupts off: interface with ISR and eeprom write
-                eeprom_update_byte((uint8_t*)3, (uint8_t)0);                                // time after reset is longer than 3 seconds
+                cli();                                                  // interrupts off: interface with ISR and eeprom write
+                eeprom_update_byte((uint8_t*)3, (uint8_t)0);            // time after reset is longer than 3 seconds
                 sei();
             }
             */
@@ -1259,7 +1267,7 @@ MsgType processEvent() {
 #if WITH_WIRE_COMM
     return msgTypeOut;
 #else
-    return 0;               // dummy return value
+    return MsgType::dummyValue;               // dummy return value
 #endif
 }
 
@@ -1706,10 +1714,6 @@ void writeLedStrip() {
     constexpr uint8_t minBrightnessGamma = (((((uint32_t)LSminBrightnessLevel) + 1UL) * (((uint32_t)LSminBrightnessLevel) + 1UL)) - 1UL) >> 8;
     constexpr uint8_t maxBrightnessGamma = (((((uint32_t)LSmaxBrightnessLevel) + 1UL) * (((uint32_t)LSmaxBrightnessLevel) + 1UL)) - 1UL) >> 8;
 
-    constexpr uint8_t ringColorOne[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0xFF, 0xFF };
-    constexpr uint8_t ringColorTwo[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0xFF };
-    constexpr uint8_t ringColorPause[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0x00 };
-
     // include the line below to alternate between blue with another color if ledEffect == cWhiteBlue
     // static uint8_t LSColorSequence{ 1 }; 
 
@@ -1722,6 +1726,8 @@ void writeLedStrip() {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
+
+    // ========== time to calculate new LED colors for the set color cycle ? (not yet considering ring and alarm events) ==========
 
     if (ISRevent == eLedstripData) {                                                              // brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
@@ -1750,16 +1756,29 @@ void writeLedStrip() {
         }
     }
 
-    // visual ring overrides current color setting
+    // ========== process rings and alarms, determine led colors ==========
+
+    static constexpr uint8_t colorWhite[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0xFF, 0xFF };
+    static constexpr uint8_t ringColorRed[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0xFF };
+    static constexpr uint8_t ringColorBlue[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0x00, 0x00 };
+
+    static constexpr const uint8_t* ringColors[2][3]{
+    { colorWhite,    ringColorRed,  ringColorBlue },   // color scheme 0: A, B, pause (ring)
+    { ringColorRed,  ringColorBlue, colorWhite    }    // color scheme 1: A, B, pause (alarm)
+    };
+
+
     bool changeRingColorNow{};
-    VisualRing::RingState ringState = visualRing.ringState(changeRingColorNow);
+    uint8_t ringColorScheme{};
+    VisualRing::RingState ringState = visualRing.ringState(changeRingColorNow, ringColorScheme);
     bool endOfRing = (ringState == VisualRing::RingState::ring_rest) && changeRingColorNow;
 
-    // inside a ring and ring color must change now ?
+    // inside a ring and ring color must change now ? (visual ring overrides current color setting)
     if (changeRingColorNow) {        // this includes the final change to ring_rest state
+        Serial.println(ringColorScheme);
         LSout((uint8_t*)(endOfRing ? colorGammaCorrected :
-            (ringState == VisualRing::RingState::ring_pause) ? ringColorPause :
-            (ringState == VisualRing::RingState::ring_state_A) ? ringColorOne : ringColorTwo), ledstripMasks);
+            (ringState == VisualRing::RingState::ring_pause) ? ringColors[ringColorScheme][2] :
+            (ringState == VisualRing::RingState::ring_state_A) ? ringColors[ringColorScheme][0] : ringColors[ringColorScheme][1]), ledstripMasks);
     }
 
     // inside a ring, but no color change
@@ -2152,7 +2171,7 @@ SIGNAL(TIMER1_OVF_vect) {
     uint32_t now = millis();
     if (triggerWireCommLed) { wireCommStartTime = now; triggerWireCommLed = false; }
     // led ON (1/16 brightness) for a full second each time a trigger occurs (prevents blinking)
-    if ((now - wireCommStartTime < 1000) && !(millis16bits & 0xf)) { PORTB |= portB_D13ledSelect; }
+    if ((now - wireCommStartTime < 150) && !(millis16bits & 0xf)) { PORTB |= portB_D13ledSelect; }
     else { PORTB &= ~portB_D13ledSelect; }
 
     // debounce switches / keys and produce (1) switch states and (2) key codes for pressed / released keys

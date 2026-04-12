@@ -51,6 +51,8 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue);
 void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColorCycle = false);
 
 
+// ==========  constructor / destructor ==========
+
 MessageHandling::MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
     SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
     LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing, volatile bool& triggerWireCommLed) :
@@ -108,6 +110,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
                 }
                 else { p.status = wire_notFloating; }
             }
+            p.stateFlags = _visualRing.ringType();       // 0,1,2 = off, ringing, alarm
             _wireMaster.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -260,7 +263,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
 
 // ========== process Wire slave reply ==========
 
-bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& brokerIsAliveAt) {
+bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& dashboardAliveAt) {
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };                   // message type received from slave
     uint8_t i2cPayloadSizeIn{ 0 };                              // payload size as reported by slave
     uint8_t plIn[SLAVE_PAYLOAD_MAX];
@@ -296,8 +299,8 @@ bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action
             // next requested message type     
             nextMsgTypeOut = p->requestMasterMsgType;
             nextAction = p->action;
-            // !!! setting brokerIsAliveAt: ONLY FOR ACK MSG PAYLOADS (broker requests a msg or action from master) ORIGINATING FROM BROKER !!!
-            if ((nextMsgTypeOut != M_MSG_NONE) || (nextAction != M_ACTION_NONE)) { brokerIsAliveAt = millis();  }
+            // !!! setting dashboardAliveAt: ONLY FOR ACK MSG PAYLOADS ORIGINATING FROM DASHBOARD TOPICS (test if needed) !!!
+            if ((nextMsgTypeOut != M_MSG_NONE) || (nextAction != M_ACTION_NONE)) { dashboardAliveAt = millis();  }
         }
         break;
 

@@ -46,7 +46,6 @@ Class: GlobeEvents
 ============================================================================
 */
 
-
 // ========== reserve space in the event message buffer for a new event message ==========
 
 bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr) {      // prevent interference with another call to addChunk() - which may be called from ISR;
@@ -157,14 +156,13 @@ void GlobeEvents::takeSnapshot(EventData* eventSnapshotPtr) {
     }
 }
 
+
 /*
 ============================================================================
 Class: getMillis and getMicros function based on timer1 and own time counting logic
 (millis and micros < one second, count seconds) * **
 ============================================================================
 */
-
-
 
 // execution time is very close to 20 microSeconds (16MHz clock)
 uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // return micros in current second & seconds as well (run time in micros = seconds * 1E6 + micros) 
@@ -195,15 +193,21 @@ uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // retur
 }
 
 
- // ========== VisualRing: small state machine to create a timed 'ring' ==========
+ /* 
+ ============================================================================
+// Class: ring and alarm functions
+ ============================================================================
+*/
 
 // ========== start a ring (all arguments except 'sequences' must be > 0) ==========
-bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps) {
+
+bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t colorScheme) {
 
     // if 'sequences' is zero, the ring will continue until it is stopped by calling 'stopRing()'
 
     if (_ringState != ring_rest) { return false; }          // not during an ongoing ring
     _ringState = ring_start;                                // init ring
+    _ringType = (sequences == 0) ? alarm : ringing;
 
     // store color change count in a sequence and durations (in steps) of a color in a sequence and of a pause between sequences
     _altColorChangesInSequence = colorChangesInSequence;
@@ -214,12 +218,14 @@ bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, ui
     _altColorCounter = colorChangesInSequence;              // number of (alternating) colors within ring sequence
     _pauseCounter = sequences - 1;                          // number of ring sequences - 1 (no pause after last ring)
     _stepCounter = _altColorSteps;                          // start with an alternating color
-    
+
+    _colorScheme = colorScheme;
     return true;
 };
 
 
 // ========== advance one step in the ring sequence ==========
+
 void VisualRing::advanceRingOneStep() {
 #if TRACK_FREE_MEM
     trackFree();
@@ -249,6 +255,7 @@ void VisualRing::advanceRingOneStep() {
                 if (--_altColorCounter == 0) {              // this was the last color (red or white) in a sequence: go to pause or end ?      
                     _stepCounter = _pauseSteps;             // in case a pause still follows
                     _ringState = ((_pauseCounter == 0) ? ring_rest : ring_pause);
+                    if (_ringState == ring_rest) { _ringType = ring_off; }      // now switching off ring / alarm
                     _changeStateNow = true;
                 }
 
@@ -273,20 +280,6 @@ void VisualRing::advanceRingOneStep() {
             }
         }
         break;
-
-        // stop ring sequence immediately
-        case ring_stop:
-        {
-            _ringState = ring_rest;
-            _changeStateNow = true;
-        }
-        break;
-    }
-
-    ////Serial.print(_ringState, HEX); Serial.print(' ');
-
-    if (_changeStateNow) {
-        ////Serial.print(F("\r\nadvance to new state: ")); Serial.print(_ringState); Serial.print(F(", time ")); Serial.println(millis());
     }
 };
 

@@ -67,19 +67,19 @@ class MessageHandling {
 
     WireMaster _wireMaster;
 
-        
+
     /* ========== METHODS ========== */
 
 public:
     MessageHandling(GreenwichData& greenwichData, StatusData& statusData, SecondData& secondData,
         SmoothedMeasurements& smoothedMeasurements, PIDsettings& pidSettings, int* globeMetrics,
-        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing, volatile bool &triggerWireCommLed);
+        LedStripSettings& ledStripSettings, EventData& globeEventSnapshot, VisualRing& visualRing, volatile bool& triggerWireCommLed);
 
     ~MessageHandling();
 
     uint8_t transmit();
     void enqueueI2CmessageToSlave(MsgType& msgTypeOut);
-    bool dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& brokerIsAliveAt);
+    bool dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action& nextAction, uint32_t& dashboardIsAliveAt);
 };
 
 #endif

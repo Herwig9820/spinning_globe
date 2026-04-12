@@ -149,9 +149,6 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
     expReplyMsgType = rxExpReplyMsgType[rxTail];
 
     rxTail = (rxTail + 1) % RX_QUEUE_SIZE;
-
-    ////Serial.print("receiving ACK: requested action "); Serial.print(Serial.println(((uint8_t*)payload)[1])); 
-    ////Serial.print(', requested msg type '); Serial.println(((uint8_t*) payload)[2]);
     return true;
 
 };
@@ -166,11 +163,10 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     trackFree();
 #endif
 
-
     static uint8_t expReplyMsgType, expReplyMsgSize{};
 
-    static unsigned long lastTaskTime_millis = 0;                               // delay scheduling, periods > 10 ms
-    static unsigned long lastTaskTime_micros = 0;                               // delay scheduling, periods < 10 ms
+    static unsigned long lastTaskTime_millis = 0;                   // delay scheduling, periods > 10 ms
+    static unsigned long lastTaskTime_micros = 0;                   // delay scheduling, periods < 10 ms
     static unsigned long lastPollTime_micros = 0;
 
     static uint8_t sendRetryCount = 0;
@@ -183,7 +179,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
     /* ---------- state machine: MS_IDLE: enqueue message if available ---------- */
 
-    if (state == MasterState::MS_IDLE) {                                        // not sending or receiving ?
+    if (state == MasterState::MS_IDLE) {                            // not sending or receiving ?
         if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
         state = MasterState::MS_SEND;                                           // change status to MS_SEND 
@@ -303,7 +299,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         }
 
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
-        _triggerWireCommLed = true;                                         // handled in timer interrupt
+        _triggerWireCommLed = true;                                             // handled in timer interrupt
         state = MasterState::MS_IDLE;
         return wireStatus;
     }
@@ -413,19 +409,16 @@ WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_
     uint8_t next = (head + 1) % RX_QUEUE_SIZE;
 
     if (next == rxTail) {    // Buffer full -> drop packet
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_full++;  }    // message dropped (32-bit stats_ variable increment must be atomic
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_full++; }    // message dropped (32-bit stats_ variable increment must be atomic
         return WireStatus::E_rx_full;
     }
 
-    ////Serial.print("received: "); 
     uint8_t sum = 0;
     for (uint8_t i = 0; i < expReplyMsgSize - 1; ++i) {                         // includes header and payload, excludes received checksum from checksum calculation
-        ////Serial.print(in[i], HEX); Serial.print(' ');
         rxQueue[head][i] = in[i];
         sum ^= in[i];
     }
     rxQueue[head][expReplyMsgSize - 1] = in[expReplyMsgSize - 1];
-    ////Serial.print("checksum IN : "); Serial.print(in[expReplyMsgSize - 1], HEX);Serial.print(F("<checksum calc")); Serial.println(sum, HEX);
     rxExpReplyMsgType[head] = expReplyMsgType;                                  // OK because strict lockstep (was not sent/received but was locally stored in between)
 
     if (sum != rxQueue[head][expReplyMsgSize - 1]) {                            // checksum correct ?

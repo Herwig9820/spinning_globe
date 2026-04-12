@@ -93,7 +93,6 @@ class  WireSlave {
 
 public:
     // Packet sizing
-    static constexpr uint8_t HEADER_SIZE = 3;                                       // message type and length, (not currently used) version byte
     static constexpr uint8_t PACKET_IN_MAX = HEADER_SIZE + MASTER_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
     static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1;    // type + len + payload + checksum: length max. 32
 
@@ -108,16 +107,6 @@ private:
     alignas(4) volatile bool rxEmpty = true;
     alignas(4) volatile bool txEmpty = true;
 
-
-    /* ================= STATE ================= */
-
-    // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
-    enum class WireTransport {                  // control messages exchanged between slave and master
-        NONE = 0x00,
-        M_CTRL_POLL = 0x01,                     // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
-        S_CTRL_BUSY,                            // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
-        S_CTRL_READY                            // idem
-    };
 
     enum SlaveWaitState { SS_WAIT_FOR_POLL_REPLY_REQUEST, SS_WAIT_FOR_REPLY_REQUEST };
 

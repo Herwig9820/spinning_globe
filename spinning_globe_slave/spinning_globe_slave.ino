@@ -82,7 +82,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
     // ---------- WiFi and MQTT state ----------
 
     constexpr int32_t LED_CONN_BLINK_PERIOD = 0x100;    // led blink control while WiFi / MQTT are connecting: led on if (millis() & LED_CONN_BLINK_PERIOD): 256 ms ON + 256 ms OFF = 512 ms blink period
-    constexpr int32_t LED_NEW_MSG_PERIOD = 0x40;        // new message flash: change color for 64 ms if MQTT message is sent to, or received from broker
+    constexpr int32_t LED_NEW_MSG_PERIOD = 0x64;        // new message flash: change color for 100 ms if MQTT message is sent to, or received from broker
 
     constexpr int32_t LED_DIM_MASK = 0xF;               // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
 
@@ -154,7 +154,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
 
     // ---------- wire transmission ----------
 
-    constexpr int32_t WIRE_LED_NEW_MSG_PERIOD = 0x100;    // new message flash: change color for 256 ms if MQTT message is sent to, or received from broker
+    constexpr int32_t WIRE_LED_NEW_MSG_PERIOD = 0x64;    // new message flash: change color for 100 ms if MQTT message is sent to, or received from broker
 
     constexpr int32_t WIRE_LED_DIM_MASK = 0xF;           // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
 

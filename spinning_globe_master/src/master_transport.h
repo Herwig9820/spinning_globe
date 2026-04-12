@@ -159,20 +159,12 @@ private:
 
     /* ================= STATE + WORKING COPIES ================= */
 
-    enum MasterState:uint8_t { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
+    enum MasterState :uint8_t { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
     MasterState state = MasterState::MS_IDLE;
 
     uint8_t rxInBuffer[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];
     uint8_t txOutBuffer[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
 
-
-    // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
-    enum class WireTransport:uint8_t {
-        NONE = 0x00,
-        M_CTRL_POLL = 0x01,                                         // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
-        S_CTRL_BUSY,                                                // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
-        S_CTRL_READY                                                // idem
-    };
 
 public:
     // state returned to the calling program
@@ -196,7 +188,7 @@ public:
 
     /* ========== METHODS ========== */
 
-    WireMaster(volatile bool &triggerWireCommLed);
+    WireMaster(volatile bool& triggerWireCommLed);
     ~WireMaster();
 
     // safe to call from ISR

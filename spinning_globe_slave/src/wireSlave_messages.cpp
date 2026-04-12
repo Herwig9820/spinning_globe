@@ -173,8 +173,12 @@ bool WireSlaveMessages::loop() {
 
 void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
     MQTTmsgFromWire msg{};
+    // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_STATUS);
-    snprintf(msg.payload, sizeof(msg.payload), "%u", p->status);
+    JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_STATUS, "\"%u\"", p->status);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_FLAGS, "\"%u\"", p->stateFlags);
+    JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
 };
@@ -364,7 +368,6 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 
         thisAckResponse.requestMasterMsgType = _sharedContext.holdAckResponses.front()->requestMasterMsgType;
         thisAckResponse.action = _sharedContext.holdAckResponses.front()->action;
-        Serial.print("Ack response - msg type "); Serial.print(thisAckResponse.requestMasterMsgType); Serial.print(", action "); Serial.println(thisAckResponse.action);
         I2C_s_ack dummy;
         _sharedContext.holdAckResponses.pop(dummy);
     }

@@ -61,6 +61,8 @@ constexpr const char* PL_KEY_SET_VERT_POS_SETPOINT = "setVertPosSetpoint";
 constexpr const char* PL_KEY_SET_COIL_PHASE_ADJUST = "setCoilPhaseAdjust";
 
 // ---------- actual values, measurements ----------
+constexpr const char* PL_KEY_STATUS = "s";                          // status (frequent messages: keep length short)
+constexpr const char* PL_KEY_FLAGS = "f";                          // state flags  (frequent messages: keep length short)
 constexpr const char* PL_KEY_ACT_TIME = "actRotTime";
 constexpr const char* PL_KEY_ROT_SYNC_ERROR = "rotSyncError";
 constexpr const char* PL_KEY_GREENWICH_LAG = "greenwichLag";

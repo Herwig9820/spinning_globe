@@ -93,8 +93,8 @@ public:
     bool convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire);
-    void holdRequestForWireMasterMsgType(MsgType m_msgtype);
-    void holdRequestForWireMasterAction(Action m_action);
+    void holdRequestForWireMaster(MsgType m_msgtype, Action m_action = M_ACTION_NONE);
+    void holdRequestForWireMaster(Action m_action);
 
 };
 
