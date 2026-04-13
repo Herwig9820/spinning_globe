@@ -1758,13 +1758,13 @@ void writeLedStrip() {
 
     // ========== process rings and alarms, determine led colors ==========
 
-    static constexpr uint8_t colorWhite[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0xFF, 0xFF };
-    static constexpr uint8_t ringColorRed[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0xFF };
-    static constexpr uint8_t ringColorBlue[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0x00, 0x00 };
+    static constexpr const uint8_t colorWhite[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0xFF, 0xFF };
+    static constexpr const uint8_t colorRed[LSbrightnessItemCount + 1]{ 0xFF, 0x00, 0x00, 0xFF };
+    static constexpr const uint8_t colorBlue[LSbrightnessItemCount + 1]{ 0xFF, 0xFF, 0x00, 0x00 };
 
-    static constexpr const uint8_t* ringColors[2][3]{
-    { colorWhite,    ringColorRed,  ringColorBlue },   // color scheme 0: A, B, pause (ring)
-    { ringColorRed,  ringColorBlue, colorWhite    }    // color scheme 1: A, B, pause (alarm)
+    static constexpr const uint8_t* const ringColors[2][3]{
+        { colorWhite,    colorRed, colorBlue },     // color scheme 0: A, B, pause (ring)
+        { colorWhite,  colorBlue, colorRed }        // color scheme 1: A, B, pause (alarm)
     };
 
 
