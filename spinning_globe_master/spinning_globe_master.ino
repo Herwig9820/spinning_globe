@@ -1146,6 +1146,10 @@ MsgType processEvent() {
     static long sumMagnetOnCycles[averagingPeriodsMagnetLoad] = { 0 };
 
 #if WITH_WIRE_COMM
+    constexpr uint8_t clockDivider4_bitMask = 0b11;
+    constexpr uint8_t clockDivider8_bitMask = 0b0111;
+    constexpr uint8_t clockDivider16_bitMask = 0b1111;
+
     MsgType msgTypeOut = MsgType::M_MSG_NONE;
 #endif
 
@@ -1209,9 +1213,9 @@ MsgType processEvent() {
             visualRing.advanceRingOneStep();
 
         #if WITH_WIRE_COMM
-            constexpr uint8_t clockDividerBitMask = 0b11;               // 0b0011: every fourth 128 ms cue = every 512 millis
-            if (!((fastRateDataPtr->eventMillis >> 7) & clockDividerBitMask)) { msgTypeOut = MsgType::M_MSG_STATUS; }   // send status 
-            else { msgTypeOut = MsgType::M_MSG_PING; }                  // send ping (early detection of slave request to send data)
+            // send ping (early detection of slave request to send data) every 128 ms (... >> 7), except when status is sent
+            if (((fastRateDataPtr->eventMillis >> 7) & clockDivider8_bitMask)) { msgTypeOut = MsgType::M_MSG_PING; }   // send status every 512 ms 
+            else { msgTypeOut = MsgType::M_MSG_STATUS; }
         #endif    
         }
         break;
@@ -1219,30 +1223,35 @@ MsgType processEvent() {
         case eSecond:
         {
         #if WITH_WIRE_COMM
+            // distribute less urgent messages (telemetry and comm. stats) over time
             // several telemetry and stat message types are triggered by the second cue: space different messages in time in order not to fill the 'wire tx queue completely 
 
             // ---------- telemetry messages sent every 4 seconds ----------
 
-            constexpr uint8_t clockDividerBitMask4sec = 0b11;
-            constexpr uint8_t clockDividerBitMask32sec = 0b11111;
-
             // second i x 4 (second 0, 4, 8, ...)
-            if (!(secondData.eventSecond & clockDividerBitMask4sec)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }
+            if (!(secondData.eventSecond & clockDivider4_bitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }
 
 
-            // ---------- extended telemetry and stat messages sent every 32 seconds, NOT concurrent with other stat messages  ----------
+            // ---------- extended telemetry and stat messages sent every 16 seconds, NOT concurrent with other stat messages  ----------
+            switch (secondData.eventSecond & clockDivider16_bitMask) {
+                case 0b0001: msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; break;    // second i x 2**4 + 1 (1, 17, 33, ...) 
+                case 0b0101: msgTypeOut = MsgType::M_MSG_SEND_STATS; break;         // second i x 2**4 + 5 (5, 21, 37, ...)
+                case 0b0110: msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; break;      // second i x 2**4 + 6 (6, 22, 38, ...)
+                case 0b0111: msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; break;      // second i x 2**4 + 7 (7, 23, 39, ...)
+            }
+            /* ////
+            // second i x 2**4 + 1 (1, 17, 33, ...)
+            if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }
 
-            // second i x 2**5 + 1 (1, 33, 65, ...) 
-            if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }
+            // second i x 2**4 + 5 (5, 21, 37, ...)
+            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }
 
-            // second i x 2**5 + 5 (5, 37, 69, ...) 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }
+            // second i x 2**4 + 6 (6, 22, 38, ...)
+            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }
 
-            // second i x 2**5 + 6 (6, 38, 70, ...) 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }
-
-            // second i x 2**5 + 7 (7, 39, 71, ...) 
-            else if ((secondData.eventSecond & clockDividerBitMask32sec) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }
+            // second i x 2**4 + 7 (7, 23, 39, ...)
+            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }
+            */
         #endif
             /*
             // 3 seconds after reset
@@ -1775,7 +1784,6 @@ void writeLedStrip() {
 
     // inside a ring and ring color must change now ? (visual ring overrides current color setting)
     if (changeRingColorNow) {        // this includes the final change to ring_rest state
-        Serial.println(ringColorScheme);
         LSout((uint8_t*)(endOfRing ? colorGammaCorrected :
             (ringState == VisualRing::RingState::ring_pause) ? ringColors[ringColorScheme][2] :
             (ringState == VisualRing::RingState::ring_state_A) ? ringColors[ringColorScheme][0] : ringColors[ringColorScheme][1]), ledstripMasks);

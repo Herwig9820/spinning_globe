@@ -378,6 +378,9 @@ using I2C_m_buttonStates = I2C_buttonStates;
 struct __attribute__((packed))I2C_m_messageStats {
     uint32_t I_stats_replyReceived{ 0 };
     uint32_t E_stats_lockStepError{ 0 };
+
+    uint32_t inline errorMsgCount(){return  E_stats_lockStepError;}
+    void inline zeroMembers() { I_stats_replyReceived = E_stats_lockStepError = 0; }
 };
 
 // transport level counters
@@ -386,6 +389,9 @@ struct I2C_m_masterSendStats {
     uint32_t W_stats_tx_retrying = 0;                           // warning: count 
     uint32_t E_stats_tx_wireXmitError = 0;
     uint32_t E_stats_tx_full = 0;                               // errors: counts
+
+    uint32_t inline errorMsgCount(){return W_stats_tx_retrying + E_stats_tx_wireXmitError + E_stats_tx_full;}
+    void inline zeroMembers() { I_stats_tx_sent = W_stats_tx_retrying = E_stats_tx_wireXmitError = E_stats_tx_full = 0; }
 };
 
 struct I2C_m_masterReceiveStats {
@@ -393,6 +399,9 @@ struct I2C_m_masterReceiveStats {
     uint32_t E_stats_rx_checksum = 0;
     uint32_t E_stats_rx_timeOut = 0;
     uint32_t E_stats_rx_full = 0;
+
+    uint32_t inline errorMsgCount(){return E_stats_rx_checksum + E_stats_rx_timeOut + E_stats_rx_full;}
+    void inline zeroMembers() { I_stats_rx_received = E_stats_rx_checksum = E_stats_rx_timeOut = E_stats_rx_full = 0; }
 };
 
 

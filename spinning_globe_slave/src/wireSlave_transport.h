@@ -69,6 +69,7 @@ Polling does not advance protocol state
 #define FG_SLAVE_TRANSPORT_h
 
 #include <arduino.h>
+#include "bridge_context.h"
 #include "shared/wire_protocol.h"
 
 // Full memory fence for ESP32 / GCC
@@ -110,14 +111,6 @@ private:
 
     enum SlaveWaitState { SS_WAIT_FOR_POLL_REPLY_REQUEST, SS_WAIT_FOR_REPLY_REQUEST };
 
-    struct I2C_wireSlaveCommStats {
-        uint32_t I_stats_sent = 0;              // send: msg from tx queue -> wire out
-        uint32_t I_stats_received = 0;          // receive: msg from wire in -> rx queue
-        uint32_t E_stats_tx_full = 0;           // send: tx queue full (enqueue failed)
-        uint32_t E_stats_rx_full = 0;           // receive: rx queue full (copy from wire failed)
-        uint32_t E_stats_rx_checksum = 0;
-    };
-
 
     /* ================= METHODS ================= */
 
@@ -139,7 +132,7 @@ public:
 
     bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize);
     bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize);
-    void getCommStats(I2C_wireSlaveCommStats& commStatSnapshot);
+    float calculateTxQualityInPeriod();
 };
 
 #endif

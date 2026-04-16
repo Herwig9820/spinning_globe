@@ -7,9 +7,15 @@ WireSlaveMessages::WireSlaveMessages(SharedContext& sharedContext) : _sharedCont
 
 bool WireSlaveMessages::loop() {
 
+    static uint32_t lastCommStatsAt{ millis() };
+
     uint8_t messageTypeIn{};          // as received
     uint8_t payloadSizeIn{};          // as received
     uint8_t payloadIn[MASTER_PAYLOAD_MAX];
+
+
+    // periodically, calculate wire comm. quality and publish to MQTT (5120 = 40 x 128 ms)
+    if (millis() - lastCommStatsAt > wireCommQuality_measPeriod) { lastCommStatsAt = millis(); prepareWirecommStatsForMQTT(); }
 
     bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn);
     if (!msgAvailable) { return false; }
@@ -34,6 +40,7 @@ bool WireSlaveMessages::loop() {
         {
             // a wire master ping message does not trigger an MQTT message, but master expects an ack reply  
             replyAndFlagSlaveDataAvailable();
+            pingCount++;
         }
         break;
 
@@ -75,6 +82,13 @@ bool WireSlaveMessages::loop() {
         // receive wire master library tx stats 
         case MsgType::M_MSG_SEND_STATS:
         {
+        // detailed master-side statistics are not used to calculate wire comm. quality
+        /*
+            I2C_m_masterSendStats* pMasterSendStats = reinterpret_cast<I2C_m_masterSendStats*>(payloadIn);
+            wireStatSummary.masterValidMsgCount += pMasterSendStats->I_stats_tx_sent;
+            wireStatSummary.masterErrorMsgCount += pMasterSendStats->errorMsgCount();            // let aside retry warnings
+            pMasterSendStats->zeroMembers();
+        */
             replyAndFlagSlaveDataAvailable();
         }
         break;
@@ -82,6 +96,13 @@ bool WireSlaveMessages::loop() {
         // receive wire master library rx stats
         case MsgType::M_MSG_RECEIVE_STATS:
         {
+        // detailed master-side statistics are not used to calculate wire comm. quality
+        /*
+            I2C_m_masterReceiveStats* pMasterReceiveStats = reinterpret_cast<I2C_m_masterReceiveStats*>(payloadIn);
+            wireStatSummary.masterValidMsgCount += pMasterReceiveStats->I_stats_rx_received;
+            wireStatSummary.masterErrorMsgCount += pMasterReceiveStats->errorMsgCount();
+            pMasterReceiveStats->zeroMembers();
+        */
             replyAndFlagSlaveDataAvailable();
         }
         break;
@@ -89,6 +110,13 @@ bool WireSlaveMessages::loop() {
         // receive wire master message library stats
         case MsgType::M_MSG_MESSAGE_STATS:
         {
+        // detailed master-side statistics are not used to calculate wire comm. quality
+        /*
+            I2C_m_messageStats* pMasterMessageStats = reinterpret_cast<I2C_m_messageStats*>(payloadIn);
+            wireStatSummary.masterValidMsgCount += pMasterMessageStats->I_stats_replyReceived;
+            wireStatSummary.masterErrorMsgCount += pMasterMessageStats->errorMsgCount();
+            pMasterMessageStats->zeroMembers();
+        */
             replyAndFlagSlaveDataAvailable();
         }
         break;
@@ -229,15 +257,15 @@ void WireSlaveMessages::convertTelemetryToMQTT(I2C_m_telemetry* p) {
     _sharedContext.queueToMQTT.push(msg);
 }
 
-void WireSlaveMessages::convertTelemetryExtraToMQTT(I2C_m_telemetry_extra* p){
+void WireSlaveMessages::convertTelemetryExtraToMQTT(I2C_m_telemetry_extra* p) {
     MQTTmsgFromWire msg{};
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_TELEMETRY_EXTRA);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_SECONDS_FLOATING, "\"%lu\"", (uint32_t)(p->secondsFloating));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_EVENTS_MISSED, "\"%lu\"", p->eventsMissed);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENTS_PENDING, "\"%u\"", p->currentMaxEventsPending);
-    JsonAssemble::add(msg.payload, sizeof(msg.payload),PL_KEY_MAX_EVENT_QUEUE_BYTES_USED, "\"%u\"", p->largestEventBufferBytesUsed);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SECONDS_FLOATING, "\"%lu\"", (uint32_t)(p->secondsFloating));
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_EVENTS_MISSED, "\"%lu\"", p->eventsMissed);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_MAX_EVENTS_PENDING, "\"%u\"", p->currentMaxEventsPending);
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_MAX_EVENT_QUEUE_BYTES_USED, "\"%u\"", p->largestEventBufferBytesUsed);
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
@@ -285,6 +313,24 @@ void WireSlaveMessages::convertCoilPhaseAdjustmentToMQTT(I2C_m_coilPhaseAdjust* 
     _sharedContext.queueToMQTT.push(msg);
 };
 
+void WireSlaveMessages::prepareWirecommStatsForMQTT() {
+    // pragmatic calculation of wire comm. quality: for every valid message received, a message is sent (lockstep)
+    // - rx: count number of valid pings received in period (master pings each 128 ms, the 8th ping is replaced by a status message which is not counted)
+    // - tx: calculate ratio of sent messages without error / all sent attempts
+    // multiply the two (valid because of lockstep)
+    constexpr uint32_t expectedPingCount = (wireCommQuality_measPeriod / 128 * 7) / 8;
+    if (pingCount == expectedPingCount - 1) { pingCount++; }
+    else if (pingCount > expectedPingCount) { pingCount = expectedPingCount; } // allow for small jitter
+    float rxQuality = ((float)pingCount) / expectedPingCount;
+    pingCount = 0; // reset
+    float txQuality = wireSlave.calculateTxQualityInPeriod();       // public slave transport method
+    MQTTmsgFromWire msg{};
+    snprintf(msg.topic, sizeof(msg.topic), TOPIC_WIRE_COMM_QUALITY);
+    snprintf(msg.payload, sizeof(msg.payload), "%u", (uint16_t)(rxQuality * txQuality * 100.));        // 0 to 100
+    msg.retain = true;
+    _sharedContext.queueToMQTT.push(msg);
+}
+
 
 // ============================================================================================
 // Reply to message from wire master with an 'ACK' message
@@ -320,21 +366,21 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     /*
     Incoming MQTT topic processing (MQTTmessages class method loop() ) has already converted topics to wire messages and stored these messages in a 2-stage buffer
     per message type. Because these message do not fit in a slave 'ACK' return message, the master must first be notified that a particular message is available.
-    The 'ack' message that will be sent now informs the master that it needs to REQUEST to send that message, which will then be sent by the slave in a next 
+    The 'ack' message that will be sent now informs the master that it needs to REQUEST to send that message, which will then be sent by the slave in a next
     lock-step message exchange between wire master and slave.
 
     But to notify ALL potential subscribers of changed settings AND to be informed about changes made by the wire master (e.g., rounding PID values), the master
     must subsequently send these settings back to the wire slave (this bridge) for MQTT publishing.
 
-    The logic to accomplish that last step is not built into the wire master. Instead, in a NEXT ack reply, the slave will now inform the master that it should send out 
+    The logic to accomplish that last step is not built into the wire master. Instead, in a NEXT ack reply, the slave will now inform the master that it should send out
     the changed settings.
 
     example:
 
     node-red                        wire master                     wire slave
     ---------------------------------------------------------------------------
-                                                                            ////    
-    TOPIC_GLOBE_SETTINGS_SET    ->  
+                                                                            ////
+    TOPIC_GLOBE_SETTINGS_SET    ->
     */
 
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
@@ -363,7 +409,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
 
     // ---------- PRIO 2: the slave has a message (request for action, or data, from master) for wire master, FITTING in THIS ack response ?  ----------
-    
+
     else if (!_sharedContext.holdAckResponses.empty()) {
         // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 
         thisAckResponse.requestMasterMsgType = _sharedContext.holdAckResponses.front()->requestMasterMsgType;

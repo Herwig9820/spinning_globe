@@ -29,6 +29,8 @@ constexpr const char* TOPIC_PID_SETTINGS = "globe/PIDsettings";
 constexpr const char* TOPIC_VERT_POS_SETPOINT = "globe/vertPosSetpoint";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST = "globe/coilPhaseAdjust";
 
+constexpr const char* TOPIC_WIRE_COMM_QUALITY = "globe/wireCommQuality";
+
 // ---------- subscribed to ----------
 constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";                      // spinning globe settings published by node-red or other dashboard
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
@@ -81,6 +83,14 @@ constexpr const char* PL_KEY_START_RING = "start ring";
 constexpr const char* PL_KEY_STOP_RING = "stop ring";
 constexpr const char* PL_KEY_START_ALARM = "start alarm";
 
+
+struct I2C_wireSlaveCommStats {
+    uint32_t I_stats_sent = 0;              // send: msg from tx queue -> wire out
+    uint32_t I_stats_received = 0;          // receive: msg from wire in -> rx queue
+    uint32_t E_stats_tx_full = 0;           // send: tx queue full (enqueue failed)
+    uint32_t E_stats_rx_full = 0;           // receive: rx queue full (copy from wire failed)
+    uint32_t E_stats_rx_checksum = 0;       // receive: checksum error
+};
 
 template<typename T, size_t N>
 
@@ -148,12 +158,12 @@ struct SharedContext {
 
 
     // ---------- other variables ----------
-    volatile bool triggerWireCommLed{ false };
+    bool triggerWireCommLed{ false };
 
     // MQTT publish timestamp
     uint32_t lastMQTTpublish = 0;
 
-    // Optional: shared counters
+    // Optional: MQTT shared counters
     uint32_t mqttMessagesSent = 0;
     uint32_t wireMessagesSent = 0;
 

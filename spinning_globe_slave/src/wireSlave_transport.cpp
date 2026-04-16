@@ -53,19 +53,14 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
         return false;
     }
 
-    ////Serial.print("sending: ");
-
     txQueue[0] = messageType;               // struct copy
     txQueue[1] = payloadSize;
     uint8_t sum = messageType ^ payloadSize;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[HEADER_SIZE + i] = ((uint8_t*)payload)[i];
-        ////Serial.print(txQueue[HEADER_SIZE + i], HEX); Serial.print(' ');
         sum ^= ((uint8_t*)payload)[i];
     }
     txQueue[HEADER_SIZE + payloadSize] = sum;
-    ////Serial.print("checksum OUT : "); Serial.println(txQueue[HEADER_SIZE + payloadSize], HEX);
-
 
     RELEASE_BARRIER();                      // Ensure packet bytes are visible BEFORE publishing
 
@@ -96,16 +91,6 @@ bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t&
 
     rxEmpty = true;
     return true;
-}
-
-
-// ========== GET slave send and receive stats ==========
-
-void WireSlave::getCommStats(I2C_wireSlaveCommStats& commStatSnapshot) {
-
-    portENTER_CRITICAL(&wireMux);
-    commStatSnapshot = const_cast<const I2C_wireSlaveCommStats&>(wireSlaveCommStats);
-    portEXIT_CRITICAL(&wireMux);
 }
 
 
@@ -147,7 +132,7 @@ void WireSlave::pushIncomingWireMsg(int byteCount) {
         return;                                 // invalid message
     }
 
-    // ---------- 3. Lockstep SPSC with acquire / release fences ----------
+    // ---------- 3. Lockstep SPSC with release fence ----------
 
     bool empty = rxEmpty;
     if (!empty) {                               // Buffer full -> drop packet
@@ -169,7 +154,7 @@ void WireSlave::pushIncomingWireMsg(int byteCount) {
 
 void WireSlave::popOutgoingWireMsg() {
 
-    // Lockstep SPSC with acquire / release fences
+    // Lockstep SPSC with acquire fence
 
     bool empty = txEmpty;
 
@@ -196,16 +181,16 @@ void WireSlave::popOutgoingWireMsg() {
 }
 
 
+// ========== GET slave send and receive stats ==========
 
-
-
-
-
-
-
-
-
-
-
-
-
+float WireSlave::calculateTxQualityInPeriod() {
+    portENTER_CRITICAL(&wireMux);
+    float tx_quality = 0.;   // init
+    if(wireSlaveCommStats.I_stats_sent > 0){tx_quality =  wireSlaveCommStats.I_stats_sent / (wireSlaveCommStats.I_stats_sent + wireSlaveCommStats.E_stats_tx_full);}
+    
+    // clear
+    wireSlaveCommStats.I_stats_received = wireSlaveCommStats.I_stats_sent = 
+        wireSlaveCommStats.E_stats_rx_checksum = wireSlaveCommStats.E_stats_rx_full = wireSlaveCommStats.E_stats_tx_full = 0;
+    portEXIT_CRITICAL(&wireMux);
+    return tx_quality;
+}

@@ -199,11 +199,10 @@ public:
     // should be called frequently from application main loop
     WireStatus sendAndReceiveMessage();
 
-    void getSendStats(I2C_m_masterSendStats& sendStatSnapshot);
-    void getReceiveStats(I2C_m_masterReceiveStats& receiveStatSnapshot);
+    void getAndClearSendStats(I2C_m_masterSendStats& sendStatSnapshot);
+    void getAndClearReceiveStats(I2C_m_masterReceiveStats& receiveStatSnapshot);
 
-private:
-    // helpers: called from sendAndReceiveMessage()
+   // helpers: called from sendAndReceiveMessage()
     bool copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize);
     bool i2cWriteMessage(const uint8_t* p);
     bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);

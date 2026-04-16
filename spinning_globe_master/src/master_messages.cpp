@@ -207,7 +207,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
         case MsgType::M_MSG_SEND_STATS:
         {
             I2C_m_masterSendStats p{};
-            _wireMaster.getSendStats(p);
+            _wireMaster.getAndClearSendStats(p);
             _wireMaster.enqueueTx(M_MSG_SEND_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -216,7 +216,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
         case MsgType::M_MSG_RECEIVE_STATS:
         {
             I2C_m_masterReceiveStats p{};
-            _wireMaster.getReceiveStats(p);
+            _wireMaster.getAndClearReceiveStats(p);
             _wireMaster.enqueueTx(M_MSG_RECEIVE_STATS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -226,6 +226,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
         {
             // note: _msgStats is already up to date 
             _wireMaster.enqueueTx(M_MSG_MESSAGE_STATS, sizeof(_msgStats), &_msgStats, S_MSG_ACK, sizeof(I2C_s_ack));
+            _msgStats.zeroMembers();
         }
         break;
 
