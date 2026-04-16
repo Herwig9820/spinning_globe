@@ -1,0 +1,2440 @@
+[
+    {
+        "id": "846c39736bfcf985",
+        "type": "tab",
+        "label": "IP test and connection",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "cb6dceeb25cbc3d8",
+        "type": "tab",
+        "label": "status",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "0bc71bd3ce48e106",
+        "type": "tab",
+        "label": "settings flow",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "f59cc94fad2f5bd1",
+        "type": "tab",
+        "label": "telemetry flow",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "5d6f8746db55b172",
+        "type": "ui_tab",
+        "name": "Home",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "8489d6de51f3d095",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": true,
+                "reset": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 5,
+                "cy": 5,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "fdd710dae9bf6772",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud",
+        "port": "8883",
+        "tls": "",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "77df2131ac60a5ea",
+        "type": "ui-base",
+        "name": "Spinning floating globe",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "dashboard",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "833b4fa7e6bade67",
+        "type": "ui-theme",
+        "name": "Spinning globe 1",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094ce",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "6px"
+        }
+    },
+    {
+        "id": "6486672b6256529e",
+        "type": "ui-theme",
+        "name": "spinning globe 2",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "a003d8a6049507e3",
+        "type": "ui-theme",
+        "name": "Spinning globe 3",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "5d8b8b7c74d39724",
+        "type": "ui-theme",
+        "name": "Spinning globe 4",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "efc6475877a45e67",
+        "type": "ui-page",
+        "name": "Globe status",
+        "ui": "77df2131ac60a5ea",
+        "path": "/globe status",
+        "icon": "home",
+        "layout": "flex",
+        "theme": "a003d8a6049507e3",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "12"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "12"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "3efc13ea56e33523",
+        "type": "ui-group",
+        "name": "Globe",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ea63517411fb6671",
+        "type": "ui-group",
+        "name": "Telemetry",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "59b84ef62cd6fe8a",
+        "type": "ui-group",
+        "name": "PID controller",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "d024b32d927367d1",
+        "type": "ui-spacer",
+        "group": "3efc13ea56e33523",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 7,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "7670a7134cfcb4e2",
+        "type": "ui-spacer",
+        "group": "59b84ef62cd6fe8a",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 4,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "d01c80f8f5ad4d6d",
+        "type": "ui-spacer",
+        "group": "59b84ef62cd6fe8a",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 7,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "01cd3d91d5e0ba9b",
+        "type": "ui-spacer",
+        "group": "3efc13ea56e33523",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 2,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "6614257672df255b",
+        "type": "ui-spacer",
+        "group": "ea63517411fb6671",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 7,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "4373a044cc474b5f",
+        "type": "ui-spacer",
+        "group": "ea63517411fb6671",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 10,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "252b08b175e9521e",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "name": "extract ip",
+        "func": "let isLocal = global.get('localNetwork') || false;\n\nmsg.payload = {\n    ip: msg.req.ip,\n    localNetwork: isLocal\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 180,
+        "wires": [
+            [
+                "87a0287ed194f385"
+            ]
+        ]
+    },
+    {
+        "id": "87a0287ed194f385",
+        "type": "http response",
+        "z": "846c39736bfcf985",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 610,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "f11f80fa7440ce89",
+        "type": "ui-template",
+        "z": "846c39736bfcf985",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "IP Access guard banner",
+        "order": 10,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n  <div v-if=\"blocked\" style=\"\n      background:#7f0000;\n      color:white;\n      padding:12px;\n      border-radius:6px;\n      font-size:13px;\">\n    ⛔ Remote access ({{ clientIp }}): controls are disabled\n  </div>\n  <div v-else style=\"\n      background:#1a3a1a;\n      color:#40ff40;\n      padding:8px;\n      border-radius:6px;\n      font-size:13px;\">\n    ✅ Local access ({{ clientIp }}): controls are enabled \n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      clientIp: 'checking...',\n      blocked: false\n    }\n  },\nmounted() {\nfetch('/checkip')\n.then(r => r.json())\n.then(data => {\nthis.clientIp = data.ip;\nthis.blocked = !(\ndata.ip === '127.0.0.1' ||\ndata.ip.startsWith('192.168.')\n);\n})\n.catch(() => {\nthis.clientIp = 'unknown';\nthis.blocked = true;\n});\n}\n}\n</script>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 230,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "89ab5d78f5fc1acf",
+        "type": "inject",
+        "z": "846c39736bfcf985",
+        "name": "ping trigger",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 210,
+        "y": 100,
+        "wires": [
+            [
+                "1a886f13eacb78d4"
+            ]
+        ]
+    },
+    {
+        "id": "1a886f13eacb78d4",
+        "type": "exec",
+        "z": "846c39736bfcf985",
+        "command": "ping -n 1 -w 500 192.168.0.95",
+        "addpay": "",
+        "append": "",
+        "useSpawn": "false",
+        "timer": "",
+        "winHide": false,
+        "oldrc": false,
+        "name": "ping ESP32",
+        "x": 410,
+        "y": 100,
+        "wires": [
+            [
+                "eac90b2baeb2d480"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "eac90b2baeb2d480",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "name": "check ping result",
+        "func": "let success = msg.payload.includes('TTL=');\nglobal.set('localNetwork', success);\nmsg.payload = 'Local network: ' + success;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 650,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cb729674c400cba6",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "name": "reconnect",
+        "ui": "77df2131ac60a5ea",
+        "events": "connect",
+        "x": 180,
+        "y": 640,
+        "wires": [
+            [
+                "22fbdb2340531b80"
+            ]
+        ]
+    },
+    {
+        "id": "eca6430ea7feeb5a",
+        "type": "inject",
+        "z": "846c39736bfcf985",
+        "name": "connect delay ",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 200,
+        "y": 720,
+        "wires": [
+            [
+                "cb4bcbdd08831955"
+            ]
+        ]
+    },
+    {
+        "id": "cb4bcbdd08831955",
+        "type": "link out",
+        "z": "846c39736bfcf985",
+        "name": "link out connect delay",
+        "mode": "link",
+        "links": [
+            "f734a45356543fa8",
+            "9e6094c163ce1dd8",
+            "64af60a3b70c6b0a",
+            "ee09ea4a6790976c"
+        ],
+        "x": 355,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "22fbdb2340531b80",
+        "type": "link out",
+        "z": "846c39736bfcf985",
+        "name": "link out reconnect",
+        "mode": "link",
+        "links": [
+            "41ec14ff9e9ef867",
+            "188c2e97c8f52f01",
+            "2eb48e41e0b6ad68",
+            "d555f1bb02b8fa5d"
+        ],
+        "x": 355,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "5892b4d0e0f548bb",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "change",
+        "x": 520,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "5af782f10a10c1dc",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "all",
+        "x": 180,
+        "y": 260,
+        "wires": [
+            [
+                "e75d515615169946"
+            ]
+        ]
+    },
+    {
+        "id": "e75d515615169946",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "name": "IP gate v2",
+        "func": "let socketId = msg._client.socketId;\nlet socketIp = msg._client.socketIp;\nlet isLocal = global.get('localNetwork') || false;\n\n// Only act on connect and change events\nif (msg.payload !== 'connect' && msg.payload !== 'change') return null;\n\nlet ipOk = (\n    socketIp === '127.0.0.1' ||\n    socketIp.startsWith('192.168.')\n);\n\nlet blocked = !(ipOk && isLocal);\n\nmsg.payload = {\n    _client: { socketId: socketId },\n    groups: blocked\n        ? { disable: [\"59b84ef62cd6fe8a\"] }\n        : { enable: [\"59b84ef62cd6fe8a\"] }\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 260,
+        "wires": [
+            [
+                "5892b4d0e0f548bb"
+            ]
+        ]
+    },
+    {
+        "id": "154e2d9f9ba62534",
+        "type": "http in",
+        "z": "846c39736bfcf985",
+        "name": "check ip",
+        "url": "/checkip",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 180,
+        "wires": [
+            [
+                "252b08b175e9521e"
+            ]
+        ]
+    },
+    {
+        "id": "ec3389e411beae7a",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "group": "3efc13ea56e33523",
+        "order": 1,
+        "width": 4,
+        "height": 0,
+        "name": "Overall status",
+        "label": "Overall status: ",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "3b447212f2fc19a1",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "overall status",
+        "func": "//node.warn(\"STATUS INPUT: \" + msg.topic);\n\n// OFFLINE case\nif (msg.topic === \"__offline__\" || msg.topic === \"offline\") {\n    let offline = {\n        text: \"OFFLINE\",\n        style: \"color:red\",\n        code: \"0\"\n    };\n    flow.set(\"lastStatus\", offline);\n\n    msg.payload = `<div style=\"${offline.style}\">${offline.text}</div>`;\n    return msg;\n}\n\n// FLASH case\nif (msg.topic === \"flashTrigger\") {\n    let st = flow.get(\"lastStatus\");\n    if (!st) return null;\n\n    if (msg.payload === \"__flash__\") {\n        // dot ON\n        msg.payload = `<div><span style=\"color:lime;\">●</span> <span style=\"${st.style}\">${st.text}</span></div>`;\n    } else {\n        // dot OFF\n        msg.payload = `<div style=\"${st.style}\">${st.text}</div>`;\n    }\n    return msg;\n}\n\n\n// Ignore everything except real status messages\nif (msg.topic !== \"globe/status\") {\n    return null;\n}\n\n// NORMAL STATUS case\nlet code = (\"\" + msg.payload).trim();\n\nlet statusMap = {\n    \"0\":  { text: \"wait for globe position sync\", style: \"color:yellow;\" }, \n    \"1\":  { text: \"free running\", style: \"color:yellow;\" },             // not used\n    \"2\":  { text: \"measuring rotation speed\", style: \"color:yellow\" }, \n    \"3\":  { text: \"rotation not locked to clock\", style: \"color:yellow\" }, \n    \"4\":  { text: \"rotation locked to clock\", style: \"color:#40ff40\" }, // green\n    \"5\":  { text: \"rotation is OFF\", style: \"color:#40ff40;\" },         // green\n    \"6\":  { text: \"globe is not floating\", style: \"color:yellow;font-weight:bold;\" }, \n    \"17\": { text: \"Error: dropped globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" }, \n    \"18\": { text: \"Error: sticky globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" }, \n    \"19\": { text: \"Error: overload\", style: \"color:red;font-weight:bold;background:#ffcccc;\" }, \n    \"20\": { text: \"Error: temp too high\", style: \"color:red;font-weight:bold;background:#ffcccc;\" }\n};\n\nlet mapped = statusMap[code];\n\nif (!mapped) {\n    mapped = { text: \"OFFLINE\", style: \"color:red\", code: \"0\" };\n}\n\nmapped.code = code;\nflow.set(\"lastStatus\", mapped);\n\nmsg.payload = `<div style=\"${mapped.style || \"\"}\">${mapped.text}</div>`;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "10",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 240,
+        "wires": [
+            [
+                "ec3389e411beae7a"
+            ]
+        ]
+    },
+    {
+        "id": "c05c549fd40b1afe",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "globe status",
+        "topic": "globe/status",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 350,
+        "y": 160,
+        "wires": [
+            [
+                "3b447212f2fc19a1",
+                "7b970ceb58b2f665"
+            ]
+        ]
+    },
+    {
+        "id": "8a74de1597e41593",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "group": "3efc13ea56e33523",
+        "order": 5,
+        "width": 4,
+        "height": 1,
+        "name": "Last rotation period",
+        "label": "Period of last rotation",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 790,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "7bc4a5837b56f9cd",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "globe greenwich",
+        "topic": "globe/greenwich",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 360,
+        "wires": [
+            [
+                "700e938f28c867b0",
+                "32630dfe2f7755af"
+            ]
+        ]
+    },
+    {
+        "id": "32630dfe2f7755af",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet actRotTimeMsg = { payload: data.actRotTime} ;\nlet rotSyncErrorMsg = { payload: data.rotSyncError};\nlet greenwichLagMsg = { payload: data.greenwichLag};\n\n// Return all three\nreturn [actRotTimeMsg, rotSyncErrorMsg, greenwichLagMsg];\n\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 360,
+        "wires": [
+            [
+                "8a74de1597e41593"
+            ],
+            [
+                "880ab17b635f08c0"
+            ],
+            [
+                "1805bd067b9557bb"
+            ]
+        ]
+    },
+    {
+        "id": "1805bd067b9557bb",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "group": "ea63517411fb6671",
+        "order": 9,
+        "width": 5,
+        "height": 1,
+        "name": "Greenwich lag",
+        "label": "Greenwich lag",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "880ab17b635f08c0",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "group": "3efc13ea56e33523",
+        "order": 6,
+        "width": 4,
+        "height": 1,
+        "name": "Rotation sync error",
+        "label": "Rotation sync error",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 790,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "4342a3a9ddd9975c",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "esp32 globe topics",
+        "topic": "globe/#",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 370,
+        "y": 100,
+        "wires": [
+            [
+                "64cd02335992bfc8"
+            ]
+        ]
+    },
+    {
+        "id": "64cd02335992bfc8",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "last esp32 update",
+        "func": "flow.set(\"lastSeen\", Date.now());\nflow.set(\"flash\", true);\nreturn null;\n\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f52ebc4807e1e94f",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "group": "ea63517411fb6671",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "updated now",
+        "label": "Last globe message",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "b730fab50352a975",
+        "type": "inject",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "secondCue",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 290,
+        "y": 460,
+        "wires": [
+            [
+                "db1f5a51cbafca72"
+            ]
+        ]
+    },
+    {
+        "id": "db1f5a51cbafca72",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "msg time stamp",
+        "func": "let last = flow.get(\"lastSeen\");\nif (!last) return null;\n\nlast = new Date(last);\nlet current = new Date();\n\nlet diffSeconds = Math.floor((current.getTime() - last.getTime()) / 1000);\n\n// Build the base text\nlet text;\n\nif (diffSeconds < 60) {\n    text = diffSeconds + \" seconds ago\";\n} else {\n    let sameDay =\n        current.getFullYear() === last.getFullYear() &&\n        current.getMonth() === last.getMonth() &&\n        current.getDate() === last.getDate();\n\n    if (sameDay) {\n        text = last.toLocaleTimeString();\n    } else {\n        text = last.toLocaleString();\n    }\n}\n\n// Check if a flash is requested\nlet flash = flow.get(\"flash\");\n\nif (flash) {\n    // Flash ON (brief highlight)\n    msg.payload = \"<span style='color:lime;font-weight:bold;'>\" + text + \"</span>\";\n\n    // Clear flash flag immediately\n    flow.set(\"flash\", false);\n\n    // Schedule a reset after 200 ms\n    setTimeout(() => {\n        node.send({ payload: text });\n    }, 100);\n\n    return msg;\n}\n\n// Normal display\nmsg.payload = text;\nreturn msg;\n\n\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 460,
+        "wires": [
+            [
+                "f52ebc4807e1e94f"
+            ]
+        ]
+    },
+    {
+        "id": "700e938f28c867b0",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "greenwich flash",
+        "func": "flow.set(\"statusFlash\", true);\n\n// Flash ON\nnode.send({ topic: \"flashTrigger\", payload: \"__flash__\" });\n\n// Flash OFF after 300 ms\nsetTimeout(() => {\n    node.send({ topic: \"flashTrigger\", payload: \"__noflash__\" });\n}, 300);\n\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 300,
+        "wires": [
+            [
+                "3b447212f2fc19a1"
+            ]
+        ]
+    },
+    {
+        "id": "7b970ceb58b2f665",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "mark last seen",
+        "func": "flow.set(\"lastSeen\", Date.now());\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "49ced551f05e4611",
+        "type": "inject",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 150,
+        "y": 240,
+        "wires": [
+            [
+                "8c55077195a9567a"
+            ]
+        ]
+    },
+    {
+        "id": "8c55077195a9567a",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "name": "check offline",
+        "func": "let last = flow.get(\"lastSeen\") || 0;\nlet now = Date.now();\n\n// 10 seconds without heartbeat = offline\nif (now - last > 10000) {\n    msg.topic = \"__offline__\";\n    msg.payload = \"\";\n    return msg;\n}\n\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 240,
+        "wires": [
+            [
+                "3b447212f2fc19a1"
+            ]
+        ]
+    },
+    {
+        "id": "fad1b508d7482b66",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "group": "3efc13ea56e33523",
+        "name": "Led effect",
+        "label": "Select a LED effect",
+        "tooltip": "",
+        "order": 9,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "OFF",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "White",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "Magenta",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "Blue",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "White and blue",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "Rainbow",
+                "value": 5,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 600,
+        "y": 100,
+        "wires": [
+            [
+                "688b554cd8b2bae6"
+            ]
+        ]
+    },
+    {
+        "id": "737e0bcbe75e0832",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "name": "globe settings",
+        "topic": "globe/settings/set",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1360,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "53fc4df54431f18e",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "group": "3efc13ea56e33523",
+        "name": "LED effect speed",
+        "label": "Select a LED effect speed",
+        "tooltip": "",
+        "order": 10,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "Very fast",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "fast",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "slow",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "Very slow",
+                "value": 3,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 630,
+        "y": 140,
+        "wires": [
+            [
+                "d48669e5730dda77"
+            ]
+        ]
+    },
+    {
+        "id": "4feafcdfc78f6f01",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "name": "globe settings",
+        "topic": "globe/settings",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 60,
+        "wires": [
+            [
+                "d4c89a5745eaf241"
+            ]
+        ]
+    },
+    {
+        "id": "d4c89a5745eaf241",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet setRotTimeMsg = { payload: data.setRotTime } ;\nlet setLedEffectMsg = { payload: data.setLedEffect};\nlet setLedEffectSpeedMsg = { payload: data.setLedEffectSpeed};\n\n// Return all three\nreturn [setRotTimeMsg, setLedEffectMsg, setLedEffectSpeedMsg];\n\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 60,
+        "wires": [
+            [
+                "648416a4daa49c61"
+            ],
+            [
+                "fad1b508d7482b66"
+            ],
+            [
+                "53fc4df54431f18e"
+            ]
+        ]
+    },
+    {
+        "id": "648416a4daa49c61",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "group": "3efc13ea56e33523",
+        "name": "rotation speed select",
+        "label": "Select a rotation period",
+        "tooltip": "",
+        "order": 4,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "OFF",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "0.9 seconds",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "1.5 seconds",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "3 seconds",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "4.5 seconds",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "6 seconds",
+                "value": 5,
+                "type": "num"
+            },
+            {
+                "label": "7.5 seconds",
+                "value": 6,
+                "type": "num"
+            },
+            {
+                "label": "9 seconds",
+                "value": 7,
+                "type": "num"
+            },
+            {
+                "label": "12 seconds",
+                "value": 8,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 640,
+        "y": 60,
+        "wires": [
+            [
+                "f2bdc390eff4ee0e"
+            ]
+        ]
+    },
+    {
+        "id": "52bb5919610d459b",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "Fan out values",
+        "func": "const gain_center = 0.7;\nconst gain_incr = 0.0125;\n\nconst dif_center = 23;\nconst dif_incr = 0.125;\n\nconst int_center = 10;\nconst int_incr = 0.5;\n\nconst center_index = 16;        // range: 0-32\n\nlet data = msg.payload;\n\nlet setGainAdjustMsg = {\n    payload: gain_center + (data.setGainAdjust - center_index) * gain_incr\n};\n\nlet setDifTimeAdjustMsg = {\n    payload: dif_center + (data.setDifTimeAdjust - center_index) * dif_incr\n};\n\nlet setIntTimeAdjustMsg = {\n    payload: int_center + (data.setIntTimeAdjust - center_index) * int_incr\n};\n\n// Return all three outputs \nreturn [setGainAdjustMsg, setDifTimeAdjustMsg, setIntTimeAdjustMsg];\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 260,
+        "wires": [
+            [
+                "7577b91a357e119a"
+            ],
+            [
+                "2b21185de4b87b4d"
+            ],
+            [
+                "43a98b5d7d85d870"
+            ]
+        ]
+    },
+    {
+        "id": "81342ace28fbbbca",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "name": "PID settings",
+        "topic": "globe/PIDsettings/set",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1350,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "2ab5938149825138",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "name": "",
+        "topic": "globe/PIDsettings",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "52bb5919610d459b"
+            ]
+        ]
+    },
+    {
+        "id": "7577b91a357e119a",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Gain setting",
+        "label": "Gain",
+        "order": 1,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "0.5",
+        "max": "0.9",
+        "step": "0.0125",
+        "tooltip": "",
+        "delay": "0",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 610,
+        "y": 260,
+        "wires": [
+            [
+                "93530bbea624ceb1"
+            ]
+        ]
+    },
+    {
+        "id": "f2bdc390eff4ee0e",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "store rot. speed",
+        "func": "flow.set(\"setRotTime\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 840,
+        "y": 60,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "688b554cd8b2bae6",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "store LED effect",
+        "func": "flow.set(\"setLedEffect\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 840,
+        "y": 100,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "d48669e5730dda77",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "store LED speed",
+        "func": "flow.set(\"setLedEffectSpeed\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 850,
+        "y": 140,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "b4a39b66ea3667aa",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "settings JSON builder",
+        "func": "let rot   = flow.get(\"setRotTime\");\nlet eff   = flow.get(\"setLedEffect\");\nlet speed = flow.get(\"setLedEffectSpeed\");\n\nmsg.payload = {\n    setRotTime: Number(rot),\n    setLedEffect: Number(eff),\n    setLedEffectSpeed: Number(speed)\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1120,
+        "y": 100,
+        "wires": [
+            [
+                "737e0bcbe75e0832"
+            ]
+        ]
+    },
+    {
+        "id": "debefb15be306a77",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "restore values",
+        "func": "// Keys used in flow context\nconst keys = [\n    \"setRotTime\",\n    \"setLedEffect\",\n    \"setLedEffectSpeed\"\n];\n\n// Read values from context\nlet values = keys.map(k => {\n    let v = flow.get(k);\n    return (v === undefined) ? \"\" : v;   // preserve 0, replace only undefined\n});\n\n// Send to the three dropdowns\nreturn [\n    { payload: values[0] },\n    { payload: values[1] },\n    { payload: values[2] }\n];\n\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 140,
+        "wires": [
+            [
+                "648416a4daa49c61"
+            ],
+            [
+                "fad1b508d7482b66"
+            ],
+            [
+                "53fc4df54431f18e"
+            ]
+        ]
+    },
+    {
+        "id": "f734a45356543fa8",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 1",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 115,
+        "y": 120,
+        "wires": [
+            [
+                "debefb15be306a77"
+            ]
+        ]
+    },
+    {
+        "id": "41ec14ff9e9ef867",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 2",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 115,
+        "y": 160,
+        "wires": [
+            [
+                "debefb15be306a77"
+            ]
+        ]
+    },
+    {
+        "id": "93530bbea624ceb1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "snap and store gain",
+        "func": "// ----- Gain parameters -----\nconst minVal = 0.5;         // minimim value\nconst incr   = 0.0125;      // step size\nconst minIdx = 0;           // minimum step\nconst maxIdx = 32;          // maximum step\n\n// Incoming GAIN VALUE from spinner (0.5 ... 0.9)\nlet gain = Number(msg.payload);\nlet idx = Math.round((gain - minVal)/ incr);\nlet snappedGain = minVal + idx * incr;\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setGainAdjust\", idx);\nflow.set(\"gain_value\", snappedGain);\n\n// Output ONLY the index\nreturn { payload: idx };\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 870,
+        "y": 260,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "2b21185de4b87b4d",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Derivative time constant",
+        "label": "Derivative time constant (milliseconds)",
+        "order": 2,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "21",
+        "max": "25",
+        "step": "0.125",
+        "tooltip": "",
+        "delay": "0",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 650,
+        "y": 300,
+        "wires": [
+            [
+                "882ac9e689f6d93a"
+            ]
+        ]
+    },
+    {
+        "id": "882ac9e689f6d93a",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "snap and store diff. tc",
+        "func": "// PID differentiation time constant (mS) parameters\nconst minVal = 21       // minimum value\nconst incr   = 0.125;   // step size\nconst minIdx = 0;       // minimum step\nconst maxIdx = 32;      // maximum step\n\n// Incoming DIFF.TIME CONST. VALUE from spinner (0.5 ... 0.9)\nlet difTimeConst = Number(msg.payload);\n\n// Snap the t.c. to the nearest valid step\nlet snappedDifTimeConst = minVal + Math.round((difTimeConst - minVal) / incr) * incr;\n\n// Compute index from snapped dif.time constant\nlet idx = Math.round((snappedDifTimeConst - minVal) / incr);\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setDifTimeAdjust\", idx);\nflow.set(\"difTime_value\", snappedDifTimeConst);\n\n// Output ONLY the index\nreturn { payload: idx };\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 300,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "43a98b5d7d85d870",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Integral time constant",
+        "label": "Integral time constant (seconds)",
+        "order": 3,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "2",
+        "max": "18",
+        "step": "0.5",
+        "tooltip": "",
+        "delay": "0",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 640,
+        "y": 340,
+        "wires": [
+            [
+                "058375a4846789a1"
+            ]
+        ]
+    },
+    {
+        "id": "058375a4846789a1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "snap and store digg.tc",
+        "func": "// PID integration time constant (second) parameters\nconst minVal = 2;       // minimum value \nconst incr   = 0.5;     // step size\nconst minIdx   = 0;     // minimum step\nconst maxIdx   = 32;    // maximum step\n\n// Incoming INT.TIME CONST. VALUE from spinner (0.5 ... 0.9)\nlet intTimeConst = Number(msg.payload);\n\n// Snap the t.c. to the nearest valid step\nlet snappedIntTimeConst = minVal + Math.round((intTimeConst - minVal) / incr) * incr;\n\n// Compute index from snapped int.time constant\nlet idx = Math.round((snappedIntTimeConst - minVal) / incr);\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setIntTimeAdjust\", idx);\nflow.set(\"intTime_value\", snappedIntTimeConst);\n\n// Output ONLY the index\nreturn { payload: idx };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 340,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "49c57703f8dc9cef",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "restore values",
+        "func": "const keys = [\n    \"gain_value\",\n    \"difTime_value\",\n    \"intTime_value\"\n];\n\n// Read values from context\nlet values = keys.map(k => {\n    let v = flow.get(k);\n    return (v === undefined) ? \"\" : v;   // preserve 0, replace only undefined\n});\n\n// Send to the three dropdowns\nreturn [\n    { payload: values[0] },\n    { payload: values[1] },\n    { payload: values[2] }\n];\n\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 340,
+        "wires": [
+            [
+                "7577b91a357e119a"
+            ],
+            [
+                "2b21185de4b87b4d"
+            ],
+            [
+                "43a98b5d7d85d870"
+            ]
+        ]
+    },
+    {
+        "id": "9e6094c163ce1dd8",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 3",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 115,
+        "y": 320,
+        "wires": [
+            [
+                "49c57703f8dc9cef"
+            ]
+        ]
+    },
+    {
+        "id": "188c2e97c8f52f01",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 4",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 115,
+        "y": 360,
+        "wires": [
+            [
+                "49c57703f8dc9cef"
+            ]
+        ]
+    },
+    {
+        "id": "3cf93c0ed4d086ca",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "vert.pos. label",
+        "order": 5,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Vertical position \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 140,
+        "y": 980,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "595e3cd3f9bf92de",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "name": "vertical position select",
+        "label": "Select a vertical position",
+        "tooltip": "",
+        "order": 6,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "1500 mV",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "1800 mV",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "2100 mV",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "2400 mV",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "2700 mV",
+                "value": 4,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 640,
+        "y": 440,
+        "wires": [
+            [
+                "801ca75dc8dce0ba"
+            ]
+        ]
+    },
+    {
+        "id": "b1d227912346df30",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Coil phase adjust",
+        "label": "Set coil phase adjustment (degrees)",
+        "order": 9,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "-180",
+        "max": "178",
+        "step": "2",
+        "tooltip": "Select values from -180 to 178 degrees (2-degree steps)",
+        "delay": "2000",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 610,
+        "y": 680,
+        "wires": [
+            [
+                "d67728702a5d4507"
+            ]
+        ]
+    },
+    {
+        "id": "9cd69a6195f91f34",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "Coil phase label",
+        "order": 8,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Rotation \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 140,
+        "y": 1020,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "db5a4498e412d15b",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "group": "3efc13ea56e33523",
+        "page": "",
+        "ui": "",
+        "name": "LEDS. label",
+        "order": 8,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        LEDs \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 130,
+        "y": 900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3c2dd0659e4232b8",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "name": "",
+        "topic": "globe/vertPosSetpoint",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 440,
+        "wires": [
+            [
+                "595e3cd3f9bf92de"
+            ]
+        ]
+    },
+    {
+        "id": "97fc4bc9df65e85b",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "name": "Vertical pos. setpoint",
+        "topic": "globe/vertPosSetpoint/set",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1440,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "801ca75dc8dce0ba",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "store vert. position",
+        "func": "flow.set(\"setVertPosIndex\", msg.payload);\nflow.set(\"vertPosIndex_value\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 870,
+        "y": 440,
+        "wires": [
+            [
+                "8986b55b64c97fd1"
+            ]
+        ]
+    },
+    {
+        "id": "8986b55b64c97fd1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "vertical position JSON builder",
+        "func": "let vertPos = flow.get(\"setVertPosIndex\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setVertPosSetpoint: Number(vertPos),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1150,
+        "y": 440,
+        "wires": [
+            [
+                "97fc4bc9df65e85b"
+            ]
+        ]
+    },
+    {
+        "id": "5b66d1cb256e8bef",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "restore value",
+        "func": "let v = flow.get(\"vertPosIndex_value\");\nmsg.payload = (v === undefined) ? \"\" : v;\nreturn {payload: msg.payload};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 520,
+        "wires": [
+            [
+                "595e3cd3f9bf92de"
+            ]
+        ]
+    },
+    {
+        "id": "64af60a3b70c6b0a",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 5",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 115,
+        "y": 500,
+        "wires": [
+            [
+                "5b66d1cb256e8bef"
+            ]
+        ]
+    },
+    {
+        "id": "2eb48e41e0b6ad68",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 6",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 115,
+        "y": 540,
+        "wires": [
+            [
+                "5b66d1cb256e8bef"
+            ]
+        ]
+    },
+    {
+        "id": "4af8fdd4f6be62de",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "PID settings JSON builder",
+        "func": "let gain   = flow.get(\"setGainAdjust\");\nlet diffTC = flow.get(\"setDifTimeAdjust\");\nlet intTc  = flow.get(\"setIntTimeAdjust\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setGainAdjust: Number(gain),\n    setDifTimeAdjust: Number(diffTC),\n    setIntTimeAdjust: Number(intTc),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1130,
+        "y": 300,
+        "wires": [
+            [
+                "81342ace28fbbbca"
+            ]
+        ]
+    },
+    {
+        "id": "c0f68d89a5d72101",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "name": "coil phase adjust in",
+        "topic": "globe/coilPhaseAdjust",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 680,
+        "wires": [
+            [
+                "f1e7792e63d88958"
+            ]
+        ]
+    },
+    {
+        "id": "5ff55bd7853382c6",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "name": "Coil phase adjust out",
+        "topic": "globe/coilPhaseAdjust/set",
+        "qos": "1",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1440,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "d555f1bb02b8fa5d",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 7",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 115,
+        "y": 780,
+        "wires": [
+            [
+                "cba685514a38da5f"
+            ]
+        ]
+    },
+    {
+        "id": "ee09ea4a6790976c",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "name": "link in 8",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 115,
+        "y": 740,
+        "wires": [
+            [
+                "cba685514a38da5f"
+            ]
+        ]
+    },
+    {
+        "id": "cba685514a38da5f",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "restore value",
+        "func": "let coilPhase = flow.get(\"coilPhaseAdjust_value\");\ncoilPhase = (coilPhase === undefined) ? \"\" : coilPhase;\nif (coilPhase >= 90) { coilPhase = coilPhase - 180; }\nreturn {payload: coilPhase*2};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 760,
+        "wires": [
+            [
+                "b1d227912346df30"
+            ]
+        ]
+    },
+    {
+        "id": "d67728702a5d4507",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "store coil phase adjust",
+        "func": "let coilPhaseOut = msg.payload;                             // valid values: -180 to 178 degrees\n\ncoilPhaseOut = Math.round(coilPhaseOut /2);                 \ncoilPhaseOut = Math.max(-90, Math.min(89, coilPhaseOut));   // Clamp to -90 to 89 \nif(coilPhaseOut < 0) {coilPhaseOut += 180;}                 // -90 to -1 => 90 to 179 \n\nlet snappedValue = coilPhaseOut;                        // Clamped to -180 to 178 degrees           \n\nflow.set(\"setCoilPhaseAdjust\", coilPhaseOut);\nflow.set(\"coilPhaseAdjust_value\", snappedValue);\n\nreturn {payload: coilPhaseOut};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 680,
+        "wires": [
+            [
+                "44d38c3d1e679073"
+            ]
+        ]
+    },
+    {
+        "id": "44d38c3d1e679073",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "coil phase adjust JSON builder",
+        "func": "let coilPhase = flow.get(\"setCoilPhaseAdjust\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setCoilPhaseAdjust: Number(coilPhase),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1150,
+        "y": 680,
+        "wires": [
+            [
+                "5ff55bd7853382c6"
+            ]
+        ]
+    },
+    {
+        "id": "f1e7792e63d88958",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "name": "scale value",
+        "func": "let coilPhaseMessage = Number(msg.payload);\nif(coilPhaseMessage >= 90) {coilPhaseMessage = coilPhaseMessage -180;}\ncoilPhaseMessage *=2;\nreturn {payload: coilPhaseMessage};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 680,
+        "wires": [
+            [
+                "b1d227912346df30"
+            ]
+        ]
+    },
+    {
+        "id": "a97827625c4001d1",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "group": "3efc13ea56e33523",
+        "page": "",
+        "ui": "",
+        "name": "Globe rotation speed label",
+        "order": 3,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Rotation \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 170,
+        "y": 860,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9ce2a848ad04d06b",
+        "type": "mqtt in",
+        "z": "f59cc94fad2f5bd1",
+        "name": "globe telemetry",
+        "topic": "globe/telemetry",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 240,
+        "y": 200,
+        "wires": [
+            [
+                "5438ec7973664c91"
+            ]
+        ]
+    },
+    {
+        "id": "5438ec7973664c91",
+        "type": "function",
+        "z": "f59cc94fad2f5bd1",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet temp = { payload: data.heatsinkTemp} ;\nlet magnetDuteCycle = { payload: data.magnetDutyCycle};\nlet isrDuration = { payload: data.ISRduration};\nlet load = {payload: data.load};\nlet vertPosError = {payload: data.vertPosError};\nlet TTTintegrationTerm = {payload: data.TTTintegrTerm};\n\n// --- last message timestamp --- \nlet now = new Date(); let timeString = now.toLocaleString(); // e.g. \"3/2/2026, 16:51:12\" \nlet timestampMsg = { payload: timeString };\n\n// Return all three\nreturn [temp, magnetDuteCycle, isrDuration, load, vertPosError, TTTintegrationTerm, timestampMsg];",
+        "outputs": 7,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 200,
+        "wires": [
+            [
+                "0543c27de6849d2e"
+            ],
+            [
+                "8866da973f4eac9f"
+            ],
+            [
+                "4b9b7e20efcdc729"
+            ],
+            [
+                "6f6457d836c9c991"
+            ],
+            [
+                "63d57d10c47fcfbd"
+            ],
+            [
+                "1010e953774e1ff3"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "0543c27de6849d2e",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 2,
+        "width": 5,
+        "height": 1,
+        "name": "Heatsink temperature",
+        "label": "Heatsink temperature",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "6f6457d836c9c991",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 5,
+        "width": 5,
+        "height": 1,
+        "name": "Processor load",
+        "label": "Processor load",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 760,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "63d57d10c47fcfbd",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 8,
+        "width": 5,
+        "height": 1,
+        "name": "Globe position error",
+        "label": "Globe position error",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "4b9b7e20efcdc729",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 4,
+        "width": 5,
+        "height": 1,
+        "name": "Timer ISR duration",
+        "label": "Timer ISR duration",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "8866da973f4eac9f",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 3,
+        "width": 5,
+        "height": 1,
+        "name": "Magnet duty cycle",
+        "label": "Magnet Duty Cycle",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "1010e953774e1ff3",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "group": "ea63517411fb6671",
+        "order": 6,
+        "width": 5,
+        "height": 1,
+        "name": "TTT integration term",
+        "label": "integration term",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "7fa3c7d5327c2df1",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "@flowfuse/node-red-dashboard": "1.30.2"
+        }
+    }
+]
