@@ -1151,6 +1151,16 @@
         "wires": []
     },
     {
+        "id": "9e3bfe99db201413",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "name": "last edit 16/4/2026",
+        "info": "16/4/2026: spinning globe dashboard final version",
+        "x": 110,
+        "y": 40,
+        "wires": []
+    },
+    {
         "id": "ec3389e411beae7a",
         "type": "ui-text",
         "z": "cb6dceeb25cbc3d8",
@@ -1206,7 +1216,7 @@
         "g": "f84e11031bcc38a1",
         "name": "globe status",
         "topic": "globe/status",
-        "qos": "0",
+        "qos": "1",
         "datatype": "auto-detect",
         "broker": "fdd710dae9bf6772",
         "nl": false,
@@ -3561,7 +3571,7 @@
         ]
     },
     {
-        "id": "f6c1592b675429cf",
+        "id": "d67e75d46bb19f42",
         "type": "global-config",
         "env": [],
         "modules": {
