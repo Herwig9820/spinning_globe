@@ -1,3 +1,35 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #ifndef FG_SLAVE_CONTEXT_h
 #define FG_SLAVE_CONTEXT_h
 
@@ -10,13 +42,14 @@ enum rotStatus :uint8_t {
     rotNoPosSync, rotFreeRunning, rotMeasuring, rotUnlocked, rotLocked, // rotNoPosSync: also if rotation OFF or not floating   
     errDroppedGlobe = 0x11, errStickyGlobe, errMagnetLoad, errTemp
 };
-//// eBlink, eSpareNoDataEvent1: cue only (no data) events. additional time cues can be added
-////enum events :uint8_t { eNoEvent = 0, eGreenwich, eStatusChange, eFastRateData, eLedstripData, eStepResponseData, eSecond, eBlink, eSpareNoDataEvent1 };
 enum colorCycles :uint8_t { cLedstripOff = 0, cCstBrightWhite, cCstBrightMagenta, cCstBrightBlue, cWhiteBlue, cRedGreenBlue };      // led strip color cycle 
 enum colorTiming :uint8_t { cLedstripVeryFast = 0, cLedstripFast, cLedstripSlow, cLedStripVerySlow };                               // led strip color cycle 
 
 
 // ========== MQTT topics ==========
+
+static constexpr size_t MQTT_TOPIC_BUF_SIZE = 128;
+static constexpr size_t MQTT_PAYLOAD_BUF_SIZE = 256;
 
 // ---------- publish ----------
 constexpr const char* TOPIC_STATUS = "globe/status";                                        // publish spinning globe status and settings
@@ -32,26 +65,28 @@ constexpr const char* TOPIC_COIL_PHASE_ADJUST = "globe/coilPhaseAdjust";
 constexpr const char* TOPIC_WIRE_COMM_QUALITY = "globe/wireCommQuality";
 
 // ---------- subscribed to ----------
+
+// node-red publishes settings
 constexpr const char* TOPIC_GLOBE_SETTINGS_SET = "globe/settings/set";                      // spinning globe settings published by node-red or other dashboard
 constexpr const char* TOPIC_PID_SETTINGS_SET = "globe/PIDsettings/set";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_SET = "globe/vertPosSetpoint/set";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_SET = "globe/coilPhaseAdjust/set";
 constexpr const char* TOPIC_HEARTBEAT_SET = "globe/heartbeat/set";
 
+// node-red requests settings
 constexpr const char* TOPIC_GLOBE_SETTINGS_REQUEST = "globe/settings/request";              // node-red (or other dashboard) request to publish spinning globe settings
 constexpr const char* TOPIC_PID_SETTINGS_REQUEST = "globe/PIDsettings/request";
 constexpr const char* TOPIC_VERT_POS_SETPOINT_REQUEST = "globe/vertPosSetpoint/request";
 constexpr const char* TOPIC_COIL_PHASE_ADJUST_REQUEST = "globe/coilPhaseAdjust/request";
 
-constexpr const char* TOPIC_WIRE_STATS_REQUEST = "globe/wireStats/request";////
-
+// node-red requests a ring / alarm start or stop
 constexpr const char* TOPIC_RING_REQUEST = "globe/ring/request";                            // node-red (or other dashboard) request for 'visual ring' action (ring or alarm)
 
 
 // ========== MQTT payloads: JSON payload field keys ==========
 
 // ---------- settings ----------
-constexpr const char* PAYLOAD_SECRET_TOKEN = "token";
+constexpr const char* PAYLOAD_SECRET_TOKEN = "token";                                       // proves 'local network' for sensitive settings
 
 constexpr const char* PL_KEY_SET_ROT_TIME = "setRotTime";
 constexpr const char* PL_KEY_SET_LED_EFFECT = "setLedEffect";
@@ -63,8 +98,8 @@ constexpr const char* PL_KEY_SET_VERT_POS_SETPOINT = "setVertPosSetpoint";
 constexpr const char* PL_KEY_SET_COIL_PHASE_ADJUST = "setCoilPhaseAdjust";
 
 // ---------- actual values, measurements ----------
-constexpr const char* PL_KEY_STATUS = "s";                          // status (frequent messages: keep length short)
-constexpr const char* PL_KEY_FLAGS = "f";                          // state flags  (frequent messages: keep length short)
+constexpr const char* PL_KEY_STATUS = "s";                                                  // globe (error) status (frequent messages: keep length short)
+constexpr const char* PL_KEY_FLAGS = "f";                                                   // globe state flags  (frequent messages: keep length short)
 constexpr const char* PL_KEY_ACT_TIME = "actRotTime";
 constexpr const char* PL_KEY_ROT_SYNC_ERROR = "rotSyncError";
 constexpr const char* PL_KEY_GREENWICH_LAG = "greenwichLag";
@@ -79,6 +114,7 @@ constexpr const char* PL_KEY_EVENTS_MISSED = "eventsMissed";
 constexpr const char* PL_KEY_MAX_EVENTS_PENDING = "maxEventsPending";
 constexpr const char* PL_KEY_MAX_EVENT_QUEUE_BYTES_USED = "maxEventQueueBytesUsed";
 
+// ----------  rings and alarms ----------
 constexpr const char* PL_KEY_START_RING = "start ring";
 constexpr const char* PL_KEY_STOP_RING = "stop ring";
 constexpr const char* PL_KEY_START_ALARM = "start alarm";
@@ -135,14 +171,14 @@ private:
 
 
 struct MQTTmsgFromWire {
-    char topic[48];
-    char payload[160];
+    char topic[MQTT_TOPIC_BUF_SIZE];
+    char payload[MQTT_PAYLOAD_BUF_SIZE];
     bool retain{ true };
 };
 
 struct MQTTmsgToWire {
-    char topic[48];
-    char payload[160];
+    char topic[MQTT_TOPIC_BUF_SIZE];
+    char payload[MQTT_PAYLOAD_BUF_SIZE];
 };
 
 struct SharedContext {
@@ -154,7 +190,7 @@ struct SharedContext {
     SPSCQueue<MQTTmsgToWire, 16> queueToWire;
 
     // MQTT to wire flows: holding queue 
-    SPSCQueue<I2C_s_ack, 8> holdAckResponses;                // message types to be sent by master to send data to wire slave
+    SPSCQueue<I2C_s_ack, 16> holdAckResponses;                // message types to be sent by master to send data to wire slave
 
 
     // ---------- other variables ----------

@@ -306,14 +306,14 @@ public:
 
 class GlobeEvents {
 private:
-    static constexpr uint8_t eventBufferSize{ 127 };                                        // max 255
+    static constexpr uint8_t eventBufferSize{ 127 };                        // max 255
 
     uint8_t* oldestMessageStartPtr{ nullptr }, * newestMessageStartPtr{ nullptr };
     EventData eventData;
 
 public:
     // interface between ISR and main
-    uint8_t eventBuffer[eventBufferSize];                                                   // dynamic memory to store event messages until they are processed
+    uint8_t eventBuffer[eventBufferSize];                                   // dynamic memory to store event messages until they are processed
 
     bool addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** messagePtrPtr);
     bool removeOldestChunk(bool remove);

@@ -101,7 +101,7 @@ constexpr uint8_t portB_switchesBufferSelect{ B00010000 };
 constexpr uint8_t portB_ledstripSelect{ B00010001 };
 #endif                                                          
 
-constexpr uint8_t portB_D13ledSelect{ B00100000 };               // port B bit 5 (nano pin D13): onboard led
+constexpr uint8_t portB_D13ledSelect{ B00100000 };              // port B bit 5 (nano pin D13): onboard led
 
 
 // port C                                                       
@@ -833,14 +833,14 @@ void handleActions(Action slaveRequestNextAction) {
             // initiate a ring sequence
             // <p1> times <p2> color changes, color change after <p3> steps, pause <p4> steps (one step is 128 ms - see .advinceRing())
             // The total ring time = ) x 128 ms (step time) = [(p1 x p2 x p3 + (p1 - 1) x p4] x 128 ms
-            visualRing.startRing(5, 9, 2, 8, 0);           // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
+            visualRing.startRing(5, 9, 2, 8, 0);        // 5 sequences of 9 color changes; alt. color duration = 2 steps; pause duration = 8 steps      
         }
         break;
 
         case Action::M_ACTION_START_ALARM:
         {
-            // initiate an alarm sequence ('sequences = 0 => until stopped)
-            visualRing.startRing(0, 5, 1, 2, 1);           // in each sequence: 5 color changes; color duration = 1 step; pause duration = 5 steps            
+            // initiate an alarm sequence with a duration of approx. 3 minutes (note: 'sequences = 0 => until stopped manually)
+            visualRing.startRing(231, 5, 1, 2, 1);      // 231 sequences of 5 color changes; color duration = 1 step; pause duration = 2 steps            
         }
         break;
 
@@ -1232,26 +1232,13 @@ MsgType processEvent() {
             if (!(secondData.eventSecond & clockDivider4_bitMask)) { msgTypeOut = MsgType::M_MSG_TELEMETRY; }
 
 
-            // ---------- extended telemetry and stat messages sent every 16 seconds, NOT concurrent with other stat messages  ----------
+            // ---------- extended telemetry and stat messages sent every 16 seconds, spaced in time and NOT concurrent with other stat messages  ----------
             switch (secondData.eventSecond & clockDivider16_bitMask) {
                 case 0b0001: msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; break;    // second i x 2**4 + 1 (1, 17, 33, ...) 
                 case 0b0101: msgTypeOut = MsgType::M_MSG_SEND_STATS; break;         // second i x 2**4 + 5 (5, 21, 37, ...)
                 case 0b0110: msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; break;      // second i x 2**4 + 6 (6, 22, 38, ...)
                 case 0b0111: msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; break;      // second i x 2**4 + 7 (7, 23, 39, ...)
             }
-            /* ////
-            // second i x 2**4 + 1 (1, 17, 33, ...)
-            if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0001) { msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; }
-
-            // second i x 2**4 + 5 (5, 21, 37, ...)
-            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0101) { msgTypeOut = MsgType::M_MSG_SEND_STATS; }
-
-            // second i x 2**4 + 6 (6, 22, 38, ...)
-            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0110) { msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; }
-
-            // second i x 2**4 + 7 (7, 23, 39, ...)
-            else if ((secondData.eventSecond & clockDivider16_bitMask) == 0b0111) { msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; }
-            */
         #endif
             /*
             // 3 seconds after reset
@@ -1738,7 +1725,7 @@ void writeLedStrip() {
 
     // ========== time to calculate new LED colors for the set color cycle ? (not yet considering ring and alarm events) ==========
 
-    if (ISRevent == eLedstripData) {                                                              // brightness updated ?
+    if (ISRevent == eLedstripData) {                                                            // brightness updated ?
         for (uint8_t i = 0; i < LSbrightnessItemCount; i++) {
             // assign calculated brightness values to Blue, Green and Red, respectively (order defined by led strip hardware)
             uint32_t temp = ((uint32_t)ledstripDataPtr->LScolor[i]) + 1UL;
@@ -2067,7 +2054,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
     constexpr long ledstripTimings[2][4] = { { 150 * 1000L, 600 * 1000L, 1781 * 1000L + 250L, 6900 * 1000L },
         { 180 * 1000L, 900 * 1000L, 3575 * 1000L, 14000 * 1000L } }; // in seconds
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                                                   // interrupts off: interface with ISR and eeprom write
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                                                                 // interrupts off: interface with ISR and eeprom write
         bool updateLedSettings = initColorCycle || (newColorCycle != ledStripSettings.ledEffect) || (newColorTiming != ledStripSettings.ledCycleSpeed);
         if (!updateLedSettings) { return; }
 

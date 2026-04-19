@@ -1,22 +1,34 @@
-/***********************************************************************************************************
-*   Wire slave library for Arduino nano esp32                                                              *
-*                                                                                                          *
-*   Copyright 2026 Herwig Taveirne                                                                         *
-*                                                                                                          *
-*   The Wire slave library is free software: you can redistribute it and/or modify it under                *
-*   the terms of the GNU General Public License as published by the Free Software Foundation, either       *
-*   version 3 of the License, or (at your option) any later version.                                       *
-*                                                                                                          *
-*   This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;              *
-*   without even the implied warranty of  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.             *
-*   See the GNU General Public License for more details.                                                   *
-*                                                                                                          *
-*   You should have received a copy of the GNU General Public License along with this program. If not,     *
-*   see https://www.gnu.org/licenses.                                                                      *
-*                                                                                                          *
-*   See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe_wifi   *
-*                                                                                                          *
-***********************************************************************************************************/
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
 
 /*
 ===============================================================================
@@ -89,13 +101,13 @@ class  WireSlave {
     static constexpr  uint8_t I2C_SLAVE_ADDR = 9;
 
     // Lockstep SPSC (single producer single consumer) single-slot buffer with time-phased reading & writing 
-    static constexpr uint8_t RX_QUEUE_SIZE = 1;                                     
-    static constexpr uint8_t TX_QUEUE_SIZE = 1;       
+    static constexpr uint8_t RX_QUEUE_SIZE = 1;
+    static constexpr uint8_t TX_QUEUE_SIZE = 1;
 
 public:
     // Packet sizing
     static constexpr uint8_t PACKET_IN_MAX = HEADER_SIZE + MASTER_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
-    static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1;    // type + len + payload + checksum: length max. 32
+    static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
 
 
 /* ================= Lockstep SPSC with acquire / release fences ================= */
@@ -103,7 +115,7 @@ public:
 private:
     // SPSC buffers (single producer single consumer)
     alignas(4) volatile uint8_t rxQueue[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];          // type + len + payload + checksum
-    alignas(4) volatile uint8_t txQueue[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];         // type + len + payload + checksum
+    alignas(4) volatile uint8_t txQueue[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];           // type + len + payload + checksum
 
     alignas(4) volatile bool rxEmpty = true;
     alignas(4) volatile bool txEmpty = true;

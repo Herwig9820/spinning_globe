@@ -1,11 +1,44 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #include <time.h>
 #include "WiFiConnection.h"
 #include "time_helpers.h"
 
+// ============================================================================
+// WiFi MAINTENANCE: state machine (call regularly from main loop() )
+// ============================================================================
 WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
-    // Variable '_wifiState' maintains the state of the WiFi connection('state machine').If this maintained state
-    // (e.g., 'WiFi connected') does not correspond to the actual state(e.g., WiFi connection was lost), action is taken
 
     uint32_t now = millis();
 
@@ -51,13 +84,13 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
         {
             // WiFi is enabled AND it's time for a next WiFi connection check ?
             if (now - _lastWiFiMaintenanceTime > WIFI_UP_CHECK_INTERVAL) {
-                if (WiFi.status() == WL_CONNECTED) {                                        // WiFi is now connected ?
+                if (WiFi.status() == WL_CONNECTED) {                                    // WiFi is now connected ?
                     _wifiState = WiFi_connected;
 
                     // CET: Central European Time; -1: 1 hour east of ETC (UTC+1); CEST: Central European Summer Time (Automatic daylight saving)
                     // CEST = CET+1 = UTC+2
                     // last Sunday of March, at 2:00 AM clocks go forward to 3:00 AM; last Sunday of October, at 3:00 AM clocks go back to 2:00 AM
-                    configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");          
+                    configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
 
                     if (DEBUG) {
                         char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
@@ -70,7 +103,7 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                     }
                 }
 
-                else {                                                                      // WiFi is not yet connected
+                else {                                                                  // WiFi is not yet connected
                     // regularly report status ('still trying...' etc.)
                     if (DEBUG) {
                         if (now - _lastWiFiWaitReportedAt > WIFI_REPORT_INTERVAL) {
@@ -79,7 +112,7 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                         }
                     }
                 }
-                _lastWiFiMaintenanceTime = now;                                        // remember time of last WiFi maintenance 
+                _lastWiFiMaintenanceTime = now;                                         // remember time of last WiFi maintenance 
             }
         }
         break;
@@ -104,7 +137,7 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
             #if !defined ARDUINO_ARCH_ESP32
                 WiFi.end();
             #endif
-                _lastWiFiMaintenanceTime = now;                                        // remember time of last WiFi maintenance 
+                _lastWiFiMaintenanceTime = now;                                         // remember time of last WiFi maintenance 
             }
         }
         break;

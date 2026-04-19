@@ -1,3 +1,35 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #include "MQTTmessages.h"
 #include "../secrets.h"
 #include "debug.h"
@@ -6,19 +38,26 @@
 
 MQTTmessages* MQTTmessages::_instance = nullptr;
 
+// ============================================================================
+// MQTT messages: constructor
+// ============================================================================
 MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
     _MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
 
     _instance = this;
 
-    _tlsSocket.setCACert(ROOT_CA);                   // Set the Root CA for the secure client
+    _tlsSocket.setCACert(ROOT_CA);                      // Set the Root CA for the secure client
     _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
-    _MQTTclient.setKeepAlive(60);     // seconds; HiveMQ free tier disconnects after this idle time
+    _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
 }
 
 
+// ============================================================================
+// MQTT messages loop: call directly from main loop(), call regularly 
+// ============================================================================
 MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
+    
     // first, maintain WiFi and MQTT connections
     maintainMQTT(WiFiConnected);
 
@@ -29,10 +68,15 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
         // ---------------------------
         if (!_sharedContext.queueToMQTT.empty()) {
             MQTTmsgFromWire* pMsgToMQTT{};
-            _MQTTnewMessageFlag = true;                                                     // cleared by inline .newMQTTmessage() method
+            _MQTTnewMessageFlag = true;                 // cleared by inline .newMQTTmessage() method
             pMsgToMQTT = _sharedContext.queueToMQTT.front();
             // .publish(...) builds an MQTT PUBLISH packet, writes it into the underlying TCP client, returns immediately(success or failure)
-            _MQTTclient.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
+            bool publish_OK = _MQTTclient.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
+        #if (DEBUG)
+            if (!publish_OK) {
+                DEBUG_PRINTLN("WARNING: publish failed (buffer too small or not connected)");
+            }
+        #endif
             _sharedContext.lastMQTTpublish = millis();
             _sharedContext.queueToMQTT.pop(*pMsgToMQTT);
         }
@@ -50,14 +94,14 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_SET) == 0) {                 // MQTT has globe settings available ?
                 convertMQTTtoGlobeSettings(pMsgToWire);
             }
-            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_SET) == 0) {             // MQTT has PID settings available ?            
+            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_SET) == 0) {              // MQTT has PID settings available ?            
                 convertMQTTtoPIDsettings(pMsgToWire);
             }
 
-            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_SET) == 0) {        // MQTT has vertical pos. setpoint available ?  
+            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_SET) == 0) {         // MQTT has vertical pos. setpoint available ?  
                 convertMQTTtoVertPosSetpoint(pMsgToWire);
             }
-            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_SET) == 0) {        // MQTT has coil phase adjustment available ?   
+            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_SET) == 0) {         // MQTT has coil phase adjustment available ?   
                 convertMQTTtoCoilPhaseAdjust(pMsgToWire);
             }
 
@@ -71,7 +115,7 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
                     (strcmp(pMsgToWire->payload, PL_KEY_STOP_RING) == 0) ? M_ACTION_STOP_RING : M_ACTION_NONE;
 
                 // wire master: perform action and respond with status
-                if (action != M_ACTION_NONE) { holdRequestForWireMaster(M_MSG_STATUS, action); }        // test: safety only
+                if (action != M_ACTION_NONE) { holdRequestForWireMaster(M_MSG_STATUS, action); }    // test: safety only
             }
 
             else if (strcmp(pMsgToWire->topic, TOPIC_HEARTBEAT_SET) == 0) {                     // node-red heartbeat
@@ -79,16 +123,16 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             }
 
             // requests for wire master message types:       
-            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
+            else if (strcmp(pMsgToWire->topic, TOPIC_GLOBE_SETTINGS_REQUEST) == 0) {            // request globe settings
                 holdRequestForWireMaster(MsgType::M_MSG_GLOBE_SETTINGS);
             }
-            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {        // request wire master globe settings
+            else if (strcmp(pMsgToWire->topic, TOPIC_PID_SETTINGS_REQUEST) == 0) {              // request globe PID settings
                 holdRequestForWireMaster(MsgType::M_MSG_PID_SETTINGS);
             }
-            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {        // request wire master globe settings
+            else if (strcmp(pMsgToWire->topic, TOPIC_VERT_POS_SETPOINT_REQUEST) == 0) {         // request vertical position setpoint
                 holdRequestForWireMaster(MsgType::M_MSG_VERT_POS_SETPOINT);
             }
-            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {        // request wire master globe settings
+            else if (strcmp(pMsgToWire->topic, TOPIC_COIL_PHASE_ADJUST_REQUEST) == 0) {         // request coils phase adjust
                 holdRequestForWireMaster(MsgType::M_MSG_COIL_PHASE_ADJUST);
             }
 
@@ -103,9 +147,13 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
     return _mqttState;
 }
 
+
 // ============================================================================================
-// process MQTT message to wire master - STEP 1: parse MQTT payload into 'pending' globe settings structure
-// [STEP 2: in wireSlaveMessages.loop()]
+// Process received MQTT messages containing data for the wire master (spinning globe nano)
+// ----------------------------------------------------------------------------------------
+// Parse the MQTT message and create a payload for a subsequent wire reply message.
+// Store the wire payload into a separate intermediate 2-level holding buffer per message type.
+// The data will be transmitted over wire after wire master requests for it.
 // ============================================================================================
 
 bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
@@ -118,7 +166,7 @@ bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     _sharedContext.pendingGlobeSettings.ledEffect = tmp;
     ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_LED_EFFECT_SPEED, &tmp);
     _sharedContext.pendingGlobeSettings.ledCycleSpeed = tmp;
-    _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
+    _sharedContext.pendingGlobeSettings.slaveHasData = (uint8_t)ok;         // overwrite previous if not committed in time
     return ok;
 }
 
@@ -127,7 +175,7 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept PID settings from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }  // wrong or missing token: silently ignore
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }                 // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -138,7 +186,7 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
     _sharedContext.pendingPIDsettings.difTimeCstAdjustSteps = tmp;
     ok &= JsonParse::getUInt(pMsgToWire->payload, PL_KEY_SET_INTEGR_TIME_ADJUST, &tmp);
     _sharedContext.pendingPIDsettings.intTimeCstAdjustSteps = tmp;
-    _sharedContext.pendingPIDsettings.slaveHasData = (uint8_t)ok;       // overwrite previous if not committed in time
+    _sharedContext.pendingPIDsettings.slaveHasData = (uint8_t)ok;           // overwrite previous if not committed in time
     return ok;
 }
 
@@ -146,7 +194,7 @@ bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept vertical position setpoint from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }                 // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -161,7 +209,7 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
     // Token check: only accept coil phase adjustment from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
-    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }   // wrong or missing token: silently ignore
+    if (strcmp(token, SECRET_TOKEN) != 0) { return false; }                 // wrong or missing token: silently ignore
 
     bool ok{ false };
     unsigned int tmp{};
@@ -172,23 +220,31 @@ bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
     return ok;
 }
 
+
+// ============================================================================================
+// Process received MQTT messages containing a (small) payload for an ACK reply wire message
+// -----------------------------------------------------------------------------------------
+// Parse MQTT message and store the data (an action or message type requested from the master) 
+// in a common intermediate ACK reply queue. The data will be transmitted over wire as payload  
+// of a subsequent ACK reply in [wireSlaveMessages.loop()].
+// ============================================================================================
 void MQTTmessages::holdRequestForWireMaster(MsgType m_msgType, Action m_action) {
     I2C_s_ack ackResponse{};
     ackResponse.requestMasterMsgType = m_msgType;
-    ackResponse.action = m_action;                             
+    ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
 }
 
 void MQTTmessages::holdRequestForWireMaster(Action m_action) {
     I2C_s_ack ackResponse{};
-    ackResponse.requestMasterMsgType = MsgType::M_MSG_NONE;                               
+    ackResponse.requestMasterMsgType = MsgType::M_MSG_NONE;
     ackResponse.action = m_action;
     _sharedContext.holdAckResponses.push(ackResponse);
-
 }
 
+
 // ============================================================================
-// MQTT CALLBACK
+// MQTT CALLBACK for incoming MQTT topics
 // ============================================================================
 
 // --- static trampoline ---
@@ -215,7 +271,7 @@ void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int 
 
 
 // ============================================================================
-// MQTT RECONNECT
+// MQTT MAINTENANCE: state machine (call regularly from MQTT messages loop() )
 // ============================================================================
 MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
 
@@ -261,23 +317,23 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         {
             // time for a next MQTT connection check ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
-                if (_MQTTclient.connected()) {                                        // MQTT is now connected ?
+                if (_MQTTclient.connected()) {                                          // MQTT is now connected ?
                     _mqttFailCount = 0;
                     _mqttState = MQTT_connected;
 
-                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_SET);                // MQTT publishing settings etc. 
-                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET);
-                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET);
-                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET);
+                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_SET, 1);                 // MQTT publishing settings etc. 
+                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_SET, 1);
+                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_SET, 1);
+                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_SET, 1);
 
-                    _MQTTclient.subscribe(TOPIC_HEARTBEAT_SET);                     // 'node red' heartbeat
+                    _MQTTclient.subscribe(TOPIC_HEARTBEAT_SET, 0);                      // 'node red' heartbeat (QoS 0 ok)
 
-                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_REQUEST);            // MQTT publishing a request for spinning globe to send sends out settings
-                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_REQUEST);
-                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_REQUEST);
-                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_REQUEST);
+                    _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_REQUEST, 1);             // MQTT publishing a request for spinning globe to send sends out settings
+                    _MQTTclient.subscribe(TOPIC_PID_SETTINGS_REQUEST, 1);
+                    _MQTTclient.subscribe(TOPIC_VERT_POS_SETPOINT_REQUEST, 1);
+                    _MQTTclient.subscribe(TOPIC_COIL_PHASE_ADJUST_REQUEST, 1);
 
-                    _MQTTclient.subscribe(TOPIC_RING_REQUEST);                      // MQTT requesting that nano esp32 performs an action        
+                    _MQTTclient.subscribe(TOPIC_RING_REQUEST, 1);                       // MQTT requesting that nano esp32 performs an action        
 
                     if (DEBUG) {
                         char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
@@ -286,9 +342,10 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                         char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT connected", timeBuf);
                         DEBUG_PRINTLN(s);
                     }
+                    _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);
                 }
 
-                else {                                                                      // MQTT is not yet connected
+                else {                                                                  // MQTT is not yet connected
                     // after a number of MQTT connection attempts, also disconnect WiFi and start all over
                     if (++_mqttFailCount >= MQTT_MAX_FAIL_COUNT) {
                         _mqttFailCount = 0;
@@ -304,7 +361,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                         }
                     }
                 }
-                _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
+                _lastMqttMaintenanceTime = now;                                         // remember time of last MQTT maintenance 
             }
         }
         break;
@@ -323,7 +380,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 _MQTTclient.disconnect();
                 _mqttState = MQTT_notConnected;
                 _MQTTnewMessageFlag = false;
-                _lastMqttMaintenanceTime = now;                                        // remember time of last MQTT maintenance 
+                _lastMqttMaintenanceTime = now;                                         // remember time of last MQTT maintenance 
                 if (DEBUG) {
                     char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
                         snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);

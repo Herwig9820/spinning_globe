@@ -1,3 +1,35 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #ifndef FG_MQTT_MESSAGES_h
 #define FG_MQTT_MESSAGES_h
 
@@ -43,6 +75,8 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
 
+    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 1024;        // passed to _MQTTclient.setBufferSize();
+    
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
     static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min

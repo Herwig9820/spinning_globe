@@ -98,7 +98,8 @@ bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** me
             eventData.largestEventBufferBytesUsed = max(eventData.largestEventBufferBytesUsed, eventData.eventBufferBytesUsed);
 
         #if TEST_SHOW_STATS 
-            Serial.println(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
+            
+            ln(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
         #endif
         }
 

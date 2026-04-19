@@ -1,16 +1,50 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #include <esp_task_wdt.h>
 #include "src/wireSlave_messages.h"
 #include "src/MQTTmessages.h"
 #include "src/time_helpers.h"
 
-constexpr uint32_t WDT_TIMEOUT = 60;        // 60 seconds
+#define SPINNING_GLOBE_BRIDGE_VERSION 1.00
+
+constexpr uint32_t WDT_TIMEOUT = 60;        // watchdog timeout 60 seconds
 
 SharedContext sharedContext;
 WireSlaveMessages wireSlaveMessages(sharedContext);
 WiFiConnection* pWiFiConnection = nullptr;
 MQTTmessages* pMqttMessages = nullptr;
 
-void setWiFiLeds(WiFiConnection::ConnectionState, MQTTmessages::ConnectionState);
+void setCommLeds(WiFiConnection::ConnectionState, MQTTmessages::ConnectionState);
 
 // ============================================================================
 // SETUP
@@ -19,9 +53,7 @@ void setup()
 {
     Serial.begin(115200);
     delay(5000);
-
-    Serial.println("=== BUILD DATE AND TIME ===");
-    Serial.print(__DATE__); Serial.print(' '); Serial.println(__TIME__);
+    printWelcome();
 
     // do not define before setup() runs
     pWiFiConnection = new WiFiConnection;
@@ -53,7 +85,8 @@ void loop()
     if (pMqttMessages) { mqttConnectionState = pMqttMessages->loop(wifiConnectionState == WiFiConnection::WiFi_connected); }
     wireSlaveMessages.loop();
 
-    setWiFiLeds(wifiConnectionState, mqttConnectionState);
+    // use on-board leds to indicate wire and WiFi/MQTT state
+    setCommLeds(wifiConnectionState, mqttConnectionState);
 
     esp_task_wdt_reset();           // reset the watchdog
 
@@ -75,14 +108,14 @@ void loop()
 // Use D13 led to indicate wire transmissions are active
 // Use RGB led to display current WiFi / MQTT state
 // ============================================================================
-void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::ConnectionState mqttState) {
+void setCommLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::ConnectionState mqttState) {
 
     uint32_t now = millis();
 
     // ---------- WiFi and MQTT state ----------
 
     constexpr int32_t LED_CONN_BLINK_PERIOD = 0x100;    // led blink control while WiFi / MQTT are connecting: led on if (millis() & LED_CONN_BLINK_PERIOD): 256 ms ON + 256 ms OFF = 512 ms blink period
-    constexpr int32_t LED_NEW_MSG_PERIOD = 0x64;        // new message flash: change color for 100 ms if MQTT message is sent to, or received from broker
+    constexpr int32_t LED_NEW_MSG_PERIOD = 0xC8;        // new message flash: change color for 200 ms if MQTT message is sent to, or received from broker
 
     constexpr int32_t LED_DIM_MASK = 0xF;               // led brightness control: reduce brightness to 1 / 16; fastest led state change = 1 ms; T = 16 ms(62.5 Hz: no flicker visible)
 
@@ -114,7 +147,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
             break;
 
         case LED_WiFiConnecting:
-            red = green = (bool)(now & LED_CONN_BLINK_PERIOD);          // RGB led: yellow, blinking
+            red = green = (bool)(now & LED_CONN_BLINK_PERIOD);      // RGB led: yellow, blinking
             blue = false;
             break;
 
@@ -124,7 +157,7 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
             break;
 
         case LED_MQTTconnecting:
-            green = (bool)(now & LED_CONN_BLINK_PERIOD);                // RGB led: green, blinking
+            green = (bool)(now & LED_CONN_BLINK_PERIOD);            // RGB led: green, blinking
             red = blue = false;
             break;
 
@@ -133,9 +166,8 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
             red = blue = false;
             break;
 
-        case LED_MQTTconnectedNewMessage:                           // RGB led: magenta
-            green = false;
-            red = blue = true;
+        case LED_MQTTconnectedNewMessage:                           // RGB led: white
+            red = green = blue = true;
             break;
     }
 
@@ -171,6 +203,21 @@ void setWiFiLeds(WiFiConnection::ConnectionState wifiState, MQTTmessages::Connec
 }
 
 
+// ============================================================================
+// Print a welcome message to Serial
+// ============================================================================
+void printWelcome() {
+    Serial.println();
+    // string literals On AVR targets (classic nano,...): 
+    // if char string used once: use 'F("...")'. Otherwise define strName "..." with PROGMEM and use '(__FlashStringHelper*)strName' 
 
+    for (int i = 0; i < 45; i++) { Serial.print('*'); }; Serial.println();
 
-
+    Serial.print("Spinning Globe Wire Slave: MQTT bridge v "); Serial.print(SPINNING_GLOBE_BRIDGE_VERSION); Serial.println();
+    
+    Serial.print("Copyright 2026 "); Serial.println("Herwig Taveirne");
+    
+    Serial.print("Build date and time:    "); Serial.print(__DATE__); Serial.print(F("  ")); Serial.print(__TIME__); Serial.println(); 
+    
+    for (int i = 0; i < 45; i++) { Serial.print('*');} Serial.println("\r\n");
+}

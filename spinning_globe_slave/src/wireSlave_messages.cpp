@@ -1,3 +1,35 @@
+/*
+==================================================================================================
+Spinning globe extension: using the Wire interface to exchange messages with an Arduino nano esp32.
+The nano esp32 acts as a bridge between MQTT and the spinning globe nano (I2C).
+over WiFi, e.g. using MQTT.
+---------------------------------------------------------------------------------------------------
+Copyright 2026 Herwig Taveirne
+
+Program written and tested for Arduino Nano esp32.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+See GitHub for more information and documentation: https://github.com/Herwig9820/spinning_globe
+
+A complete description of the project can be found here:
+https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
+
+===============================================================================================
+*/
+
+
 #include "wireSlave_messages.h"
 #include "json_helpers.h"
 #include "shared/wire_hw_config.h"
@@ -5,6 +37,9 @@
 WireSlaveMessages::WireSlaveMessages(SharedContext& sharedContext) : _sharedContext(sharedContext) {
 };
 
+// ============================================================================
+// Wire messages processing loop: call directly from main loop(), call regularly 
+// ============================================================================
 bool WireSlaveMessages::loop() {
 
     static uint32_t lastCommStatsAt{ millis() };
@@ -38,7 +73,8 @@ bool WireSlaveMessages::loop() {
 
         case MsgType::M_MSG_PING:
         {
-            // a wire master ping message does not trigger an MQTT message, but master expects an ack reply  
+            // a wire master ping message does not trigger an MQTT message, but master expects an ack reply
+            // pings are sent often to (1) get fast ACK replies, possibly containing requests, (2) be used as slave comm. stat. input
             replyAndFlagSlaveDataAvailable();
             pingCount++;
         }
@@ -86,7 +122,7 @@ bool WireSlaveMessages::loop() {
         /*
             I2C_m_masterSendStats* pMasterSendStats = reinterpret_cast<I2C_m_masterSendStats*>(payloadIn);
             wireStatSummary.masterValidMsgCount += pMasterSendStats->I_stats_tx_sent;
-            wireStatSummary.masterErrorMsgCount += pMasterSendStats->errorMsgCount();            // let aside retry warnings
+            wireStatSummary.masterErrorMsgCount += pMasterSendStats->errorMsgCount();  // let aside retry warnings
             pMasterSendStats->zeroMembers();
         */
             replyAndFlagSlaveDataAvailable();
@@ -199,6 +235,9 @@ bool WireSlaveMessages::loop() {
 }
 
 
+// ============================================================================
+// Convert received wire messages to MQTT and store in outgoing MQTT queue
+// ============================================================================
 void WireSlaveMessages::convertGlobeStatusToMQTT(I2C_m_status* p) {
     MQTTmsgFromWire msg{};
     // JSON
@@ -276,8 +315,8 @@ void WireSlaveMessages::convertGlobeSettingsToMQTT(I2C_m_globeSettings* pGlobeIn
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_GLOBE_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_ROT_TIME, "\"%1u\"", pGlobeIn->rotationPeriodIndex);    // rotation speed
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_LED_EFFECT, "\"%1u\"", pGlobeIn->ledEffect);            // led effect
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_ROT_TIME, "\"%1u\"", pGlobeIn->rotationPeriodIndex);     // rotation speed
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_LED_EFFECT, "\"%1u\"", pGlobeIn->ledEffect);             // led effect
     JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_LED_EFFECT_SPEED, "\"%1u\"", pGlobeIn->ledCycleSpeed);   // led effect speed
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
@@ -289,9 +328,9 @@ void WireSlaveMessages::convertPIDsettingsToMQTT(I2C_m_PIDsettings* pPIDIn) {
     // JSON
     snprintf(msg.topic, sizeof(msg.topic), TOPIC_PID_SETTINGS);
     JsonAssemble::startJson(msg.payload, sizeof(msg.payload));
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_GAIN_ADJUST, "%1d", pPIDIn->gainAdjustSteps);              // gain adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_GAIN_ADJUST, "%1d", pPIDIn->gainAdjustSteps);                // gain adjustment
     JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_DIFF_TIME_ADJUST, "%1d", pPIDIn->difTimeCstAdjustSteps);     // diff. time constant adjustment
-    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_INTEGR_TIME_ADJUST, "%1d", pPIDIn->intTimeCstAdjustSteps);     // int. time constant adjustment
+    JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_SET_INTEGR_TIME_ADJUST, "%1d", pPIDIn->intTimeCstAdjustSteps);   // int. time constant adjustment
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
     _sharedContext.queueToMQTT.push(msg);
@@ -334,59 +373,46 @@ void WireSlaveMessages::prepareWirecommStatsForMQTT() {
 
 // ============================================================================================
 // Reply to message from wire master with an 'ACK' message
+// -------------------------------------------------------
 // ============================================================================================
-
 void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
     I2C_s_ack thisAckResponse{}, nextAckResponse{};
 
     // ---------- PRIO 1: the slave has a message (settings, ...) available for wire master, NOT fitting in this THIS ack response ? ----------
 
-    // 2 stage buffer: pending -> committed -> send to wire master
+    // manage the intermediate buffers: move 'pending' messages to 'committed' (make the 'pending' slots available again) 
+
+    // two stage buffer: pending -> committed -> send to wire master
     if (_sharedContext.pendingGlobeSettings.slaveHasData && !_sharedContext.committedGlobeSettings.slaveHasData) {
         _sharedContext.committedGlobeSettings = _sharedContext.pendingGlobeSettings;        // this also sets '.hasSlaveData' to '1'
         _sharedContext.pendingGlobeSettings.slaveHasData = 0;                               // because it was just committed
     }
 
-    else if (_sharedContext.pendingPIDsettings.slaveHasData && !_sharedContext.committedPIDsettings.slaveHasData) {
-        _sharedContext.committedPIDsettings = _sharedContext.pendingPIDsettings;        // this also sets '.hasSlaveData' to '1'
-        _sharedContext.pendingPIDsettings.slaveHasData = 0;                               // because it was just committed
+    if (_sharedContext.pendingPIDsettings.slaveHasData && !_sharedContext.committedPIDsettings.slaveHasData) {
+        _sharedContext.committedPIDsettings = _sharedContext.pendingPIDsettings;            // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingPIDsettings.slaveHasData = 0;                                 // because it was just committed
     }
 
-    else if (_sharedContext.pendingVertPosSetpoint.slaveHasData && !_sharedContext.committedVertPosSetpoint.slaveHasData) {
-        _sharedContext.committedVertPosSetpoint = _sharedContext.pendingVertPosSetpoint;        // this also sets '.hasSlaveData' to '1'
-        _sharedContext.pendingVertPosSetpoint.slaveHasData = 0;                                 // because it was just committed
+    if (_sharedContext.pendingVertPosSetpoint.slaveHasData && !_sharedContext.committedVertPosSetpoint.slaveHasData) {
+        _sharedContext.committedVertPosSetpoint = _sharedContext.pendingVertPosSetpoint;    // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingVertPosSetpoint.slaveHasData = 0;                             // because it was just committed
     }
 
-    else if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData && !_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
-        _sharedContext.committedCoilPhaseAdjust = _sharedContext.pendingCoilPhaseAdjust;        // this also sets '.hasSlaveData' to '1'
-        _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                               // because it was just committed
+    if (_sharedContext.pendingCoilPhaseAdjust.slaveHasData && !_sharedContext.committedCoilPhaseAdjust.slaveHasData) {
+        _sharedContext.committedCoilPhaseAdjust = _sharedContext.pendingCoilPhaseAdjust;    // this also sets '.hasSlaveData' to '1'
+        _sharedContext.pendingCoilPhaseAdjust.slaveHasData = 0;                             // because it was just committed
     }
 
-    /*
-    Incoming MQTT topic processing (MQTTmessages class method loop() ) has already converted topics to wire messages and stored these messages in a 2-stage buffer
-    per message type. Because these message do not fit in a slave 'ACK' return message, the master must first be notified that a particular message is available.
-    The 'ack' message that will be sent now informs the master that it needs to REQUEST to send that message, which will then be sent by the slave in a next
-    lock-step message exchange between wire master and slave.
-
-    But to notify ALL potential subscribers of changed settings AND to be informed about changes made by the wire master (e.g., rounding PID values), the master
-    must subsequently send these settings back to the wire slave (this bridge) for MQTT publishing.
-
-    The logic to accomplish that last step is not built into the wire master. Instead, in a NEXT ack reply, the slave will now inform the master that it should send out
-    the changed settings.
-
-    example:
-
-    node-red                        wire master                     wire slave
-    ---------------------------------------------------------------------------
-                                                                            ////
-    TOPIC_GLOBE_SETTINGS_SET    ->
-    */
+    // if a specific message type is 'committed' (e.g., a PID settings record) for transmission to wire master, the slave must first prepare TWO ACK reply message payloads
+    // and store them in a common intermediate queue (this queue is used for the same purpose in MQTTmessages::holdRequestForWireMaster() ).
+    // first ACK payload : inform the master it should request to transmit a specific message type
+    // second ACK payload: inform the master it should retransmit the data to allow other subscribers to receive it as well
 
     if (_sharedContext.committedGlobeSettings.slaveHasData) {
-        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;                           // THIS ack response: inform master it should request this data
-        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS;                               // NEXT ack response: inform master it should send out again this updated data
-        _sharedContext.holdAckResponses.push(nextAckResponse);                                 // hold NEXT ack response until it's time to send the next ack
+        thisAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS_REQ;           // THIS ack response: inform master it should request this data
+        nextAckResponse.requestMasterMsgType = MsgType::M_MSG_GLOBE_SETTINGS;               // NEXT ack response: inform master it should send out again this updated data
+        _sharedContext.holdAckResponses.push(nextAckResponse);                              // hold NEXT ack response until it's time to send the next ack
     }
 
     else if (_sharedContext.committedPIDsettings.slaveHasData) {
@@ -408,8 +434,9 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     }
 
 
-    // ---------- PRIO 2: the slave has a message (request for action, or data, from master) for wire master, FITTING in THIS ack response ?  ----------
+    // ---------- PRIO 2: the slave has a message for wire master, FITTING in THIS ack response ?  ----------
 
+    // if an ACK payload is available in the intermediate message buffer, transmit it (push it to the outgoing wire queue)
     else if (!_sharedContext.holdAckResponses.empty()) {
         // THIS ack response is used to inform wire master that it should send data (a message type) or it should perform an action (e.g., visual ring) 
         thisAckResponse.requestMasterMsgType = _sharedContext.holdAckResponses.front()->requestMasterMsgType;
@@ -429,4 +456,36 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
 
 }
 
+/*
+Example sequence of events when node-red publishes PID settings:
+----------------------------------------------------------------
 
+MQTT     esp32     wire         event
+topic    bridge    message 
+-------------------------------------------------
+     -->                        MQTT publishes PID settings. PID settings record is temporarily stored in the 'pending' stage of the
+                                intermediate PID settings buffer overwriting any previous message stored there.
+                                The pending record will be promoted to 'committed' at the next ACK reply opportunity, provided the committed slot is empty.
+
+               <--              Spinning globe (wire master) transmits a message requiring an ACK response
+                                
+               -->              Wire slave replies with ACK message, payload is 'wire master must request PID settings'
+                                A next ACK reply 'wire master must publish PID settings' is temporarily stored in intermediate ACK reply queue.
+                                It will be sent at the next ACK reply opportunity.
+                                This ensures the committed settings are confirmed back to MQTT once the master has accepted them.
+                                
+               <--              Spinning globe requests the PID settings
+                                
+               -->              The PID settings are sent to the spinning globe
+                                
+               <--              Spinning globe (wire master) transmits a message requiring an ACK response
+                                
+               -->              Wire slave replies with ACK message, payload (popped from intermediate buffer) is 'wire master must publish PID settings'
+                                
+               <--              The spinning globe transmits the PID settings
+
+               -->              An ACK message is sent to the spinning globe
+                            
+     <--                        Wire slave publishes the received PID settings to MQTT
+
+*/
