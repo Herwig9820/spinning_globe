@@ -51,8 +51,6 @@ Wire master: message handling layer
 
 class MessageHandling {
 
-    I2C_m_messageStats _msgStats{};       // message level stats
-
     GreenwichData& _greenwichData;
     StatusData& _statusData;
     SecondData& _secondData;

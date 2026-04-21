@@ -75,7 +75,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
 
-    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 1024;        // passed to _MQTTclient.setBufferSize();
+    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 256; ////1024;        // passed to _MQTTclient.setBufferSize();
     
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;

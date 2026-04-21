@@ -55,7 +55,7 @@ void WireSlave::wireRequestEvent() {
 
 // ========== enqueue message out to wire master: producer ==========
 
-bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize) {
+bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize, uint8_t msgSequenceNumber) {
     // Lockstep SPSC with acquire / release fences
 
     bool empty = txEmpty;                   // atomic read (8 bit)
@@ -65,9 +65,11 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
         return false;
     }
 
-    txQueue[0] = messageType;               // struct copy
-    txQueue[1] = payloadSize;
-    uint8_t sum = messageType ^ payloadSize;
+    txQueue[WireFrame::OFFSET_MSG_TYPE] = messageType;               // struct copy
+    txQueue[WireFrame::OFFSET_PAYLOAD_SIZE] = payloadSize;
+    txQueue[WireFrame::OFFSET_SEQ_NUM] = msgSequenceNumber;
+    txQueue[WireFrame::OFFSET_RESERVED] = RESERVED_DEFAULT;
+    uint8_t sum = messageType ^ payloadSize ^ msgSequenceNumber ^ RESERVED_DEFAULT;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[HEADER_SIZE + i] = ((uint8_t*)payload)[i];
         sum ^= ((uint8_t*)payload)[i];
@@ -83,7 +85,7 @@ bool WireSlave::pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t 
 
 // ========== dequeue message in from wire master: consumer ==========
 
-bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t& payloadSize) {
+bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t& payloadSize, uint8_t&msgSequenceNumber) {
 
     // Lockstep SPSC with acquire / release fences
 
@@ -93,8 +95,9 @@ bool WireSlave::popIncomingWireMsg(uint8_t& messageType, void* payload, uint8_t&
 
     ACQUIRE_BARRIER();                      // Ensure we see fully published packet
 
-    messageType = rxQueue[0];
-    payloadSize = rxQueue[1];
+    messageType = rxQueue[WireFrame::OFFSET_MSG_TYPE];
+    payloadSize = rxQueue[WireFrame::OFFSET_PAYLOAD_SIZE];
+    msgSequenceNumber = rxQueue[WireFrame::OFFSET_SEQ_NUM];
     // Make sure payloadSize is sane before memcpy
     if (payloadSize > MASTER_PAYLOAD_MAX) payloadSize = 0;
     if (payloadSize > 0) {
@@ -182,7 +185,7 @@ void WireSlave::popOutgoingWireMsg() {
 
     ACQUIRE_BARRIER();                          // Ensure we see fully published packet
 
-    uint8_t msgSize = txQueue[1] + HEADER_SIZE + 1;
+    uint8_t msgSize = txQueue[WireFrame::OFFSET_PAYLOAD_SIZE] + HEADER_SIZE + 1;   
     Wire.write((uint8_t*)(txQueue), msgSize);
 
     wireSlaveCommStats.I_stats_sent++;

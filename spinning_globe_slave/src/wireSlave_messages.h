@@ -71,7 +71,7 @@ class WireSlaveMessages {
 
     void prepareWirecommStatsForMQTT();
 
-    void replyAndFlagSlaveDataAvailable();             
+    void replyAndFlagSlaveDataAvailable(uint8_t msgSequence);
 
 public:
     WireSlaveMessages(SharedContext& sharedContext);

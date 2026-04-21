@@ -724,7 +724,7 @@ void loop()
     }
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
-    uint8_t messageStatus = messageHandling.transmit();                 // return 0 or master or slave message error number
+    uint8_t messageStatus = messageHandling.transmit();                 // SEND and RECEIVE, return 0 or master or slave message error number
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction, dashboardIsAliveAt);   // if incoming i2c message available, dequeue
     handleActions(slaveRequestNextAction);
 
@@ -1237,7 +1237,6 @@ MsgType processEvent() {
                 case 0b0001: msgTypeOut = MsgType::M_MSG_TELEMETRY_EXTRA; break;    // second i x 2**4 + 1 (1, 17, 33, ...) 
                 case 0b0101: msgTypeOut = MsgType::M_MSG_SEND_STATS; break;         // second i x 2**4 + 5 (5, 21, 37, ...)
                 case 0b0110: msgTypeOut = MsgType::M_MSG_RECEIVE_STATS; break;      // second i x 2**4 + 6 (6, 22, 38, ...)
-                case 0b0111: msgTypeOut = MsgType::M_MSG_MESSAGE_STATS; break;      // second i x 2**4 + 7 (7, 23, 39, ...)
             }
         #endif
             /*

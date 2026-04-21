@@ -100,12 +100,8 @@ class  WireSlave {
 
     static constexpr  uint8_t I2C_SLAVE_ADDR = 9;
 
-    // Lockstep SPSC (single producer single consumer) single-slot buffer with time-phased reading & writing 
-    static constexpr uint8_t RX_QUEUE_SIZE = 1;
-    static constexpr uint8_t TX_QUEUE_SIZE = 1;
-
 public:
-    // Packet sizing
+    // Lockstep SPSC (single producer single consumer) single-slot buffer with time-phased reading & writing 
     static constexpr uint8_t PACKET_IN_MAX = HEADER_SIZE + MASTER_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
     static constexpr uint8_t PACKET_OUT_MAX = HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1;      // type + len + payload + checksum: length max. 32
 
@@ -123,6 +119,7 @@ private:
 
     enum SlaveWaitState { SS_WAIT_FOR_POLL_REPLY_REQUEST, SS_WAIT_FOR_REPLY_REQUEST };
 
+    uint8_t _msgSequenceNumber{ 0 };
 
     /* ================= METHODS ================= */
 
@@ -142,8 +139,8 @@ public:
     WireSlave();
     ~WireSlave();
 
-    bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize);
-    bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize);
+    bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize, uint8_t& msgSequenceNumber);
+    bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize, uint8_t msgSequenceNumber);
     float calculateTxQualityInPeriod();
 };
 

@@ -221,15 +221,6 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
         }
         break;
 
-        // send message library stats to wire slave
-        case MsgType::M_MSG_MESSAGE_STATS:
-        {
-            // note: _msgStats is already up to date 
-            _wireMaster.enqueueTx(M_MSG_MESSAGE_STATS, sizeof(_msgStats), &_msgStats, S_MSG_ACK, sizeof(I2C_s_ack));
-            _msgStats.zeroMembers();
-        }
-        break;
-
 
         // ========== message types REQUESTING DATA from slave (no payload) ==========
 
@@ -268,19 +259,11 @@ bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action
     uint8_t msgTypeIn{ MsgType::M_MSG_NONE };                   // message type received from slave
     uint8_t i2cPayloadSizeIn{ 0 };                              // payload size as reported by slave
     uint8_t plIn[SLAVE_PAYLOAD_MAX];
-    uint8_t expMsgType{};
 
     // message available  ?
-    bool msgAvailable = _wireMaster.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn, expMsgType);
+    bool msgAvailable = _wireMaster.dequeueRx(msgTypeIn, i2cPayloadSizeIn, &plIn);
     if (!msgAvailable) {
         nextMsgTypeOut = M_MSG_NONE;
-        return false;
-    }
-
-    // this is not the expected message type (strict lockStep implemented)
-    // (note that, if the message type is correct, then the message size is as well (handled in WireMaster library) 
-    if (msgTypeIn != expMsgType) {
-        _msgStats.E_stats_lockStepError++;
         return false;
     }
 
@@ -389,8 +372,6 @@ bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action
         break;
 
     }
-
-    _msgStats.I_stats_replyReceived++;
 
     return true;
 }

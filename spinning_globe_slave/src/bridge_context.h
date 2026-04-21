@@ -131,6 +131,10 @@ struct I2C_wireSlaveCommStats {
 template<typename T, size_t N>
 
 class SPSCQueue {
+    T buffer[N];
+    size_t head = 0;
+    size_t tail = 0;
+
 public:
     bool push(const T& item) {
         size_t next = (head + 1) % N;
@@ -162,11 +166,6 @@ public:
     bool full() const {
         return ((head + 1) % N) == tail;
     }
-
-private:
-    T buffer[N];
-    size_t head = 0;
-    size_t tail = 0;
 };
 
 

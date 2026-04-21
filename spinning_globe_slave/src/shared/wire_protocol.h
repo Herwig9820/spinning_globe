@@ -72,7 +72,8 @@ All protocol messages (except control messages) have:
 
     [0] Message Type (uint8_t)
     [1] Payload Length (uint8_t)
-    [2..N] Payload
+    [2] Message sequence number
+    [3..N] Payload
     [N+1] Checksum (XOR over all previous bytes)
 
 Control messages (POLL/BUSY/READY) are ONE BYTE ONLY.
@@ -219,17 +220,27 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 #include <stdint.h> 
 
 // Packet (message) sizing 
-static constexpr uint8_t HEADER_SIZE = 3;
-static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;                   // max. payload sizes in bytes 
+static constexpr uint8_t HEADER_SIZE = 4;               // message type, message size, message sequence number, spare
+static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;        // max. payload sizes in bytes 
 static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
 
+// ---- transport layer: frame layout ----
+namespace WireFrame {
+    constexpr uint8_t OFFSET_MSG_TYPE = 0;
+    constexpr uint8_t OFFSET_PAYLOAD_SIZE = 1;
+    constexpr uint8_t OFFSET_SEQ_NUM = 2;
+    constexpr uint8_t OFFSET_RESERVED = 3;
+    // checksum sits at HEADER_SIZE + payloadSize
+}
+
+constexpr uint8_t RESERVED_DEFAULT = 0x00;
 
 // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
 enum class WireTransport :uint8_t {
     NONE = 0x00,
-    M_CTRL_POLL = 0x01,                                         // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
-    S_CTRL_BUSY,                                                // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
-    S_CTRL_READY                                                // idem
+    M_CTRL_POLL = 0x01,                 // one-byte message; slave reply msg type: S_CTRL_BUSY or S_CTRL_READY
+    S_CTRL_BUSY,                        // one-byte reply: ONLY allowed in response to M_MSG_POLL_SLAVE
+    S_CTRL_READY                        // idem
 };
 
 
@@ -251,8 +262,7 @@ enum MsgType : uint8_t {
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
     M_MSG_SEND_STATS = 0x28,            // wire transport send stats
-    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats
-    M_MSG_MESSAGE_STATS = 0x2A,         // wire message stats
+    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats  //// aanpassen met nieuwe error counters
 
     // message types to send current master settings to slave. Slave reply: ACK message type
     M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...
@@ -278,10 +288,10 @@ enum MsgType : uint8_t {
     S_MSG_ACK = 0x62,
 
     // the following slave messages types are only sent in response to specific master message types
-    S_MSG_GLOBE_SETTINGS_SET = 0x70,        // sending globe settings to master:             response to msg type M_MSG_GLOBE_SETTINGS_REQ
-    S_MSG_PID_SETTINGS_SET = 0x71,          // sending PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
-    S_MSG_VERT_POS_SETPOINT_SET = 0x72,     // sending vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
-    S_MSG_COIL_PHASE_ADJUST_SET = 0x73,     // sending coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
+    S_MSG_GLOBE_SETTINGS_SET = 0x70,    // sending globe settings to master:             response to msg type M_MSG_GLOBE_SETTINGS_REQ
+    S_MSG_PID_SETTINGS_SET = 0x71,      // sending PID settings to master:               response to msg type M_MSG_PID_SETTINGS_REQ 
+    S_MSG_VERT_POS_SETPOINT_SET = 0x72, // sending vertical position setpoint to master: response to msg type M_MSG_VERT_POS_SETPOINT_REQ
+    S_MSG_COIL_PHASE_ADJUST_SET = 0x73, // sending coil phase adjustment to master:      response to msg type M_MSG_COIL_PHASE_ADJUST_REQ  
 
 
     // ========== 0x80–0xFE: not used ==========
@@ -343,8 +353,8 @@ struct __attribute__((packed)) I2C_m_status {
 
 struct __attribute__((packed)) I2C_m_greenwich {
     uint32_t actualRotationTime;
-    int32_t rotationOutOfSyncTime;      // can be negative
-    int32_t greenwichLag;               // can be negative
+    int32_t rotationOutOfSyncTime;              // can be negative
+    int32_t greenwichLag;                       // can be negative
     uint8_t status;
 };
 
@@ -374,23 +384,14 @@ using I2C_m_buttonStates = I2C_buttonStates;
 
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
-// message level counters
-struct __attribute__((packed))I2C_m_messageStats {
-    uint32_t I_stats_replyReceived{ 0 };
-    uint32_t E_stats_lockStepError{ 0 };
-
-    uint32_t inline errorMsgCount(){return  E_stats_lockStepError;}
-    void inline zeroMembers() { I_stats_replyReceived = E_stats_lockStepError = 0; }
-};
-
 // transport level counters
 struct I2C_m_masterSendStats {
-    uint32_t I_stats_tx_sent = 0;                               // info: counts     
-    uint32_t W_stats_tx_retrying = 0;                           // warning: count 
+    uint32_t I_stats_tx_sent = 0;                   // info: counts     
+    uint32_t W_stats_tx_retrying = 0;               // warning: count 
     uint32_t E_stats_tx_wireXmitError = 0;
-    uint32_t E_stats_tx_full = 0;                               // errors: counts
+    uint32_t E_stats_tx_full = 0;                   // errors: counts
 
-    uint32_t inline errorMsgCount(){return W_stats_tx_retrying + E_stats_tx_wireXmitError + E_stats_tx_full;}
+    uint32_t inline errorMsgCount() { return W_stats_tx_retrying + E_stats_tx_wireXmitError + E_stats_tx_full; }
     void inline zeroMembers() { I_stats_tx_sent = W_stats_tx_retrying = E_stats_tx_wireXmitError = E_stats_tx_full = 0; }
 };
 
@@ -398,21 +399,23 @@ struct I2C_m_masterReceiveStats {
     uint32_t I_stats_rx_received = 0;
     uint32_t E_stats_rx_checksum = 0;
     uint32_t E_stats_rx_timeOut = 0;
+    uint32_t E_stats_rx_typeMismatch = 0;
+    uint32_t E_stats_rx_seqMismatch = 0;
     uint32_t E_stats_rx_full = 0;
 
-    uint32_t inline errorMsgCount(){return E_stats_rx_checksum + E_stats_rx_timeOut + E_stats_rx_full;}
-    void inline zeroMembers() { I_stats_rx_received = E_stats_rx_checksum = E_stats_rx_timeOut = E_stats_rx_full = 0; }
+    uint32_t inline errorMsgCount() { return E_stats_rx_checksum + E_stats_rx_timeOut + E_stats_rx_seqMismatch + E_stats_rx_typeMismatch + E_stats_rx_full; }
+    void inline zeroMembers() { I_stats_rx_received = E_stats_rx_checksum = E_stats_rx_timeOut = E_stats_rx_seqMismatch = E_stats_rx_typeMismatch = E_stats_rx_full = 0; }
 };
 
 
 // ========== I2C message payloads: messages from slave to master ==========
 
 struct __attribute__((packed)) I2C_s_ack {
-    uint8_t ack{ 0x00 };                                    // currently not used 
+    uint8_t ack{ 0x00 };                            // currently not used 
     // the slave can request the master to SEND a specific message type to the slave. This can be used if the slave HAS INFO to share 
     // with the master, or it REQUESTS the master to send specific info
-    Action action{ M_ACTION_NONE };            // action requested from master
-    MsgType requestMasterMsgType{ M_MSG_NONE };   // slave requests master to send message type
+    Action action{ M_ACTION_NONE };                 // action requested from master
+    MsgType requestMasterMsgType{ M_MSG_NONE };     // slave requests master to send message type
 
 };
 

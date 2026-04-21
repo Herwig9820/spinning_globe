@@ -72,7 +72,8 @@ All protocol messages (except control messages) have:
 
     [0] Message Type (uint8_t)
     [1] Payload Length (uint8_t)
-    [2..N] Payload
+    [2] Message sequence number
+    [3..N] Payload
     [N+1] Checksum (XOR over all previous bytes)
 
 Control messages (POLL/BUSY/READY) are ONE BYTE ONLY.
@@ -219,10 +220,20 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 #include <stdint.h> 
 
 // Packet (message) sizing 
-static constexpr uint8_t HEADER_SIZE = 3;
+static constexpr uint8_t HEADER_SIZE = 4;               // message type, message size, message sequence number, spare
 static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;        // max. payload sizes in bytes 
-static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
+static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;       
 
+// ---- transport layer: frame layout ----
+namespace WireFrame {
+    constexpr uint8_t OFFSET_MSG_TYPE = 0;      
+    constexpr uint8_t OFFSET_PAYLOAD_SIZE = 1;
+    constexpr uint8_t OFFSET_SEQ_NUM = 2;
+    constexpr uint8_t OFFSET_RESERVED = 3;
+    // checksum sits at HEADER_SIZE + payloadSize
+}
+
+constexpr uint8_t RESERVED_DEFAULT = 0x00;
 
 // !!!!!!!!!! 0x00 - 0x1f RESERVED for CONTROL SIGNALS between master and slave libraries !!!!!!!!!!
 enum class WireTransport :uint8_t {
@@ -251,8 +262,7 @@ enum MsgType : uint8_t {
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
     M_MSG_SEND_STATS = 0x28,            // wire transport send stats
-    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats
-    M_MSG_MESSAGE_STATS = 0x2A,         // wire message stats
+    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats  //// aanpassen met nieuwe error counters
 
     // message types to send current master settings to slave. Slave reply: ACK message type
     M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...
@@ -374,15 +384,6 @@ using I2C_m_buttonStates = I2C_buttonStates;
 
 // ========== I2C message payloads: diagnostic messages from master to slave ==========
 
-// message level counters
-struct __attribute__((packed))I2C_m_messageStats {
-    uint32_t I_stats_replyReceived{ 0 };
-    uint32_t E_stats_lockStepError{ 0 };
-
-    uint32_t inline errorMsgCount() { return  E_stats_lockStepError; }
-    void inline zeroMembers() { I_stats_replyReceived = E_stats_lockStepError = 0; }
-};
-
 // transport level counters
 struct I2C_m_masterSendStats {
     uint32_t I_stats_tx_sent = 0;                   // info: counts     
@@ -398,10 +399,12 @@ struct I2C_m_masterReceiveStats {
     uint32_t I_stats_rx_received = 0;
     uint32_t E_stats_rx_checksum = 0;
     uint32_t E_stats_rx_timeOut = 0;
+    uint32_t E_stats_rx_typeMismatch = 0;
+    uint32_t E_stats_rx_seqMismatch = 0;
     uint32_t E_stats_rx_full = 0;
 
-    uint32_t inline errorMsgCount() { return E_stats_rx_checksum + E_stats_rx_timeOut + E_stats_rx_full; }
-    void inline zeroMembers() { I_stats_rx_received = E_stats_rx_checksum = E_stats_rx_timeOut = E_stats_rx_full = 0; }
+    uint32_t inline errorMsgCount() { return E_stats_rx_checksum + E_stats_rx_timeOut + E_stats_rx_seqMismatch + E_stats_rx_typeMismatch + E_stats_rx_full; }
+    void inline zeroMembers() { I_stats_rx_received = E_stats_rx_checksum = E_stats_rx_timeOut = E_stats_rx_seqMismatch = E_stats_rx_typeMismatch = E_stats_rx_full = 0; }
 };
 
 

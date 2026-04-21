@@ -99,7 +99,9 @@ bool GlobeEvents::addChunk(uint8_t eventType, uint8_t newChunkSize, uint8_t** me
 
         #if TEST_SHOW_STATS 
             
-            ln(); Serial.print(F("+ ;"));  Serial.println((int)newestMessageStartPtr);
+            ln(); 
+            
+            (F("+ ;"));  Serial.println((int)newestMessageStartPtr);
         #endif
         }
 
@@ -202,13 +204,13 @@ uint32_t GlobeTime::getMicros(uint32_t* secondsPtr = nullptr) {         // retur
 
 // ========== start a ring (all arguments except 'sequences' must be > 0) ==========
 
-bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t colorScheme) {
+bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t ringAttribute) {
 
     // if 'sequences' is zero, the ring will continue until it is stopped by calling 'stopRing()'
 
     if (_ringState != ring_rest) { return false; }          // not during an ongoing ring
     _ringState = ring_start;                                // init ring
-    _ringType = (sequences == 0) ? alarm : ringing;
+    _ringType = (ringAttribute == 0) ? ringing: alarm;
 
     // store color change count in a sequence and durations (in steps) of a color in a sequence and of a pause between sequences
     _altColorChangesInSequence = colorChangesInSequence;
@@ -220,7 +222,7 @@ bool VisualRing::startRing(uint8_t sequences, uint8_t colorChangesInSequence, ui
     _pauseCounter = sequences - 1;                          // number of ring sequences - 1 (no pause after last ring)
     _stepCounter = _altColorSteps;                          // start with an alternating color
 
-    _colorScheme = colorScheme;
+    _colorScheme = ringAttribute;
     return true;
 };
 

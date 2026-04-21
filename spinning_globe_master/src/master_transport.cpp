@@ -95,6 +95,9 @@ RING BUFFER IMPLEMENTATION
 //  ========== enqueueTx: safe from ISR. Returns true if enqueued, false if queue full ==========
 
 bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyMsgType, uint8_t expReplyPayloadSize) {
+    
+    static uint8_t msgSeqNum{0};
+
 #if TRACK_FREE_MEM
     trackFree();
 #endif
@@ -105,14 +108,18 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
         return false;
     }
 
-    txQueue[txHead][0] = msgType;
-    txQueue[txHead][1] = payloadSize;
-    uint8_t sum = msgType ^ payloadSize;
+    // seq num must be added here and stored in txQueue because it's included in the checksum which is calculated here
+    txQueue[txHead][WireFrame::OFFSET_MSG_TYPE] = msgType;
+    txQueue[txHead][WireFrame::OFFSET_PAYLOAD_SIZE] = payloadSize;
+    txQueue[txHead][WireFrame::OFFSET_SEQ_NUM] = msgSeqNum;
+    txQueue[txHead][WireFrame::OFFSET_RESERVED] = RESERVED_DEFAULT;
+    
+    uint8_t sum = msgType ^ payloadSize ^ msgSeqNum++ ^ RESERVED_DEFAULT;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[txHead][HEADER_SIZE + i] = ((uint8_t*)payload)[i];
         sum ^= ((uint8_t*)payload)[i];
     }
-
+    
     txQueue[txHead][HEADER_SIZE + payloadSize] = sum;
     // remember REPLY MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
     txExpReplyMsgType[txHead] = expReplyMsgType;
@@ -128,7 +135,7 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
 
 // ========== dequeueRx: safe from ISR. Returns true if enqueued, false if queue empty ==========
 
-bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload, uint8_t& expReplyMsgType) {
+bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload) {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
@@ -140,17 +147,15 @@ bool WireMaster::dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     acquire_barrier();                                              // ensure we see latest tail before reading data
 
-    msgType = rxQueue[rxTail][0];
-    payloadSize = rxQueue[rxTail][1];
+    msgType = rxQueue[rxTail][WireFrame::OFFSET_MSG_TYPE];
+    payloadSize = rxQueue[rxTail][WireFrame::OFFSET_PAYLOAD_SIZE];
     if (payloadSize > SLAVE_PAYLOAD_MAX) payloadSize = 0;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         ((uint8_t*)payload)[i] = rxQueue[rxTail][HEADER_SIZE + i];
     }
-    expReplyMsgType = rxExpReplyMsgType[rxTail];
 
     rxTail = (rxTail + 1) % RX_QUEUE_SIZE;
     return true;
-
 };
 
 
@@ -163,7 +168,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     trackFree();
 #endif
 
-    static uint8_t expReplyMsgType, expReplyMsgSize{};
+    static uint8_t expReplyMsgType, expReplyMsgSize{}, expReplySeqNumber{};
 
     static unsigned long lastTaskTime_millis = 0;                   // delay scheduling, periods > 10 ms
     static unsigned long lastTaskTime_micros = 0;                   // delay scheduling, periods < 10 ms
@@ -176,16 +181,13 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
     unsigned long timePassed{};
 
-
     /* ---------- state machine: MS_IDLE: enqueue message if available ---------- */
 
     if (state == MasterState::MS_IDLE) {                            // not sending or receiving ?
-        if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
+        if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize, expReplySeqNumber)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
         sendRetryCount = 0;
         state = MasterState::MS_SEND;                                           // change status to MS_SEND 
     }
-
-
 
     /* ---------- state machine: MS_SEND: send message to slave (respect inter-message spacing) ---------- */
 
@@ -195,6 +197,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         // check inter-message spacing (non-blocking)
         timePassed = (now_micros - lastTaskTime_micros);                        // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }
+        
         lastTaskTime_millis = now_millis;                                       // init: assume transmission will be ok
         lastTaskTime_micros = now_micros;
 
@@ -234,6 +237,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     if (state == MasterState::MS_WAIT_BEFORE_POLLING) {
         timePassed = (now_micros - lastTaskTime_micros);                        // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+        
         lastPollTime_micros = lastTaskTime_micros = now_micros;                 // init
         lastTaskTime_millis = now_millis;
 
@@ -264,7 +268,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         Wire.write(&request, 1);
         uint8_t err = Wire.endTransmission();                                   // 0 == success
         if (err == 0) {
-            if (i2cReadMessage(&reply, 0, 1)) {
+            if (i2cReadMessage(&reply, 1)) {
                 // Any poll result other than READY is treated as BUSY by design
                 if (reply != (uint8_t)WireTransport::S_CTRL_READY) {            // an erroneous reply byte is captured here (although nothing is done with it) 
                     reply = (uint8_t)WireTransport::S_CTRL_BUSY;
@@ -287,21 +291,32 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     if (state == MasterState::MS_RECEIVE) {
         timePassed = now_micros - lastTaskTime_micros;                          // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
+        
         lastTaskTime_millis = now_millis;                                       // init
         lastTaskTime_micros = now_micros;                                       // init
 
-        bool ok = i2cReadMessage(rxInBuffer, expReplyMsgType, expReplyMsgSize);
-
+        bool ok = i2cReadMessage(rxInBuffer, expReplyMsgSize);                  // size needed to read correct number of bytes from buffer
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
-            state = MasterState::MS_IDLE;
+            state = MasterState::MS_POST_RX_ERROR_HOLDOFF;
             return WireStatus::E_rx_timeOut;
         }
 
-        WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize);
+        WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize, expReplySeqNumber);
         _triggerWireCommLed = true;                                             // handled in timer interrupt
-        state = MasterState::MS_IDLE;
+        state = (wireStatus == WireStatus::I_xmitOK) ? MasterState::MS_IDLE : MasterState::MS_POST_RX_ERROR_HOLDOFF; //// ook voor E_rx_full ???
+        wireStatus != WireStatus::I_xmitOK;
         return wireStatus;
+    }
+
+
+    /* ---------- state machine: MS_POST_RX_ERROR_HOLDOFF: extra hold off time after rx error ---------- */
+
+    if (state == MasterState::MS_POST_RX_ERROR_HOLDOFF) {
+        timePassed = now_micros - lastTaskTime_micros;
+        if (timePassed < POST_ERROR_HOLDOFF_MICROS) { return WireStatus::I_waitForCue; }
+        while (Wire.available()) { (void)Wire.read(); }                         // drain any stale bytes
+        state = MasterState::MS_IDLE;
     }
 
     return WireStatus::I_idle;                                                  // safety (control doesn't pass here)
@@ -329,7 +344,7 @@ void WireMaster::getAndClearReceiveStats(I2C_m_masterReceiveStats& receiveStatSn
 
 // ================= HELPERS: SEND TX QUEUE TAIL  =================
 
-bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize) {
+bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize, uint8_t&expReplySeqNum) {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
@@ -343,11 +358,11 @@ bool WireMaster::copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgTy
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     acquire_barrier();                                              // ensure we see latest tail before reading data
 
-    uint8_t msgLength = HEADER_SIZE + txQueue[tail][1] + 1;         // message ID, payload length, checksum
+    uint8_t msgLength = HEADER_SIZE + txQueue[tail][WireFrame::OFFSET_PAYLOAD_SIZE] + 1;         // message ID, payload length, checksum
     memcpy(out, (uint8_t*)txQueue[tail], msgLength);                // copy struct
     expReplyMsgType = txExpReplyMsgType[tail];
     expReplyMsgSize = txExpReplyMsgSize[tail];                      // copy as well (0xff: no reply expected)
-
+    expReplySeqNum = txQueue[tail][WireFrame::OFFSET_SEQ_NUM];
     return true;
 }
 
@@ -357,8 +372,12 @@ bool WireMaster::i2cWriteMessage(const uint8_t* out) {
     trackFree();
 #endif
 
+/*  //// check : dubbel met lijn 
+RX buffer drain at the start of the next transmission — explicitly discard anything sitting in Wire's internal buffer before Wire.beginTransmission(). 
+On AVR the Wire library doesn't expose this cleanly, but you can loop while (Wire.available()) Wire.read(); before sending.
+*/
 
-    uint8_t msgLength = HEADER_SIZE + out[1] + 1;                   // message ID, payload length, checksum
+    uint8_t msgLength = HEADER_SIZE + out[WireFrame::OFFSET_PAYLOAD_SIZE] + 1;                   // message ID, payload length, checksum
     bool ok{ false };
     Wire.beginTransmission(I2C_SLAVE_ADDR);
     Wire.write(out, msgLength);
@@ -371,7 +390,7 @@ bool WireMaster::i2cWriteMessage(const uint8_t* out) {
 
 // ========== HELPERS: RECEIVE RX QUEUE HEAD ===========
 
-bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
+bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgSize) {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
@@ -401,7 +420,7 @@ bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgType, uint8_t ex
 }
 
 
-WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize) {
+WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize, uint8_t expReplySeqNumber) {
 #if TRACK_FREE_MEM
     trackFree();
 #endif
@@ -420,14 +439,23 @@ WireMaster::WireStatus WireMaster::copyInToRXqueueHead(uint8_t* const in, uint8_
         rxQueue[head][i] = in[i];
         sum ^= in[i];
     }
-    rxQueue[head][expReplyMsgSize - 1] = in[expReplyMsgSize - 1];
-    rxExpReplyMsgType[head] = expReplyMsgType;                                  // OK because strict lockstep (was not sent/received but was locally stored in between)
+    rxQueue[head][expReplyMsgSize - 1] = in[expReplyMsgSize - 1];               // checksum 
 
+    // check checksum, message type and sequence number
     if (sum != rxQueue[head][expReplyMsgSize - 1]) {                            // checksum correct ?
         ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_checksum++; }// message dropped (32-bit stats_ variable increment must be atomic
         return WireStatus::E_rx_checksum;
     };
 
+    if (in[WireFrame::OFFSET_MSG_TYPE] != expReplyMsgType) {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_typeMismatch++; }
+        return WireStatus::E_rx_typeMismatch;
+    }
+
+    if (in[WireFrame::OFFSET_SEQ_NUM] != expReplySeqNumber) {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_seqMismatch++; }
+        return WireStatus::E_rx_seqMismatch;  // new enum value
+    }   
 
     // AVR: strongly ordered, no hardware fences needed BUT memory fence added to keep code generic.
     release_barrier();                                                          // ensure data is visible before updating head

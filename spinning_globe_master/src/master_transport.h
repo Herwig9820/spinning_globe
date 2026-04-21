@@ -129,8 +129,9 @@ private:
     static constexpr uint8_t RX_QUEUE_SIZE = 4;
 
     // Timing/backoff
-    static constexpr unsigned long SLAVE_POLL_INTERVAL_micros = 2000;
-    static constexpr unsigned long MIN_CYCLE_PERIOD_MICROS = 10000; // minimum spacing between send or receive operations
+    static constexpr uint32_t SLAVE_POLL_INTERVAL_micros = 2000;
+    static constexpr uint32_t MIN_CYCLE_PERIOD_MICROS = 10000;      // minimum spacing between send or receive operations
+    static constexpr uint32_t POST_ERROR_HOLDOFF_MICROS = 20000;    // applied before next send only if coming out from an rx timeout
 
     static constexpr unsigned long MAX_RECEIVE_CYCLE_MILLIS = 100;  // maximum time waiting for a slave reply (from send to receive)
 
@@ -141,12 +142,11 @@ private:
 /* ================= TX: RING BUFFER, RX: RING BUFFER ================= */
 
 private:
-    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
+    volatile uint8_t txQueue[TX_QUEUE_SIZE][HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];  // message header + payload + checksum
     volatile uint8_t txExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index
     volatile uint8_t txExpReplyMsgSize[TX_QUEUE_SIZE];              // paired with txQueue slot index
 
-    volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];  // message type + payload size + payload + checksum
-    volatile uint8_t rxExpReplyMsgType[TX_QUEUE_SIZE];              // paired with txQueue slot index  
+    volatile uint8_t rxQueue[RX_QUEUE_SIZE][HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];   // message header + payload + checksum
 
     // producer owned (SPSC)
     volatile uint8_t rxHead = 0;                                    // next free slot (main or ISR will write here)
@@ -159,10 +159,10 @@ private:
 
     /* ================= STATE + WORKING COPIES ================= */
 
-    enum MasterState :uint8_t { MS_IDLE, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
+    enum MasterState :uint8_t { MS_IDLE, MS_POST_RX_ERROR_HOLDOFF, MS_SEND, MS_WAIT_BEFORE_POLLING, MS_WAIT_FOR_SLAVE_READY, MS_RECEIVE };
     MasterState state = MasterState::MS_IDLE;
 
-    uint8_t rxInBuffer[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];
+    uint8_t rxInBuffer[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];        // message header + payload + checksum
     uint8_t txOutBuffer[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
 
 
@@ -175,6 +175,8 @@ public:
         E_tx_wireXmitError,
         E_rx_checksum,
         E_rx_timeOut,
+        E_rx_seqMismatch,
+        E_rx_typeMismatch,
         E_rx_full
     };
 
@@ -194,7 +196,7 @@ public:
     // safe to call from ISR
     // enqueue with expReplyPayloadSize = 0xff: no return message requested, = 0x00: requested, without payload
     bool enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* payload, uint8_t expReplyMsgType, uint8_t expReplyPayloadSize);
-    bool dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload, uint8_t& expReplyMsgType);
+    bool dequeueRx(uint8_t& msgType, uint8_t& payloadSize, void* payload);
 
     // should be called frequently from application main loop
     WireStatus sendAndReceiveMessage();
@@ -203,10 +205,10 @@ public:
     void getAndClearReceiveStats(I2C_m_masterReceiveStats& receiveStatSnapshot);
 
    // helpers: called from sendAndReceiveMessage()
-    bool copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize);
+    bool copyTXqueueTailToOut(uint8_t* const out, uint8_t& expReplyMsgType, uint8_t& expReplyMsgSize, uint8_t& expReplySeqNum);
     bool i2cWriteMessage(const uint8_t* p);
-    bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
-    WireMaster::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize);
+    bool i2cReadMessage(uint8_t* p, uint8_t expReplyMsgSize);
+    WireMaster::WireStatus copyInToRXqueueHead(uint8_t* const in, uint8_t expReplyMsgType, uint8_t expReplyMsgSize, uint8_t expReplySeqNumber);
 };
 
 #endif

@@ -261,10 +261,8 @@ public:
         return _ringType;                                       // return 'ring state was changed'
     };
 
-
-
     // public interface
-    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t colorScheme);
+    bool startRing(uint8_t sequences, uint8_t colorChangesInSequence, uint8_t altColorSteps, uint8_t pauseSteps, uint8_t ringAttribute);
     void advanceRingOneStep();
 };
 

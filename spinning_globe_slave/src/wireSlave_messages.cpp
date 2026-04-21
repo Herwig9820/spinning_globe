@@ -46,13 +46,14 @@ bool WireSlaveMessages::loop() {
 
     uint8_t messageTypeIn{};          // as received
     uint8_t payloadSizeIn{};          // as received
+    uint8_t msgSequence{};
     uint8_t payloadIn[MASTER_PAYLOAD_MAX];
 
 
     // periodically, calculate wire comm. quality and publish to MQTT (5120 = 40 x 128 ms)
     if (millis() - lastCommStatsAt > wireCommQuality_measPeriod) { lastCommStatsAt = millis(); prepareWirecommStatsForMQTT(); }
 
-    bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn);
+    bool msgAvailable = wireSlave.popIncomingWireMsg(messageTypeIn, payloadIn, payloadSizeIn, msgSequence);
     if (!msgAvailable) { return false; }
 
     // signal that wire data is received
@@ -75,7 +76,7 @@ bool WireSlaveMessages::loop() {
         {
             // a wire master ping message does not trigger an MQTT message, but master expects an ack reply
             // pings are sent often to (1) get fast ACK replies, possibly containing requests, (2) be used as slave comm. stat. input
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
             pingCount++;
         }
         break;
@@ -84,7 +85,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_status* pStatus = reinterpret_cast<I2C_m_status*>(payloadIn);
             convertGlobeStatusToMQTT(pStatus);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -92,7 +93,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_greenwich* pGreenwich = reinterpret_cast<I2C_m_greenwich*>(payloadIn);
             convertGlobeGreenwichCueToMQTT(pGreenwich);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -100,7 +101,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_telemetry* pTelemetry = reinterpret_cast<I2C_m_telemetry*>(payloadIn);
             convertTelemetryToMQTT(pTelemetry);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -108,7 +109,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_telemetry_extra* pTelemetryExtra = reinterpret_cast<I2C_m_telemetry_extra*>(payloadIn);
             convertTelemetryExtraToMQTT(pTelemetryExtra);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -125,7 +126,7 @@ bool WireSlaveMessages::loop() {
             wireStatSummary.masterErrorMsgCount += pMasterSendStats->errorMsgCount();  // let aside retry warnings
             pMasterSendStats->zeroMembers();
         */
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -139,21 +140,7 @@ bool WireSlaveMessages::loop() {
             wireStatSummary.masterErrorMsgCount += pMasterReceiveStats->errorMsgCount();
             pMasterReceiveStats->zeroMembers();
         */
-            replyAndFlagSlaveDataAvailable();
-        }
-        break;
-
-        // receive wire master message library stats
-        case MsgType::M_MSG_MESSAGE_STATS:
-        {
-        // detailed master-side statistics are not used to calculate wire comm. quality
-        /*
-            I2C_m_messageStats* pMasterMessageStats = reinterpret_cast<I2C_m_messageStats*>(payloadIn);
-            wireStatSummary.masterValidMsgCount += pMasterMessageStats->I_stats_replyReceived;
-            wireStatSummary.masterErrorMsgCount += pMasterMessageStats->errorMsgCount();
-            pMasterMessageStats->zeroMembers();
-        */
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -162,7 +149,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_globeSettings* pGlobeIn = reinterpret_cast<I2C_m_globeSettings*>(payloadIn);
             convertGlobeSettingsToMQTT(pGlobeIn);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -171,7 +158,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_PIDsettings* pPIDin = reinterpret_cast<I2C_m_PIDsettings*>(payloadIn);
             convertPIDsettingsToMQTT(pPIDin);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -180,7 +167,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_vertPosSetpoint* pVertPosIn = reinterpret_cast<I2C_m_vertPosSetpoint*>(payloadIn);
             convertVertPosSetpointToMQTT(pVertPosIn);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -189,7 +176,7 @@ bool WireSlaveMessages::loop() {
         {
             I2C_m_coilPhaseAdjust* pCoilPhaseIn = reinterpret_cast<I2C_m_coilPhaseAdjust*>(payloadIn);
             convertCoilPhaseAdjustmentToMQTT(pCoilPhaseIn);
-            replyAndFlagSlaveDataAvailable();
+            replyAndFlagSlaveDataAvailable(msgSequence);
         }
         break;
 
@@ -200,28 +187,28 @@ bool WireSlaveMessages::loop() {
             // but master needs to observe a delay between this message it sent and the response expected, because this response will only be enqueued now.
             // alternatively, let the slave first inform the master that data is available and let the master then request to send it
             // note: lockStep. Answer is mandatory, even if no data available yet (master can test .slaveHasData)
-            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_GLOBE_SETTINGS_SET, &_sharedContext.committedGlobeSettings, sizeof(I2C_s_globeSettings_set));
+            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_GLOBE_SETTINGS_SET, &_sharedContext.committedGlobeSettings, sizeof(I2C_s_globeSettings_set), msgSequence);
             _sharedContext.committedGlobeSettings.slaveHasData = 0;
         }
         break;
 
         case MsgType::M_MSG_PID_SETTINGS_REQ:
         {
-            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_PID_SETTINGS_SET, &_sharedContext.committedPIDsettings, sizeof(I2C_s_PIDsettings_set));
+            wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_PID_SETTINGS_SET, &_sharedContext.committedPIDsettings, sizeof(I2C_s_PIDsettings_set), msgSequence);
             _sharedContext.committedPIDsettings.slaveHasData = 0;
         }
         break;
 
         case MsgType::M_MSG_VERT_POS_SETPOINT_REQ:
         {
-            wireSlave.pushOutgoingWireMsg(S_MSG_VERT_POS_SETPOINT_SET, &_sharedContext.committedVertPosSetpoint, sizeof(I2C_s_vertPosSetpoint_set));
+            wireSlave.pushOutgoingWireMsg(S_MSG_VERT_POS_SETPOINT_SET, &_sharedContext.committedVertPosSetpoint, sizeof(I2C_s_vertPosSetpoint_set), msgSequence);
             _sharedContext.committedVertPosSetpoint.slaveHasData = 0;
         }
         break;
 
         case MsgType::M_MSG_COIL_PHASE_ADJUST_REQ:
         {
-            wireSlave.pushOutgoingWireMsg(S_MSG_COIL_PHASE_ADJUST_SET, &_sharedContext.committedCoilPhaseAdjust, sizeof(I2C_s_coilPhaseAdjust_set));
+            wireSlave.pushOutgoingWireMsg(S_MSG_COIL_PHASE_ADJUST_SET, &_sharedContext.committedCoilPhaseAdjust, sizeof(I2C_s_coilPhaseAdjust_set), msgSequence);
             _sharedContext.committedCoilPhaseAdjust.slaveHasData = 0;
         }
         break;
@@ -375,7 +362,7 @@ void WireSlaveMessages::prepareWirecommStatsForMQTT() {
 // Reply to message from wire master with an 'ACK' message
 // -------------------------------------------------------
 // ============================================================================================
-void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
+void WireSlaveMessages::replyAndFlagSlaveDataAvailable(uint8_t msgSequence) {
 
     I2C_s_ack thisAckResponse{}, nextAckResponse{};
 
@@ -443,6 +430,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
         thisAckResponse.action = _sharedContext.holdAckResponses.front()->action;
         I2C_s_ack dummy;
         _sharedContext.holdAckResponses.pop(dummy);
+
     }
 
 
@@ -452,7 +440,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable() {
     p.ack = 0x0;        // not used
     p.requestMasterMsgType = thisAckResponse.requestMasterMsgType;
     p.action = thisAckResponse.action;
-    wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p));
+    if (!wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p), msgSequence)){};
 
 }
 
@@ -461,31 +449,31 @@ Example sequence of events when node-red publishes PID settings:
 ----------------------------------------------------------------
 
 MQTT     esp32     wire         event
-topic    bridge    message 
+topic    bridge    message
 -------------------------------------------------
      -->                        MQTT publishes PID settings. PID settings record is temporarily stored in the 'pending' stage of the
                                 intermediate PID settings buffer overwriting any previous message stored there.
                                 The pending record will be promoted to 'committed' at the next ACK reply opportunity, provided the committed slot is empty.
 
                <--              Spinning globe (wire master) transmits a message requiring an ACK response
-                                
+
                -->              Wire slave replies with ACK message, payload is 'wire master must request PID settings'
                                 A next ACK reply 'wire master must publish PID settings' is temporarily stored in intermediate ACK reply queue.
                                 It will be sent at the next ACK reply opportunity.
                                 This ensures the committed settings are confirmed back to MQTT once the master has accepted them.
-                                
+
                <--              Spinning globe requests the PID settings
-                                
+
                -->              The PID settings are sent to the spinning globe
-                                
+
                <--              Spinning globe (wire master) transmits a message requiring an ACK response
-                                
+
                -->              Wire slave replies with ACK message, payload (popped from intermediate buffer) is 'wire master must publish PID settings'
-                                
+
                <--              The spinning globe transmits the PID settings
 
                -->              An ACK message is sent to the spinning globe
-                            
+
      <--                        Wire slave publishes the received PID settings to MQTT
 
 */
