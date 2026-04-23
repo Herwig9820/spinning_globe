@@ -230,7 +230,7 @@ namespace WireFrame {
     constexpr uint8_t OFFSET_PAYLOAD_SIZE = 1;
     constexpr uint8_t OFFSET_SEQ_NUM = 2;
     constexpr uint8_t OFFSET_RESERVED = 3;
-    // checksum sits at HEADER_SIZE + payloadSize
+    // Checksum = XOR of bytes [0 .. HEADER_SIZE + payloadSize - 1], stored at index: HEADER_SIZE + payloadSize}
 }
 
 constexpr uint8_t RESERVED_DEFAULT = 0x00;
@@ -262,7 +262,7 @@ enum MsgType : uint8_t {
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
     M_MSG_SEND_STATS = 0x28,            // wire transport send stats
-    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats  //// aanpassen met nieuwe error counters
+    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats 
 
     // message types to send current master settings to slave. Slave reply: ACK message type
     M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...

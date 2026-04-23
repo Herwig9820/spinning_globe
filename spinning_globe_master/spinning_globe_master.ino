@@ -210,6 +210,14 @@ constexpr const char* const globeMetricsLabels[] PROGMEM = { str_rotTimeSet, str
 
 constexpr int globeMetricsCount = sizeof(globeMetricsLabels) / sizeof(globeMetricsLabels[0]);
 
+constexpr uint8_t eepromByteIndex_rotTime{ 0 };
+constexpr uint8_t eepromByteIndex_vertSetPoint{ 1 };
+constexpr uint8_t eepromByteIndex_ledStripSetting{ 2 };
+constexpr uint8_t eepromByteIndex_3secondCue{ 3 };                                  // not used (see '3-second cue' comment, below) 
+constexpr uint8_t eepromByteIndex_gain{ 4 };
+constexpr uint8_t eepromByteIndex_intTimeConst{ 5 };
+constexpr uint8_t eepromByteIndex_difTimeConst{ 6 };
+constexpr uint8_t eepromByteIndex_coilPhaseAdjust{ 7 };
 
 // ========== unit strings ==========
 
@@ -301,8 +309,8 @@ volatile uint32_t firstFullAccIntTerm{};                                        
 volatile uint16_t printPIDtimeCounter{ printPIDperiod + 1 };                        // for step response measurement; printPIDperiod + 1 : 'printing stopped'   
 volatile bool applyStep{ false };                                                   // apply step when measuring (step) response
 
-// -1 if display only (no changeable globe selectedAttribute); otherwise default value - needed in case the eeprom is not used to 
-int globeMetrics[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0,0,0,0 };
+// -1 if display only (no changeable globe selectedAttribute); otherwise default value - needed in case the eeprom is not used 
+int globeMetrics[] = { 2, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, 0, 0, 0, 0 };
 
 
 // ========== globe rotation controller ==========
@@ -557,7 +565,7 @@ void setup()
     ATOMIC_BLOCK(ATOMIC_FORCEON) {
 
         // read rotation time from eeprom and set
-        eepromValue = eeprom_read_byte((uint8_t*)0);                                    // restore globe rotation time from eeprom
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_rotTime);              // restore globe rotation time from eeprom
         cnt = globeMetrics_listLengths[attributeIndex_rotTimes];                        // No of defined rotation times 
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
         globeMetrics[attributeIndex_rotTimes] = eepromValue;
@@ -565,7 +573,7 @@ void setup()
 
 
         // read globe vertical position setpoint from eeprom 
-        eepromValue = eeprom_read_byte((uint8_t*)1);
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_vertSetPoint);
         cnt = globeMetrics_listLengths[attributeIndex_hallmVoltRefs];                   // No of defined hall setpoints in millivolt
         eepromValue = ((eepromValue < 0) || (eepromValue >= cnt)) ? 0 : eepromValue;
         globeMetrics[attributeIndex_hallmVoltRefs] = eepromValue;
@@ -575,15 +583,15 @@ void setup()
 
         // NEW version 1.0.3: read gain, integration & differentiation time constants from eeprom
         // set PID controller
-        eepromValue = eeprom_read_byte((uint8_t*)4);
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_gain);
         pidSettings.gainAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;           // preset gain corresponds to gainAdjustSteps mid value   
         globeMetrics[attributeIndex_gainAdjust] = pidSettings.gainAdjustSteps;
 
-        eepromValue = eeprom_read_byte((uint8_t*)5);
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_intTimeConst);
         pidSettings.intTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to intTimeCstAdjustSteps mid value 
         globeMetrics[attributeIndex_intTimeConstAdjust] = pidSettings.intTimeCstAdjustSteps;
 
-        eepromValue = eeprom_read_byte((uint8_t*)6);
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_difTimeConst);
         pidSettings.difTimeCstAdjustSteps = (eepromValue >= settingSteps - 1) ? settingSteps - 1 : eepromValue;     // preset time constant corresponds to difTimeCstAdjustSteps mid value 
         globeMetrics[attributeIndex_difTimeConstAdjust] = pidSettings.difTimeCstAdjustSteps;
 
@@ -591,13 +599,13 @@ void setup()
 
 
         // NEW version 1.0.3: read phase adjustment for coils rotation start delay (non-locked rotation) from eeprom and store in memory     
-        eepromValue = eeprom_read_byte((uint8_t*)7);
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_coilPhaseAdjust);
         phaseAdjustSteps = (eepromValue >= 179) ? 179 : eepromValue;                        // phase adjustment in 2-degree increments (0 to 358 degrees)                                 
         globeMetrics[attributeIndex_coilPhaseAdjust] = phaseAdjustSteps;
 
 
         // read led strip cycle & timing from eeprom and set 
-        eepromValue = eeprom_read_byte((uint8_t*)2);                                        // b7654 = led strip cycle time, b3210 = led strip cycle
+        eepromValue = eeprom_read_byte((uint8_t*)eepromByteIndex_ledStripSetting);          // b7654 = led strip cycle time, b3210 = led strip cycle
         ledstripCycle = eepromValue & (uint8_t)0x0F;
         ledstripTiming = eepromValue >> 4;
         ledstripCycle = ((ledstripCycle < cLedstripOff) || (ledstripCycle > cRedGreenBlue)) ? cLedstripOff : ledstripCycle;
@@ -608,7 +616,7 @@ void setup()
         setColorCycle(ledstripCycle, ledstripTiming, true);                                 // set led strip cycle and timing and store in eeprom
 
         /* not used but could be used for a 3-second cue
-        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)3) & (uint8_t)0x01);        // if running time after previous reset was small: switch to next led strip color cycle
+        eepromValue = eepromValue + (eeprom_read_byte((uint8_t*)eepromByteIndex_3secondCue) & (uint8_t)0x01);   // if running time after previous reset was small: switch to next led strip color cycle
         */
 
         // DIP switches 2 to 5 (signals SW3 to SW0): interpret as buttons if ALL 4 switches OFF (= 'HIGH') after reset. 
@@ -622,7 +630,7 @@ void setup()
         checkSwitches(true);                                                                // adapt settings according to switch states - note that switch 1 (signal SW4) is currently not used
 
         /* not used but could be used for a 3-second cue
-        eeprom_update_byte((uint8_t*)3, (uint8_t)1);                                        // flag that reset took place
+        eeprom_update_byte((uint8_t*)eepromByteIndex_3secondCue, (uint8_t)1);               // flag that reset took place
         */
     }
 
@@ -724,7 +732,7 @@ void loop()
     }
 
     messageHandling.enqueueI2CmessageToSlave(nextMsgTypeOut);           // if outgoing i2c message available, enqueue
-    uint8_t messageStatus = messageHandling.transmit();                 // SEND and RECEIVE, return 0 or master or slave message error number
+    messageHandling.transmit();                                         // SEND and RECEIVE (returns 'no error' or master or slave message error number)
     messageHandling.dequeueI2CmessageFromSlave(slaveRequestNextMsgTypeOut, slaveRequestNextAction, dashboardIsAliveAt);   // if incoming i2c message available, dequeue
     handleActions(slaveRequestNextAction);
 
@@ -1242,8 +1250,8 @@ MsgType processEvent() {
             /*
             // 3 seconds after reset
             if (secondData.eventSecond == 3) {
-                cli();                                                  // interrupts off: interface with ISR and eeprom write
-                eeprom_update_byte((uint8_t*)3, (uint8_t)0);            // time after reset is longer than 3 seconds
+                cli();                                                                  // interrupts off: interface with ISR and eeprom write
+                eeprom_update_byte((uint8_t*)eepromByteIndex_3secondCue, (uint8_t)0);    // time after reset is longer than 3 seconds
                 sei();
             }
             */
@@ -1926,9 +1934,10 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
 
      // only items that can be changed need to have an entry here 
 
-    constexpr uint8_t gainEepromByteIndex{ 4 };                             // init: eeprom byte number for gain
-    constexpr uint8_t intTimeConstEepromByteIndex{ 5 };                     // init: eeprom byte number for gain
-    constexpr uint8_t difTimeConstEepromByteIndex{ 6 };                     // init: eeprom byte number for gain
+
+    if(attributeIndex >= globeMetricsCount) {return ;}
+
+    globeMetrics[attributeIndex] = attributeValue;
 
     switch (attributeIndex) {
         // set rotation time
@@ -1937,7 +1946,7 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setRotationTime(attributeValue);
                 forceStatusEvent = true;                                    // 'not floating', 'no position sync' and 'rotation OFF' share same status, so force status re-write
-                eeprom_update_byte((uint8_t*)0, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+                eeprom_update_byte((uint8_t*)eepromByteIndex_rotTime, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
         }
         break;
@@ -1949,28 +1958,29 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
                 long hallmVoltRef = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue); // globe vertical position ref in mVolt read by Arduino ADC
                 targetHallRef_ADCsteps = ((float)(ADCsteps * hallmVoltRef)) / ADCvolt;
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
-                eeprom_update_byte((uint8_t*)1, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
+                eeprom_update_byte((uint8_t*)eepromByteIndex_vertSetPoint, (uint8_t)attributeValue);   // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold
             }
         }
         break;
 
+        // coil phase
         case attributeIndex_coilPhaseAdjust:
         {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 phaseAdjustSteps = attributeValue;
-                eeprom_update_byte((uint8_t*)7, (uint8_t)attributeValue);   // update eeprom for the selected ('1') attribute
+                eeprom_update_byte((uint8_t*)eepromByteIndex_coilPhaseAdjust, (uint8_t)attributeValue);   // update eeprom for the selected ('1') attribute
                 forceStatusEvent = true;                                    // will force rewriting serial and LCD
             }
         }
         break;
 
-        // eeprom gainEepromByteIndex is now pointing to gain adjust step storage (byte 4) 
+        // eeprom eepromByteIndex_gain is now pointing to gain adjust step storage (byte 4) 
         case attributeIndex_gainAdjust:
         case attributeIndex_difTimeConstAdjust:
         case attributeIndex_intTimeConstAdjust:
         {
-            uint8_t eepromByteIndex = (attributeIndex == attributeIndex_gainAdjust) ? gainEepromByteIndex :
-                (attributeIndex == attributeIndex_difTimeConstAdjust) ? difTimeConstEepromByteIndex : intTimeConstEepromByteIndex;                                                   // byte 4: gain adjust step
+            uint8_t eepromByteIndex = (attributeIndex == attributeIndex_gainAdjust) ? eepromByteIndex_gain :
+                (attributeIndex == attributeIndex_difTimeConstAdjust) ? eepromByteIndex_difTimeConst : eepromByteIndex_intTimeConst;                                                   // byte 4: gain adjust step
             // update eeprom for specified characteristic (gain, int.tc or diff.tc) AND update PID settings (pidSettings)
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {                             // interrupts off: interface with ISR and eeprom write
                 setPIDcontroller();
@@ -2096,7 +2106,7 @@ void setColorCycle(uint8_t newColorCycle, uint8_t newColorTiming, bool initColor
         LSmaxReached = B000;
 
         // initial color settings are READ from eeprom 
-        eeprom_update_byte((uint8_t*)2, (uint8_t)(ledStripSettings.ledEffect | (ledStripSettings.ledCycleSpeed << 4)));    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold        
+        eeprom_update_byte((uint8_t*)eepromByteIndex_ledStripSetting, (uint8_t)(ledStripSettings.ledEffect | (ledStripSettings.ledCycleSpeed << 4)));    // eeprom write can take longer than 1 mS (with no interrupts), but lifting magnet will hold        
     }
 }
 

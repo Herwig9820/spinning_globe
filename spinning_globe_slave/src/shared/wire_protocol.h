@@ -262,7 +262,7 @@ enum MsgType : uint8_t {
 
     // message types to send master comm stats to slave. Slave reply: ACK message type
     M_MSG_SEND_STATS = 0x28,            // wire transport send stats
-    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats  //// aanpassen met nieuwe error counters
+    M_MSG_RECEIVE_STATS = 0x29,         // wire transport receive stats
 
     // message types to send current master settings to slave. Slave reply: ACK message type
     M_MSG_GLOBE_SETTINGS = 0x2C,        // rotation time, ...

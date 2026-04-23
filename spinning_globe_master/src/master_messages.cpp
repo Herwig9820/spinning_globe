@@ -284,7 +284,7 @@ bool MessageHandling::dequeueI2CmessageFromSlave(MsgType& nextMsgTypeOut, Action
             nextMsgTypeOut = p->requestMasterMsgType;
             nextAction = p->action;
             // !!! setting dashboardAliveAt: ONLY FOR ACK MSG PAYLOADS ORIGINATING FROM DASHBOARD TOPICS (test if needed) !!!
-            if ((nextMsgTypeOut != M_MSG_NONE) || (nextAction != M_ACTION_NONE)) { dashboardAliveAt = millis();  }
+            if ((nextMsgTypeOut != M_MSG_NONE) || (nextAction != M_ACTION_NONE)) { dashboardAliveAt = millis(); }
         }
         break;
 

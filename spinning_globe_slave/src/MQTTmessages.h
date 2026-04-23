@@ -75,8 +75,8 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
 
-    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 256; ////1024;        // passed to _MQTTclient.setBufferSize();
-    
+    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 256;         // passed to _MQTTclient.setBufferSize();
+
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
     static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min
@@ -90,7 +90,7 @@ public:
     };
 
 private:
-    bool _MQTTnewMessageFlag{false};
+    bool _MQTTnewMessageFlag{ false };
     uint8_t _mqttFailCount{ 0 };
 
     ConnectionState _mqttState{ MQTT_notConnected };
@@ -100,11 +100,11 @@ private:
 
     SharedContext& _sharedContext;
 
-    WiFiConnection * _pWiFiConnection;
+    WiFiConnection* _pWiFiConnection;
     WiFiClientSecure _tlsSocket;
     PubSubClient     _MQTTclient;
 
-    
+
     // ========== methods ==========
     ConnectionState maintainMQTT(bool WiFiConnected);
 
@@ -119,9 +119,9 @@ public:
 
     MQTTmessages(SharedContext& sharedContext);
     ConnectionState loop(bool WiFiConnected);
-    
+
     // get flag and clear
-    bool inline newMQTTmessage(){bool flag = _MQTTnewMessageFlag; _MQTTnewMessageFlag = false; return flag;}
+    bool inline newMQTTmessage() { bool flag = _MQTTnewMessageFlag; _MQTTnewMessageFlag = false; return flag; }
 
     bool convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire);
     bool convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire);

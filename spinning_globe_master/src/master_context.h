@@ -98,7 +98,7 @@ constexpr long const globeMetrics_editableFlags{ 0b11110000010000001 };         
 
 // globe attributes: lengths of individual value lists (0 if no value list (value range) or not a setting
 constexpr int const globeMetrics_listLengths[] = { sizeof(rotationTimes) / sizeof(rotationTimes[0]), 0, 0, 0, 0, 0, 0,
-    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0,0,0,0 };               // 0 if no value list for selectedAttribute
+    sizeof(hallMilliVolts) / sizeof(hallMilliVolts[0]), 0, 0, 0, 0, 0, 0, 0, 0, 0 };            // 0 if no value list for selectedAttribute
 
 // globe selectedAttribute: pointers to value lists for individual attributes
 const long* const globeMetrics_valueListsPointers[] = { rotationTimes, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,

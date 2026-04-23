@@ -128,12 +128,12 @@ private:
     static constexpr uint8_t TX_QUEUE_SIZE = 4;                     // queue depths     
     static constexpr uint8_t RX_QUEUE_SIZE = 4;
 
-    // Timing/backoff
-    static constexpr uint32_t SLAVE_POLL_INTERVAL_micros = 2000;
-    static constexpr uint32_t MIN_CYCLE_PERIOD_MICROS = 10000;      // minimum spacing between send or receive operations
-    static constexpr uint32_t POST_ERROR_HOLDOFF_MICROS = 20000;    // applied before next send only if coming out from an rx timeout
+    static constexpr uint32_t SLAVE_POLL_INTERVAL_micros = 2000;            // time between two poll operations
 
-    static constexpr unsigned long MAX_RECEIVE_CYCLE_MILLIS = 100;  // maximum time waiting for a slave reply (from send to receive)
+    // minimum spacing between operations: end of send => start polling; start polling => start receive; between end receive => start next send
+    static constexpr uint32_t MIN_CYCLE_PERIOD_MICROS = 10000;              
+    static constexpr uint32_t POST_ERROR_HOLDOFF_MICROS = 20000;            // applied before next send only if coming out from a receive error
+    static constexpr unsigned long MAX_WAIT_FOR_SLAVE_READY_MICROS = 30000; // MAXIMUM time waiting for a slave reply (from start of polling to slave ready to reply)
 
     // Retries
     static constexpr uint8_t MAX_TRIES_PER_PACKET = 3;              // max. retries allowed per message (send)
@@ -165,13 +165,13 @@ private:
     uint8_t rxInBuffer[HEADER_SIZE + SLAVE_PAYLOAD_MAX + 1];        // message header + payload + checksum
     uint8_t txOutBuffer[HEADER_SIZE + MASTER_PAYLOAD_MAX + 1];
 
-
 public:
     // state returned to the calling program
     enum class WireStatus : uint8_t {
         I_idle,
         I_waitForCue,                                               // counting time until next cue
         I_xmitOK,                                                   // sent/receive went OK
+        I_rx_backPressure,                                          // wait with pushing a new msg in *tx* buffer until *rx* buffer isn't full any more
         E_tx_wireXmitError,
         E_rx_checksum,
         E_rx_timeOut,
@@ -185,6 +185,7 @@ private:
 
     I2C_m_masterSendStats masterSendStats;
     I2C_m_masterReceiveStats masterReceiveStats;
+
 public:
 
 

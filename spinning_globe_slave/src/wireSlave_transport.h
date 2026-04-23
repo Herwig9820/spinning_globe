@@ -121,23 +121,23 @@ private:
 
     uint8_t _msgSequenceNumber{ 0 };
 
-    /* ================= METHODS ================= */
-
     volatile SlaveWaitState waitState{ SS_WAIT_FOR_POLL_REPLY_REQUEST };
     volatile I2C_wireSlaveCommStats wireSlaveCommStats{};
+
+    static WireSlave* instance;   // global pointer to object
+
+
+    /* ================= METHODS ================= */
+
+public:
+    WireSlave();
+    ~WireSlave();
 
     static void wireReceiveEvent(int byteCount);
     static void wireRequestEvent();
 
     void pushIncomingWireMsg(int byteCount);
     void popOutgoingWireMsg();
-
-    static WireSlave* instance;   // global pointer to our our object
-
-
-public:
-    WireSlave();
-    ~WireSlave();
 
     bool popIncomingWireMsg(uint8_t& msgType, void* payload, uint8_t& payloadSize, uint8_t& msgSequenceNumber);
     bool pushOutgoingWireMsg(uint8_t messageType, void* payload, uint8_t payloadSize, uint8_t msgSequenceNumber);

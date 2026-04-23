@@ -114,12 +114,13 @@ bool WireMaster::enqueueTx(uint8_t msgType, uint8_t payloadSize, const void* pay
     txQueue[txHead][WireFrame::OFFSET_SEQ_NUM] = msgSeqNum;
     txQueue[txHead][WireFrame::OFFSET_RESERVED] = RESERVED_DEFAULT;
     
-    uint8_t sum = msgType ^ payloadSize ^ msgSeqNum++ ^ RESERVED_DEFAULT;
+    uint8_t sum = msgType ^ payloadSize ^ msgSeqNum ^ RESERVED_DEFAULT;
     for (uint8_t i = 0; i < payloadSize; ++i) {
         txQueue[txHead][HEADER_SIZE + i] = ((uint8_t*)payload)[i];
         sum ^= ((uint8_t*)payload)[i];
     }
-    
+    msgSeqNum++;
+
     txQueue[txHead][HEADER_SIZE + payloadSize] = sum;
     // remember REPLY MESSAGE SIZE, in queue: THIS will decide if data is requested from a slave. 0xff if no reply expected
     txExpReplyMsgType[txHead] = expReplyMsgType;
@@ -170,21 +171,23 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
     static uint8_t expReplyMsgType, expReplyMsgSize{}, expReplySeqNumber{};
 
-    static unsigned long lastTaskTime_millis = 0;                   // delay scheduling, periods > 10 ms
-    static unsigned long lastTaskTime_micros = 0;                   // delay scheduling, periods < 10 ms
+    static unsigned long lastTaskTime_micros = 0;                   // delay scheduling
     static unsigned long lastPollTime_micros = 0;
 
     static uint8_t sendRetryCount = 0;
 
-    unsigned long now_millis = millis();
     unsigned long now_micros = micros();
-
     unsigned long timePassed{};
 
     /* ---------- state machine: MS_IDLE: enqueue message if available ---------- */
 
     if (state == MasterState::MS_IDLE) {                            // not sending or receiving ?
-        if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize, expReplySeqNumber)) { return WireStatus::I_idle; }  // message available ? Copy to out buffer
+        // If RX queue is full, we can't accept a reply, so don't send
+        uint8_t next = (rxHead + 1) % RX_QUEUE_SIZE;
+        if (next == rxTail) { return WireStatus::I_rx_backPressure;}   // wait for rx consumer
+        
+        // message available in tx queue ? Copy to out buffer
+        if (!copyTXqueueTailToOut(txOutBuffer, expReplyMsgType, expReplyMsgSize, expReplySeqNumber)) { return WireStatus::I_idle; }  
         sendRetryCount = 0;
         state = MasterState::MS_SEND;                                           // change status to MS_SEND 
     }
@@ -198,11 +201,9 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         timePassed = (now_micros - lastTaskTime_micros);                        // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }
         
-        lastTaskTime_millis = now_millis;                                       // init: assume transmission will be ok
-        lastTaskTime_micros = now_micros;
-
         // transmit; in case of error, retry a few times (non-blocking) 
         bool ok = i2cWriteMessage(txOutBuffer);                                 // Wire write
+        lastTaskTime_micros = now_micros;
         if (!ok) {                                                              // Wire library transmit error 
             // manage retries: if exceeded MAX_RETRIES, drop the packet (advance tail)
             if (++sendRetryCount < MAX_TRIES_PER_PACKET) {                      // max. retries was reached before ?
@@ -238,9 +239,8 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         timePassed = (now_micros - lastTaskTime_micros);                        // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
         
-        lastPollTime_micros = lastTaskTime_micros = now_micros;                 // init
-        lastTaskTime_millis = now_millis;
-
+        lastTaskTime_micros = lastPollTime_micros = now_micros;                 // init
+        while (Wire.available()) { (void)Wire.read(); }                         // drain any stale bytes
         state = MasterState::MS_WAIT_FOR_SLAVE_READY;
     }
 
@@ -249,8 +249,8 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     /* ---------- state machine: poll until slave ready or timeout (non-blocking) ---------- */
 
     if (state == MasterState::MS_WAIT_FOR_SLAVE_READY) {
-        timePassed = (now_millis - lastTaskTime_millis);                        // unsigned integer subtraction: modulo 2^32
-        if (timePassed > MAX_RECEIVE_CYCLE_MILLIS) {
+        timePassed = (now_micros - lastTaskTime_micros);                        // unsigned integer subtraction: modulo 2^32
+        if (timePassed > MAX_WAIT_FOR_SLAVE_READY_MICROS) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; }
             state = MasterState::MS_IDLE;
             return WireStatus::E_rx_timeOut;                                    // reply did not arrive in time
@@ -292,10 +292,8 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
         timePassed = now_micros - lastTaskTime_micros;                          // unsigned integer subtraction: modulo 2^32
         if (timePassed < MIN_CYCLE_PERIOD_MICROS) { return WireStatus::I_waitForCue; }  // Respect scheduling (holdoff)
         
-        lastTaskTime_millis = now_millis;                                       // init
-        lastTaskTime_micros = now_micros;                                       // init
-
         bool ok = i2cReadMessage(rxInBuffer, expReplyMsgSize);                  // size needed to read correct number of bytes from buffer
+        lastTaskTime_micros = now_micros;                                       // init
         if (!ok) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) { masterReceiveStats.E_stats_rx_timeOut++; } // do NOT re-enqueue; we drop/ignore reply
             state = MasterState::MS_POST_RX_ERROR_HOLDOFF;
@@ -304,8 +302,7 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
 
         WireStatus wireStatus = copyInToRXqueueHead(rxInBuffer, expReplyMsgType, expReplyMsgSize, expReplySeqNumber);
         _triggerWireCommLed = true;                                             // handled in timer interrupt
-        state = (wireStatus == WireStatus::I_xmitOK) ? MasterState::MS_IDLE : MasterState::MS_POST_RX_ERROR_HOLDOFF; //// ook voor E_rx_full ???
-        wireStatus != WireStatus::I_xmitOK;
+        state = ((wireStatus == WireStatus::I_xmitOK) ||(wireStatus == WireStatus::E_rx_full)) ? MasterState::MS_IDLE : MasterState::MS_POST_RX_ERROR_HOLDOFF;
         return wireStatus;
     }
 
@@ -315,11 +312,11 @@ WireMaster::WireStatus WireMaster::sendAndReceiveMessage() {
     if (state == MasterState::MS_POST_RX_ERROR_HOLDOFF) {
         timePassed = now_micros - lastTaskTime_micros;
         if (timePassed < POST_ERROR_HOLDOFF_MICROS) { return WireStatus::I_waitForCue; }
-        while (Wire.available()) { (void)Wire.read(); }                         // drain any stale bytes
         state = MasterState::MS_IDLE;
+        return WireStatus::I_idle;                                                  // safety (control doesn't pass here)
     }
 
-    return WireStatus::I_idle;                                                  // safety (control doesn't pass here)
+    return WireStatus::I_idle;                                                      // safety (control doesn't pass here)
 }
 
 
@@ -372,11 +369,6 @@ bool WireMaster::i2cWriteMessage(const uint8_t* out) {
     trackFree();
 #endif
 
-/*  //// check : dubbel met lijn 
-RX buffer drain at the start of the next transmission — explicitly discard anything sitting in Wire's internal buffer before Wire.beginTransmission(). 
-On AVR the Wire library doesn't expose this cleanly, but you can loop while (Wire.available()) Wire.read(); before sending.
-*/
-
     uint8_t msgLength = HEADER_SIZE + out[WireFrame::OFFSET_PAYLOAD_SIZE] + 1;                   // message ID, payload length, checksum
     bool ok{ false };
     Wire.beginTransmission(I2C_SLAVE_ADDR);
@@ -395,8 +387,10 @@ bool WireMaster::i2cReadMessage(uint8_t* in, uint8_t expReplyMsgSize) {
     trackFree();
 #endif
 
-// if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
+    // if the slave sends less  bytes than expected, the Wire master will pad with 0xFF bytes. Extra bytes sent are simply discarded 
 
+    // calculation of blocking time out value: at 100 kHz, sending one byte takes approx. 100 microseconds
+    // per byte 50% extra time is added to the (blocking !) time out value. Example: 10 byte msg => time out = 250 + 10 * 50 = 750 micros
     const uint32_t timeoutValue = 250 + 50 * expReplyMsgSize;       // microseconds; allowed timeout depends on message size  
     Wire.requestFrom(I2C_SLAVE_ADDR, (uint8_t)expReplyMsgSize);
 
