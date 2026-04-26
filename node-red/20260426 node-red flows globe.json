@@ -1,0 +1,3582 @@
+[
+    {
+        "id": "846c39736bfcf985",
+        "type": "tab",
+        "label": "IP test and connection",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "cb6dceeb25cbc3d8",
+        "type": "tab",
+        "label": "status",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "0bc71bd3ce48e106",
+        "type": "tab",
+        "label": "settings flow",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "f59cc94fad2f5bd1",
+        "type": "tab",
+        "label": "telemetry flow",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "5cc301b4a942c748",
+        "type": "group",
+        "z": "846c39736bfcf985",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "252b08b175e9521e",
+            "87a0287ed194f385",
+            "f11f80fa7440ce89",
+            "154e2d9f9ba62534",
+            "fd6777f31fd337c1"
+        ],
+        "x": 94,
+        "y": 339,
+        "w": 1472,
+        "h": 82
+    },
+    {
+        "id": "7314ee4ec2843587",
+        "type": "group",
+        "z": "846c39736bfcf985",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "89ab5d78f5fc1acf",
+            "1a886f13eacb78d4",
+            "eac90b2baeb2d480",
+            "5892b4d0e0f548bb",
+            "5af782f10a10c1dc",
+            "e75d515615169946",
+            "ac66b6ad2cada2d8",
+            "5f75578d44616adc",
+            "f70e908e5ba06752"
+        ],
+        "x": 94,
+        "y": 91.5,
+        "w": 1472,
+        "h": 209.5
+    },
+    {
+        "id": "98f14f48b625ab73",
+        "type": "group",
+        "z": "846c39736bfcf985",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "cb729674c400cba6",
+            "eca6430ea7feeb5a",
+            "cb4bcbdd08831955",
+            "22fbdb2340531b80"
+        ],
+        "x": 94,
+        "y": 459,
+        "w": 322,
+        "h": 162
+    },
+    {
+        "id": "7f8ea520f8ea4212",
+        "type": "group",
+        "z": "0bc71bd3ce48e106",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "b1d227912346df30",
+            "9cd69a6195f91f34",
+            "c0f68d89a5d72101",
+            "5ff55bd7853382c6",
+            "d555f1bb02b8fa5d",
+            "ee09ea4a6790976c",
+            "cba685514a38da5f",
+            "d67728702a5d4507",
+            "44d38c3d1e679073",
+            "f1e7792e63d88958"
+        ],
+        "x": 54,
+        "y": 779,
+        "w": 1532,
+        "h": 222
+    },
+    {
+        "id": "d7dc17b30bdecd5e",
+        "type": "group",
+        "z": "0bc71bd3ce48e106",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "3cf93c0ed4d086ca",
+            "595e3cd3f9bf92de",
+            "3c2dd0659e4232b8",
+            "97fc4bc9df65e85b",
+            "801ca75dc8dce0ba",
+            "8986b55b64c97fd1",
+            "5b66d1cb256e8bef",
+            "64af60a3b70c6b0a",
+            "2eb48e41e0b6ad68"
+        ],
+        "x": 54,
+        "y": 539,
+        "w": 1532,
+        "h": 222
+    },
+    {
+        "id": "b53693742c0be9a9",
+        "type": "group",
+        "z": "0bc71bd3ce48e106",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "52bb5919610d459b",
+            "81342ace28fbbbca",
+            "2ab5938149825138",
+            "7577b91a357e119a",
+            "93530bbea624ceb1",
+            "2b21185de4b87b4d",
+            "882ac9e689f6d93a",
+            "43a98b5d7d85d870",
+            "058375a4846789a1",
+            "49c57703f8dc9cef",
+            "9e6094c163ce1dd8",
+            "188c2e97c8f52f01",
+            "4af8fdd4f6be62de"
+        ],
+        "x": 54,
+        "y": 331.5,
+        "w": 1532,
+        "h": 189.5
+    },
+    {
+        "id": "03f4b9fd7441a8a5",
+        "type": "group",
+        "z": "0bc71bd3ce48e106",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "fad1b508d7482b66",
+            "737e0bcbe75e0832",
+            "53fc4df54431f18e",
+            "4feafcdfc78f6f01",
+            "d4c89a5745eaf241",
+            "648416a4daa49c61",
+            "f2bdc390eff4ee0e",
+            "688b554cd8b2bae6",
+            "d48669e5730dda77",
+            "b4a39b66ea3667aa",
+            "debefb15be306a77",
+            "f734a45356543fa8",
+            "41ec14ff9e9ef867",
+            "db5a4498e412d15b",
+            "a97827625c4001d1"
+        ],
+        "x": 54,
+        "y": 59,
+        "w": 1532,
+        "h": 242
+    },
+    {
+        "id": "988e7d91de7a4e40",
+        "type": "group",
+        "z": "f59cc94fad2f5bd1",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "9ce2a848ad04d06b",
+            "5438ec7973664c91",
+            "0543c27de6849d2e",
+            "6f6457d836c9c991",
+            "63d57d10c47fcfbd",
+            "4b9b7e20efcdc729",
+            "8866da973f4eac9f",
+            "1010e953774e1ff3"
+        ],
+        "x": 134,
+        "y": 79,
+        "w": 772,
+        "h": 282
+    },
+    {
+        "id": "abbde6a16fcb2420",
+        "type": "group",
+        "z": "cb6dceeb25cbc3d8",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "393432b98c19f8b7",
+            "4986da3dd45ad0c4",
+            "1e3760ba1ac0abf9"
+        ],
+        "x": 54,
+        "y": 759,
+        "w": 872,
+        "h": 82
+    },
+    {
+        "id": "409fa404e34e95cb",
+        "type": "group",
+        "z": "cb6dceeb25cbc3d8",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "f52ebc4807e1e94f",
+            "db1f5a51cbafca72",
+            "ef297d48ccc0f373"
+        ],
+        "x": 54,
+        "y": 639,
+        "w": 872,
+        "h": 82
+    },
+    {
+        "id": "f84e11031bcc38a1",
+        "type": "group",
+        "z": "cb6dceeb25cbc3d8",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "ec3389e411beae7a",
+            "3b447212f2fc19a1",
+            "c05c549fd40b1afe",
+            "8a74de1597e41593",
+            "7bc4a5837b56f9cd",
+            "32630dfe2f7755af",
+            "880ab17b635f08c0",
+            "4342a3a9ddd9975c",
+            "64cd02335992bfc8",
+            "700e938f28c867b0",
+            "49ced551f05e4611",
+            "8c55077195a9567a",
+            "b4ce438f0e3d85fe",
+            "16c1a9b8444ed0ea",
+            "3225757a39b5a311",
+            "55b5fb1f226f0b42",
+            "dbb0e900c0e659db",
+            "987f3a3e707f9550",
+            "04c9ad0a88c6e701",
+            "60c3a78823a22fa2",
+            "1805bd067b9557bb"
+        ],
+        "x": 54,
+        "y": 19,
+        "w": 872,
+        "h": 582
+    },
+    {
+        "id": "a7ee4cb68f2e4d60",
+        "type": "group",
+        "z": "cb6dceeb25cbc3d8",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "2fc14c8f33a3d92f",
+            "28bb5f2eee1bfc4c",
+            "92f2b431dea0d00a",
+            "eceee4dab884bcf3",
+            "f6ef630dd70b9b64",
+            "d19640ddc41fdfd1",
+            "8ae564b1eb0d12d1",
+            "27636b43045cc917"
+        ],
+        "x": 59,
+        "y": 879,
+        "w": 867,
+        "h": 142
+    },
+    {
+        "id": "0c027005ac2d7844",
+        "type": "group",
+        "z": "f59cc94fad2f5bd1",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "e193c70d412f8e50",
+            "8058abb25677b79b",
+            "58ed680aa77c5d4f",
+            "4f276314a1d9efc7",
+            "c866431b3b900e1a",
+            "e2750b432cde6e1f"
+        ],
+        "x": 134,
+        "y": 399,
+        "w": 812,
+        "h": 202
+    },
+    {
+        "id": "5d6f8746db55b172",
+        "type": "ui_tab",
+        "name": "Home",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "8489d6de51f3d095",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": true,
+                "reset": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 5,
+                "cy": 5,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "fdd710dae9bf6772",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud",
+        "port": "8883",
+        "tls": "",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "77df2131ac60a5ea",
+        "type": "ui-base",
+        "name": "Spinning floating globe",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "dashboard",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "833b4fa7e6bade67",
+        "type": "ui-theme",
+        "name": "Spinning globe 1",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094ce",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "6px"
+        }
+    },
+    {
+        "id": "6486672b6256529e",
+        "type": "ui-theme",
+        "name": "spinning globe 2",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "a003d8a6049507e3",
+        "type": "ui-theme",
+        "name": "Spinning globe 3",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "5d8b8b7c74d39724",
+        "type": "ui-theme",
+        "name": "Spinning globe 4",
+        "colors": {
+            "surface": "#dce6ff",
+            "primary": "#00a0dc",
+            "bgPage": "#1c2b4a",
+            "groupBg": "#3a4f78",
+            "groupOutline": "#262c36"
+        },
+        "sizes": {
+            "density": "compact",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "efc6475877a45e67",
+        "type": "ui-page",
+        "name": "Globe status",
+        "ui": "77df2131ac60a5ea",
+        "path": "/globe status",
+        "icon": "home",
+        "layout": "flex",
+        "theme": "a003d8a6049507e3",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "12"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "12"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "3efc13ea56e33523",
+        "type": "ui-group",
+        "name": "Globe",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": true,
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ea63517411fb6671",
+        "type": "ui-group",
+        "name": "Telemetry",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 2,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "59b84ef62cd6fe8a",
+        "type": "ui-group",
+        "name": "PID controller",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 3,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "d024b32d927367d1",
+        "type": "ui-spacer",
+        "group": "3efc13ea56e33523",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 7,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "7670a7134cfcb4e2",
+        "type": "ui-spacer",
+        "group": "59b84ef62cd6fe8a",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 4,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "d01c80f8f5ad4d6d",
+        "type": "ui-spacer",
+        "group": "59b84ef62cd6fe8a",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 7,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "6614257672df255b",
+        "type": "ui-spacer",
+        "group": "ea63517411fb6671",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 8,
+        "width": 1,
+        "height": 1,
+        "className": ""
+    },
+    {
+        "id": "6248321fba17eec3",
+        "type": "ui-group",
+        "name": "Globe wire interface",
+        "page": "efc6475877a45e67",
+        "width": "4",
+        "height": 1,
+        "order": 4,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "ea0efcb71aad5c73",
+        "type": "ui-spacer",
+        "group": "6248321fba17eec3",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 1,
+        "width": "0",
+        "height": "0",
+        "className": ""
+    },
+    {
+        "id": "eec201f40d49d7d4",
+        "type": "ui-spacer",
+        "group": "6248321fba17eec3",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 4,
+        "width": "0",
+        "height": "0",
+        "className": ""
+    },
+    {
+        "id": "1ef60df12c9bc1fc",
+        "type": "ui-spacer",
+        "group": "6248321fba17eec3",
+        "name": "spacer",
+        "tooltip": "",
+        "order": 5,
+        "width": "0",
+        "height": "0",
+        "className": ""
+    },
+    {
+        "id": "252b08b175e9521e",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "g": "5cc301b4a942c748",
+        "name": "extract ip",
+        "func": "let isLocal = global.get('localNetwork') || false;\n\nmsg.payload = {\n    ip: msg.req.ip,\n    localNetwork: isLocal\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 380,
+        "wires": [
+            [
+                "87a0287ed194f385"
+            ]
+        ]
+    },
+    {
+        "id": "87a0287ed194f385",
+        "type": "http response",
+        "z": "846c39736bfcf985",
+        "g": "5cc301b4a942c748",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 910,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "f11f80fa7440ce89",
+        "type": "ui-template",
+        "z": "846c39736bfcf985",
+        "g": "5cc301b4a942c748",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "IP Access guard banner",
+        "order": 10,
+        "width": "0",
+        "height": "0",
+        "head": "",
+        "format": "<template>\n  <div v-if=\"blocked\" style=\"\n      background:#7f0000;\n      color:white;\n      padding:12px;\n      border-radius:6px;\n      font-size:13px;\">\n    ⛔ Remote access ({{ clientIp }}): controls are disabled\n  </div>\n  <div v-else style=\"\n      background:#1a3a1a;\n      color:#40ff40;\n      padding:8px;\n      border-radius:6px;\n      font-size:13px;\">\n    ✅ Local access ({{ clientIp }}): controls are enabled \n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      clientIp: 'checking...',\n      blocked: false\n    }\n  },\nmounted() {\nfetch('/checkip')\n.then(r => r.json())\n.then(data => {\nthis.clientIp = data.ip;\nthis.blocked = !(\ndata.ip === '127.0.0.1' ||\ndata.ip.startsWith('192.168.')\n);\n})\n.catch(() => {\nthis.clientIp = 'unknown';\nthis.blocked = true;\n});\n}\n}\n</script>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 230,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "89ab5d78f5fc1acf",
+        "type": "inject",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "ping trigger",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "heartbeat",
+        "payloadType": "str",
+        "x": 210,
+        "y": 140,
+        "wires": [
+            [
+                "1a886f13eacb78d4",
+                "f70e908e5ba06752"
+            ]
+        ]
+    },
+    {
+        "id": "1a886f13eacb78d4",
+        "type": "exec",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "command": "ping -n 1 -w 500 192.168.0.95",
+        "addpay": "",
+        "append": "",
+        "useSpawn": "false",
+        "timer": "",
+        "winHide": false,
+        "oldrc": false,
+        "name": "ping ESP32",
+        "x": 430,
+        "y": 140,
+        "wires": [
+            [
+                "eac90b2baeb2d480"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "eac90b2baeb2d480",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "check ping result",
+        "func": "let success = msg.payload.includes('TTL=');\nlet localNetwork = global.get('localNetwork') || false;\nlet failCount = global.get('failCount') || 0;\n\nif (!localNetwork) {\n    // Logic A: not granted — one success is enough to grant\n    if (success) {\n        global.set('localNetwork', true);\n        global.set('failCount', 0);\n    }\n} else {\n    // Logic B: granted — require 3 consecutive failures to revoke\n    if (!success) {\n        failCount++;\n        if (failCount >= 3) {\n            global.set('localNetwork', false);\n            global.set('failCount', 0);\n        } else {\n            global.set('failCount', failCount);\n        }\n    } else {\n        global.set('failCount', 0); // reset on success\n    }\n}\n\nmsg.payload = 'Local network: ' + global.get('localNetwork') + ' (failCount: ' + failCount + ')';\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "cb729674c400cba6",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "g": "98f14f48b625ab73",
+        "name": "reconnect",
+        "ui": "77df2131ac60a5ea",
+        "events": "connect",
+        "x": 200,
+        "y": 500,
+        "wires": [
+            [
+                "22fbdb2340531b80"
+            ]
+        ]
+    },
+    {
+        "id": "eca6430ea7feeb5a",
+        "type": "inject",
+        "z": "846c39736bfcf985",
+        "g": "98f14f48b625ab73",
+        "name": "connect delay ",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 220,
+        "y": 580,
+        "wires": [
+            [
+                "cb4bcbdd08831955"
+            ]
+        ]
+    },
+    {
+        "id": "cb4bcbdd08831955",
+        "type": "link out",
+        "z": "846c39736bfcf985",
+        "g": "98f14f48b625ab73",
+        "name": "link out connect delay",
+        "mode": "link",
+        "links": [
+            "f734a45356543fa8",
+            "9e6094c163ce1dd8",
+            "64af60a3b70c6b0a",
+            "ee09ea4a6790976c"
+        ],
+        "x": 375,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "22fbdb2340531b80",
+        "type": "link out",
+        "z": "846c39736bfcf985",
+        "g": "98f14f48b625ab73",
+        "name": "link out reconnect",
+        "mode": "link",
+        "links": [
+            "41ec14ff9e9ef867",
+            "188c2e97c8f52f01",
+            "2eb48e41e0b6ad68",
+            "d555f1bb02b8fa5d"
+        ],
+        "x": 375,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "5892b4d0e0f548bb",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "change",
+        "x": 520,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "5af782f10a10c1dc",
+        "type": "ui-control",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "",
+        "ui": "77df2131ac60a5ea",
+        "events": "all",
+        "x": 180,
+        "y": 260,
+        "wires": [
+            [
+                "e75d515615169946"
+            ]
+        ]
+    },
+    {
+        "id": "e75d515615169946",
+        "type": "function",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "IP gate",
+        "func": "let socketId = msg._client.socketId;\nlet socketIp = msg._client.socketIp;\nlet isLocal = global.get('localNetwork') || false;\n\n// Only act on connect and change events\nif (msg.payload !== 'connect' && msg.payload !== 'change') return null;\n\nlet ipOk = (\n    socketIp === '127.0.0.1' ||\n    socketIp.startsWith('192.168.')\n);\n\nlet blocked = !(ipOk && isLocal);\n\nmsg.payload = {\n    _client: { socketId: socketId },\n    groups: blocked\n        ? { disable: [\"59b84ef62cd6fe8a\"] }\n        : { enable: [\"59b84ef62cd6fe8a\"] }\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 260,
+        "wires": [
+            [
+                "5892b4d0e0f548bb"
+            ]
+        ]
+    },
+    {
+        "id": "154e2d9f9ba62534",
+        "type": "http in",
+        "z": "846c39736bfcf985",
+        "g": "5cc301b4a942c748",
+        "name": "check ip",
+        "url": "/checkip",
+        "method": "get",
+        "upload": false,
+        "skipBodyParsing": false,
+        "swaggerDoc": "",
+        "x": 480,
+        "y": 380,
+        "wires": [
+            [
+                "252b08b175e9521e"
+            ]
+        ]
+    },
+    {
+        "id": "ac66b6ad2cada2d8",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "node-red SERVER pings nano ESP32",
+        "info": "**Setting Arduino nano esp32 IP address**\n- Open exec node 'ping ESP32'\n- set nano esp32 IP address\n\nNote: node 'check ping result' output is purely \nfor debugging purposes\n\nNote: the ping does not specifically look for the nano esp32: if ANY device occupies this\nIP address, the ping will be successful.But because the nano esp32 has a static IP address,\nassigned deliberately, this is not a real concern and this ping check is fairly robust.\n",
+        "x": 1390,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "fd6777f31fd337c1",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "g": "5cc301b4a942c748",
+        "name": "fetch own (browser) IP to display in access guard banner: runs client side",
+        "info": "Extract own (browser) ip address to display in access guard banner",
+        "x": 1280,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "5f75578d44616adc",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "fetch socket IP (runs server side)",
+        "info": "The socket IP is the client IP as seen by the server (this check runs at the server side).\nNormally (no proxy, ...) it will be identical to the client IP (as in the client-side IP check).\n\nThe result of this check is then 'AND'-ed with the result of the 'ping ESP32' check.\n\nControls are enabled or disabled based on the result.",
+        "x": 1410,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "d064d0d903b90979",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "name": "Enter local nano esp32 IP address (192.168....) in exec node 'ping ESP32' below",
+        "info": "",
+        "x": 640,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "f70e908e5ba06752",
+        "type": "mqtt out",
+        "z": "846c39736bfcf985",
+        "g": "7314ee4ec2843587",
+        "name": "heartbeat out",
+        "topic": "globe/heartbeat/set",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 510,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "9e3bfe99db201413",
+        "type": "comment",
+        "z": "846c39736bfcf985",
+        "name": "last edit 18/4/2026",
+        "info": "16/4/2026: spinning globe dashboard final version",
+        "x": 110,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "ec3389e411beae7a",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "3efc13ea56e33523",
+        "order": 1,
+        "width": 4,
+        "height": 0,
+        "name": "Overall status",
+        "label": "Overall status: ",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "Arial,Arial,Helvetica,sans-serif",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 800,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "3b447212f2fc19a1",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "overall status",
+        "func": "// OFFLINE case\nif (msg.topic === \"__offline__\" || msg.topic === \"offline\") {\n    let offline = {\n        text: \"OFFLINE\",\n        style: \"color:red\",\n        code: \"0\"\n    };\n    flow.set(\"lastStatus\", offline);\n    flow.set(\"floatingSinceState\", \"none\");\n    flow.set(\"floatingSinceTime\", null);\n    global.set(\"esp32Online\", false);\n\n    msg.payload = `<div style=\"${offline.style}\">${offline.text}</div>`;\n    let msg2 = { payload: \"\" };\n    return [msg, msg2];\n}\n\n// FLASH case\nif (msg.topic === \"flashTrigger\") {\n    let st = flow.get(\"lastStatus\");\n    if (!st) return [null, null];\n\n    if (msg.payload === \"__flash__\") {\n        // dot ON\n        msg.payload = `<div><span style=\"color:lime;\">●</span> <span style=\"${st.style}\">${st.text}</span></div>`;\n    } else {\n        // dot OFF\n        msg.payload = `<div style=\"${st.style}\">${st.text}</div>`;\n    }\n    return [msg, null];\n}\n\n// Ignore everything except real status messages\nif (msg.topic !== \"globe/status\") {\n    return [null, null];\n}\n\n// NORMAL STATUS case\nlet code = (\"\" + msg.payload).trim();\n\nlet statusMap = {\n    \"0\": { text: \"wait for globe position sync\", style: \"color:yellow;\" },\n    \"1\": { text: \"free running\", style: \"color:yellow;\" },\n    \"2\": { text: \"measuring rotation speed\", style: \"color:yellow\" },\n    \"3\": { text: \"rotation not locked to clock\", style: \"color:yellow\" },\n    \"4\": { text: \"rotation locked to clock\", style: \"color:#40ff40\" },\n    \"5\": { text: \"rotation is OFF\", style: \"color:#40ff40;\" },\n    \"6\": { text: \"globe is not floating\", style: \"color:yellow;font-weight:bold;\" },\n    \"17\": { text: \"Error: dropped globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"18\": { text: \"Error: sticky globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"19\": { text: \"Error: overload\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"20\": { text: \"Error: temp too high\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"99\": { text: \"OFFLINE\", style: \"color:red;\" }                // last will\n};\n\nlet mapped = statusMap[code];\n\n// safety only (should never occur)\nif (!mapped) {\n    mapped = { text: \"OFFLINE\", style: \"color:red\", code: \"0\" };\n}\n\nmapped.code = code;\nflow.set(\"lastStatus\", mapped);\n\nif (code === \"99\") {\n    global.set(\"esp32Online\", false);\n} else {\n    global.set(\"esp32Online\", true);\n}\n\nmsg.payload = `<div style=\"${mapped.style || \"\"}\">${mapped.text}</div>`;\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": "10",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 400,
+        "wires": [
+            [
+                "ec3389e411beae7a"
+            ],
+            [
+                "16c1a9b8444ed0ea"
+            ]
+        ]
+    },
+    {
+        "id": "c05c549fd40b1afe",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "globe status",
+        "topic": "globe/status",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 300,
+        "wires": [
+            [
+                "987f3a3e707f9550"
+            ]
+        ]
+    },
+    {
+        "id": "8a74de1597e41593",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "3efc13ea56e33523",
+        "order": 5,
+        "width": 4,
+        "height": 1,
+        "name": "Last rotation period",
+        "label": "Period of last rotation",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 790,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "7bc4a5837b56f9cd",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "globe greenwich",
+        "topic": "globe/greenwich",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 520,
+        "wires": [
+            [
+                "700e938f28c867b0",
+                "32630dfe2f7755af"
+            ]
+        ]
+    },
+    {
+        "id": "32630dfe2f7755af",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet actRotTimeMsg = { payload: data.actRotTime} ;\nlet rotSyncErrorMsg = { payload: data.globeSlip_ms};\nlet greenwichLagMsg = { payload: data.globeSlip_degrees};\n\nreturn [actRotTimeMsg, rotSyncErrorMsg, greenwichLagMsg];\n\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 520,
+        "wires": [
+            [
+                "8a74de1597e41593"
+            ],
+            [
+                "880ab17b635f08c0"
+            ],
+            [
+                "1805bd067b9557bb"
+            ]
+        ]
+    },
+    {
+        "id": "880ab17b635f08c0",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "3efc13ea56e33523",
+        "order": 6,
+        "width": 4,
+        "height": 1,
+        "name": "Sync error / globe slip (sec)",
+        "label": "Sync error (globe slip: + )",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 760,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "4342a3a9ddd9975c",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "esp32 globe topics",
+        "topic": "globe/#",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 240,
+        "wires": [
+            [
+                "64cd02335992bfc8"
+            ]
+        ]
+    },
+    {
+        "id": "64cd02335992bfc8",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "last esp32 update",
+        "func": "if (msg.topic === \"globe/heartbeat/set\") {\n    return null;\n}\n\nflow.set(\"lastSeen\", Date.now());\nflow.set(\"flash\", true);\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f52ebc4807e1e94f",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "409fa404e34e95cb",
+        "group": "ea63517411fb6671",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "name": "updated now",
+        "label": "Last globe message",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 830,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "db1f5a51cbafca72",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "409fa404e34e95cb",
+        "name": "msg time stamp",
+        "func": "let last = flow.get(\"lastSeen\");\nif (!last) return null;\n\nlast = new Date(last);\nlet current = new Date();\n\nlet diffSeconds = Math.floor((current.getTime() - last.getTime()) / 1000);\n\n// Build the base text\nlet text;\n\nif (diffSeconds < 60) {\n    text = diffSeconds + \" seconds ago\";\n} else {\n    let sameDay =\n        current.getFullYear() === last.getFullYear() &&\n        current.getMonth() === last.getMonth() &&\n        current.getDate() === last.getDate();\n\n    if (sameDay) {\n        text = last.toLocaleTimeString();\n    } else {\n        let months = [\"Jan\",\"Feb\",\"Mar\",\"Apr\",\"May\",\"Jun\",\"Jul\",\"Aug\",\"Sep\",\"Oct\",\"Nov\",\"Dec\"];\n        let hh = String(last.getHours()).padStart(2, \"0\");\n        let mm = String(last.getMinutes()).padStart(2, \"0\");\n        let ss = String(last.getSeconds()).padStart(2, \"0\");\n        text = months[last.getMonth()] + \" \" + last.getDate() + \", \" + last.getFullYear() + \" \" + hh + \":\" + mm;\n    }\n}\n\n\n// Check if a flash is requested\nlet flash = flow.get(\"flash\");\n\nif (flash) {\n    // Flash ON (brief highlight)\n    msg.payload = \"<span style='color:lime;font-weight:bold;'>\" + text + \"</span>\";\n\n    // Clear flash flag immediately\n    flow.set(\"flash\", false);\n\n    // Schedule a reset after 200 ms\n    setTimeout(() => {\n        node.send({ payload: text });\n    }, 100);\n\n    return msg;\n}\n\n// Normal display\nmsg.payload = text;\nreturn msg;\n\n\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 680,
+        "wires": [
+            [
+                "f52ebc4807e1e94f"
+            ]
+        ]
+    },
+    {
+        "id": "700e938f28c867b0",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "greenwich flash",
+        "func": "flow.set(\"statusFlash\", true);\n\n// Flash ON\nnode.send({ topic: \"flashTrigger\", payload: \"__flash__\" });\n\n// Flash OFF after 300 ms\nsetTimeout(() => {\n    node.send({ topic: \"flashTrigger\", payload: \"__noflash__\" });\n}, 300);\n\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 460,
+        "wires": [
+            [
+                "3b447212f2fc19a1"
+            ]
+        ]
+    },
+    {
+        "id": "49ced551f05e4611",
+        "type": "inject",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "second cue",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 400,
+        "wires": [
+            [
+                "8c55077195a9567a",
+                "dbb0e900c0e659db"
+            ]
+        ]
+    },
+    {
+        "id": "8c55077195a9567a",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "check offline",
+        "func": "let last = flow.get(\"lastSeen\") || 0;\nlet now = Date.now();\n\n// 10 seconds without heartbeat = offline\nif (now - last > 3000) {\n    msg.topic = \"__offline__\";\n    msg.payload = \"\";\n    return msg;\n}\n\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 400,
+        "wires": [
+            [
+                "3b447212f2fc19a1"
+            ]
+        ]
+    },
+    {
+        "id": "393432b98c19f8b7",
+        "type": "mqtt out",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "abbde6a16fcb2420",
+        "name": "send out requests",
+        "topic": "",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 810,
+        "y": 800,
+        "wires": []
+    },
+    {
+        "id": "4986da3dd45ad0c4",
+        "type": "inject",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "abbde6a16fcb2420",
+        "name": "request all settings on startup",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 230,
+        "y": 800,
+        "wires": [
+            [
+                "1e3760ba1ac0abf9"
+            ]
+        ]
+    },
+    {
+        "id": "1e3760ba1ac0abf9",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "abbde6a16fcb2420",
+        "name": "sequence start up requests",
+        "func": "setTimeout(() => node.send({ topic: \"globe/settings/request\", payload: \"\" }), 0);\nsetTimeout(() => node.send({ topic: \"globe/PIDsettings/request\", payload: \"\" }), 2000);\nsetTimeout(() => node.send({ topic: \"globe/vertPosSetpoint/request\", payload: \"\" }), 400);\nsetTimeout(() => node.send({ topic: \"globe/coilPhaseAdjust/request\", payload: \"\" }), 6000);\nreturn null;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 800,
+        "wires": [
+            [
+                "393432b98c19f8b7"
+            ]
+        ]
+    },
+    {
+        "id": "b4ce438f0e3d85fe",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "floating since",
+        "func": "const topic = msg.topic;\nconst state = flow.get(\"floatingSinceState\") || \"none\";\n\nif (topic === \"globe/status\") {\n    let code = parseInt((\"\" + msg.payload).trim());\n    let newState;\n    if (code >= 0 && code <= 5) newState = \"floating\";\n    else                        newState = \"none\";\n\n    if (newState !== state) {\n        flow.set(\"floatingSinceState\", newState);\n        flow.set(\"floatingSinceTime\", null);\n    }\n\n    if (newState === \"floating\") {\n        if (!flow.get(\"floatingSinceTime\")) {\n            msg.payload = \"<span style='color:#AAAAAA;'>floating since just now</span>\";\n            return msg;\n        }\n        return null;\n    }\n\n    msg.payload = \"\";\n    return msg;\n}\n\nif (topic === \"node-red/secondsFloating\") {\n    if (state !== \"floating\") {\n        msg.payload = \"\";\n        return msg;\n    }\n\n    let secs = parseInt((\"\" + msg.payload).trim());\n    if (isNaN(secs)) return null;\n\n    let startMs = Date.now() - (secs * 1000);\n    let start = new Date(startMs);\n    start.setSeconds(0, 0);\n\n    flow.set(\"floatingSinceTime\", startMs);\n\n    let now = new Date();\n\n    let hh = String(start.getHours()).padStart(2, \"0\");\n    let mm = String(start.getMinutes()).padStart(2, \"0\");\n\n    let timeStr;\n\n    let months = [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"];\n    timeStr = months[start.getMonth()] + \" \" + start.getDate() + \", \" + start.getFullYear() + \" \" + hh + \":\" + mm;    \n\n    msg.payload = \"<span style='color:#AAAAAA;'>floating since \" + timeStr + \"</span>\";\n    return msg;\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 160,
+        "wires": [
+            [
+                "16c1a9b8444ed0ea"
+            ]
+        ]
+    },
+    {
+        "id": "16c1a9b8444ed0ea",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "3efc13ea56e33523",
+        "order": 2,
+        "width": "4",
+        "height": "1",
+        "name": "floating since",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 810,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "3225757a39b5a311",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet secondsFloating = { payload: data.secondsFloating, topic: \"node-red/secondsFloating\"};\n\nlet missedAndMaxPending = data.eventsMissed + \" (\" + data.maxEventsPending + \")\";\nlet eventsMissedAndMaxPending = { payload: missedAndMaxPending};\nlet maxEventQueueBytesUsed = {payload: data.maxEventQueueBytesUsed};\n\nreturn [secondsFloating, eventsMissedAndMaxPending, maxEventQueueBytesUsed];",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 160,
+        "wires": [
+            [
+                "b4ce438f0e3d85fe"
+            ],
+            [
+                "55b5fb1f226f0b42"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "55b5fb1f226f0b42",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "ea63517411fb6671",
+        "order": 5,
+        "width": "4",
+        "height": "1",
+        "name": "Globe events missed (max pending)",
+        "label": "Globe events missed (max pending)",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 750,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "dbb0e900c0e659db",
+        "type": "link out",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "second cue",
+        "mode": "link",
+        "links": [
+            "d19640ddc41fdfd1",
+            "e2750b432cde6e1f",
+            "ef297d48ccc0f373"
+        ],
+        "x": 205,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "987f3a3e707f9550",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "status split",
+        "func": "let obj = msg.payload;\n\nif (typeof obj !== \"object\" || obj === null) {\n    return [msg, null];\n}\n\nlet msg1 = { topic: msg.topic, payload: \"\" + obj.s };\nlet msg2 = { payload: obj.f };\nreturn [msg1, msg2];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 300,
+        "wires": [
+            [
+                "b4ce438f0e3d85fe",
+                "3b447212f2fc19a1"
+            ],
+            [
+                "04c9ad0a88c6e701"
+            ]
+        ]
+    },
+    {
+        "id": "04c9ad0a88c6e701",
+        "type": "link out",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "link out 1",
+        "mode": "link",
+        "links": [
+            "8ae564b1eb0d12d1"
+        ],
+        "x": 375,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "2fc14c8f33a3d92f",
+        "type": "ui-button",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "group": "6248321fba17eec3",
+        "name": "ring ring",
+        "label": "Ring ring",
+        "order": 7,
+        "width": "0",
+        "height": "0",
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "start ring",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 460,
+        "y": 920,
+        "wires": [
+            [
+                "27636b43045cc917"
+            ]
+        ]
+    },
+    {
+        "id": "28bb5f2eee1bfc4c",
+        "type": "mqtt out",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "ring",
+        "topic": "globe/ring/request",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 850,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "92f2b431dea0d00a",
+        "type": "ui-button",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "group": "6248321fba17eec3",
+        "name": "alarm",
+        "label": "alarm",
+        "order": 8,
+        "width": "0",
+        "height": "0",
+        "emulateClick": false,
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "iconPosition": "left",
+        "payload": "start alarm",
+        "payloadType": "str",
+        "topic": "topic",
+        "topicType": "msg",
+        "buttonColor": "",
+        "textColor": "",
+        "iconColor": "",
+        "enableClick": true,
+        "enablePointerdown": false,
+        "pointerdownPayload": "",
+        "pointerdownPayloadType": "str",
+        "enablePointerup": false,
+        "pointerupPayload": "",
+        "pointerupPayloadType": "str",
+        "x": 450,
+        "y": 980,
+        "wires": [
+            [
+                "27636b43045cc917"
+            ]
+        ]
+    },
+    {
+        "id": "eceee4dab884bcf3",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "button state logic",
+        "func": "let obj = msg.payload || 0;\nlet ringing = (obj & 0x01) !== 0;\nlet alarmActive = ((obj & 0x02) !== 0) && !ringing;\n\nflow.set(\"ringActive\", ringing);\nflow.set(\"alarmActive\", alarmActive);\n\nlet ringMsg, alarmMsg;\n\nif (ringing) {\n    ringMsg = { ui_update: { label: \"stop ring\", buttonColor: \"#c62828\", textColor: \"#ffffff\" } };\n    alarmMsg = { ui_update: { label: \"alarm\", buttonColor: \"#9e9e9e\", textColor: \"#616161\" } };\n} else if (alarmActive) {\n    ringMsg = { ui_update: { label: \"Ring ring\", buttonColor: \"#9e9e9e\", textColor: \"#616161\" } };\n    alarmMsg = { ui_update: { label: \"reset alarm\", buttonColor: \"#c62828\", textColor: \"#ffffff\" } };\n} else {\n    ringMsg = { ui_update: { label: \"Ring ring\", buttonColor: \"\", textColor: \"\" } };\n    alarmMsg = { ui_update: { label: \"alarm\", buttonColor: \"\", textColor: \"\" } };\n}\n\nreturn [ringMsg, alarmMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 230,
+        "y": 980,
+        "wires": [
+            [
+                "2fc14c8f33a3d92f"
+            ],
+            [
+                "92f2b431dea0d00a"
+            ]
+        ]
+    },
+    {
+        "id": "f6ef630dd70b9b64",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "reset buttons",
+        "func": "if (!flow.get(\"esp32Online\")) {\n    flow.set(\"ringActive\", false);\n    flow.set(\"alarmActive\", false);\n\n    let ringMsg = { ui_update: { label: \"Ring ring\", buttonColor: \"#9e9e9e\", textColor: \"#616161\" } };\n    let alarmMsg = { ui_update: { label: \"alarm\", buttonColor: \"#9e9e9e\", textColor: \"#616161\" } };\n    return [ringMsg, alarmMsg];\n}\n\nreturn [null, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 230,
+        "y": 920,
+        "wires": [
+            [
+                "2fc14c8f33a3d92f"
+            ],
+            [
+                "92f2b431dea0d00a"
+            ]
+        ]
+    },
+    {
+        "id": "d19640ddc41fdfd1",
+        "type": "link in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "check offline 1",
+        "links": [
+            "dbb0e900c0e659db"
+        ],
+        "x": 100,
+        "y": 920,
+        "wires": [
+            [
+                "f6ef630dd70b9b64"
+            ]
+        ]
+    },
+    {
+        "id": "8ae564b1eb0d12d1",
+        "type": "link in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "check esp state",
+        "links": [
+            "04c9ad0a88c6e701"
+        ],
+        "x": 100,
+        "y": 980,
+        "wires": [
+            [
+                "eceee4dab884bcf3"
+            ]
+        ]
+    },
+    {
+        "id": "27636b43045cc917",
+        "type": "function",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "a7ee4cb68f2e4d60",
+        "name": "resolve button action",
+        "func": "let ringActive = flow.get(\"ringActive\");\nlet alarmActive = flow.get(\"alarmActive\");\n\nif (msg.payload === \"start ring\") {\n    if (ringActive) {\n        msg.payload = \"stop ring\";\n    }\n} else if (msg.payload === \"start alarm\") {\n    if (alarmActive) {\n        msg.payload = \"stop ring\";\n    }\n}\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 940,
+        "wires": [
+            [
+                "28bb5f2eee1bfc4c"
+            ]
+        ]
+    },
+    {
+        "id": "60c3a78823a22fa2",
+        "type": "mqtt in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "telemetry extra",
+        "topic": "globe/telemetryExtra",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 160,
+        "wires": [
+            [
+                "3225757a39b5a311"
+            ]
+        ]
+    },
+    {
+        "id": "ef297d48ccc0f373",
+        "type": "link in",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "409fa404e34e95cb",
+        "name": "link in 10",
+        "links": [
+            "dbb0e900c0e659db"
+        ],
+        "x": 95,
+        "y": 680,
+        "wires": [
+            [
+                "db1f5a51cbafca72"
+            ]
+        ]
+    },
+    {
+        "id": "1805bd067b9557bb",
+        "type": "ui-text",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "group": "ea63517411fb6671",
+        "order": 10,
+        "width": 5,
+        "height": 1,
+        "name": "Sync error / globe slip (degrees)",
+        "label": "Sync error (globe slip: + )",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 750,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "fad1b508d7482b66",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "group": "3efc13ea56e33523",
+        "name": "Led effect",
+        "label": "Select a LED effect",
+        "tooltip": "",
+        "order": 9,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "OFF",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "White",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "Magenta",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "Blue",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "White and blue",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "Rainbow",
+                "value": 5,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 600,
+        "y": 220,
+        "wires": [
+            [
+                "688b554cd8b2bae6"
+            ]
+        ]
+    },
+    {
+        "id": "737e0bcbe75e0832",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "globe settings",
+        "topic": "globe/settings/set",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1480,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "53fc4df54431f18e",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "group": "3efc13ea56e33523",
+        "name": "LED effect speed",
+        "label": "Select a LED effect speed",
+        "tooltip": "",
+        "order": 10,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "Very fast",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "fast",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "slow",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "Very slow",
+                "value": 3,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 630,
+        "y": 260,
+        "wires": [
+            [
+                "d48669e5730dda77"
+            ]
+        ]
+    },
+    {
+        "id": "4feafcdfc78f6f01",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "globe settings",
+        "topic": "globe/settings",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 160,
+        "wires": [
+            [
+                "d4c89a5745eaf241"
+            ]
+        ]
+    },
+    {
+        "id": "d4c89a5745eaf241",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet setRotTimeMsg = { payload: data.setRotTime } ;\nlet setLedEffectMsg = { payload: data.setLedEffect};\nlet setLedEffectSpeedMsg = { payload: data.setLedEffectSpeed};\n\n// Return all three\nreturn [setRotTimeMsg, setLedEffectMsg, setLedEffectSpeedMsg];\n\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 160,
+        "wires": [
+            [
+                "648416a4daa49c61"
+            ],
+            [
+                "fad1b508d7482b66"
+            ],
+            [
+                "53fc4df54431f18e"
+            ]
+        ]
+    },
+    {
+        "id": "648416a4daa49c61",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "group": "3efc13ea56e33523",
+        "name": "rotation speed select",
+        "label": "Select a rotation period",
+        "tooltip": "",
+        "order": 4,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "OFF",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "0.9 seconds",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "1.5 seconds",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "3 seconds",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "4.5 seconds",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "6 seconds",
+                "value": 5,
+                "type": "num"
+            },
+            {
+                "label": "7.5 seconds",
+                "value": 6,
+                "type": "num"
+            },
+            {
+                "label": "9 seconds",
+                "value": 7,
+                "type": "num"
+            },
+            {
+                "label": "12 seconds",
+                "value": 8,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 640,
+        "y": 140,
+        "wires": [
+            [
+                "f2bdc390eff4ee0e"
+            ]
+        ]
+    },
+    {
+        "id": "52bb5919610d459b",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "Fan out values",
+        "func": "const gain_center = 0.7;\nconst gain_incr = 0.0125;\n\nconst dif_center = 23;\nconst dif_incr = 0.125;\n\nconst int_center = 10;\nconst int_incr = 0.5;\n\nconst center_index = 16;        // range: 0-32\n\nlet data = msg.payload;\n\nlet setGainAdjustMsg = {\n    payload: gain_center + (data.setGainAdjust - center_index) * gain_incr\n};\n\nlet setDifTimeAdjustMsg = {\n    payload: dif_center + (data.setDifTimeAdjust - center_index) * dif_incr\n};\n\nlet setIntTimeAdjustMsg = {\n    payload: int_center + (data.setIntTimeAdjust - center_index) * int_incr\n};\n\n// Return all three outputs \nreturn [setGainAdjustMsg, setDifTimeAdjustMsg, setIntTimeAdjustMsg];\n",
+        "outputs": 3,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 380,
+        "wires": [
+            [
+                "7577b91a357e119a"
+            ],
+            [
+                "2b21185de4b87b4d"
+            ],
+            [
+                "43a98b5d7d85d870"
+            ]
+        ]
+    },
+    {
+        "id": "81342ace28fbbbca",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "PID settings",
+        "topic": "globe/PIDsettings/set",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1490,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "2ab5938149825138",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "",
+        "topic": "globe/PIDsettings",
+        "qos": "1",
+        "datatype": "json",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 380,
+        "wires": [
+            [
+                "52bb5919610d459b"
+            ]
+        ]
+    },
+    {
+        "id": "7577b91a357e119a",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Gain setting",
+        "label": "Gain",
+        "order": 1,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "0.5",
+        "max": "0.9",
+        "step": "0.0125",
+        "tooltip": "",
+        "delay": "2000",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 630,
+        "y": 380,
+        "wires": [
+            [
+                "93530bbea624ceb1"
+            ]
+        ]
+    },
+    {
+        "id": "f2bdc390eff4ee0e",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "store rot. speed",
+        "func": "flow.set(\"setRotTime\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 180,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "688b554cd8b2bae6",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "store LED effect",
+        "func": "flow.set(\"setLedEffect\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 220,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "d48669e5730dda77",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "store LED speed",
+        "func": "flow.set(\"setLedEffectSpeed\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 260,
+        "wires": [
+            [
+                "b4a39b66ea3667aa"
+            ]
+        ]
+    },
+    {
+        "id": "b4a39b66ea3667aa",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "settings JSON builder",
+        "func": "let rot   = flow.get(\"setRotTime\");\nlet eff   = flow.get(\"setLedEffect\");\nlet speed = flow.get(\"setLedEffectSpeed\");\n\nmsg.payload = {\n    setRotTime: Number(rot),\n    setLedEffect: Number(eff),\n    setLedEffectSpeed: Number(speed)\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 220,
+        "wires": [
+            [
+                "737e0bcbe75e0832"
+            ]
+        ]
+    },
+    {
+        "id": "debefb15be306a77",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "restore values",
+        "func": "// Keys used in flow context\nconst keys = [\n    \"setRotTime\",\n    \"setLedEffect\",\n    \"setLedEffectSpeed\"\n];\n\n// Read values from context\nlet values = keys.map(k => {\n    let v = flow.get(k);\n    return (v === undefined) ? \"\" : v;   // preserve 0, replace only undefined\n});\n\n// Send to the three dropdowns\nreturn [\n    { payload: values[0] },\n    { payload: values[1] },\n    { payload: values[2] }\n];\n\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 240,
+        "wires": [
+            [
+                "648416a4daa49c61"
+            ],
+            [
+                "fad1b508d7482b66"
+            ],
+            [
+                "53fc4df54431f18e"
+            ]
+        ]
+    },
+    {
+        "id": "f734a45356543fa8",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "link in 1",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 115,
+        "y": 220,
+        "wires": [
+            [
+                "debefb15be306a77"
+            ]
+        ]
+    },
+    {
+        "id": "41ec14ff9e9ef867",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "name": "link in 2",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 115,
+        "y": 260,
+        "wires": [
+            [
+                "debefb15be306a77"
+            ]
+        ]
+    },
+    {
+        "id": "93530bbea624ceb1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "snap and store gain",
+        "func": "// ----- Gain parameters -----\nconst minVal = 0.5;         // minimim value\nconst incr   = 0.0125;      // step size\nconst minIdx = 0;           // minimum step\nconst maxIdx = 32;          // maximum step\n\n// Incoming GAIN VALUE from spinner (0.5 ... 0.9)\nlet gain = Number(msg.payload);\nlet idx = Math.round((gain - minVal)/ incr);\nlet snappedGain = minVal + idx * incr;\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setGainAdjust\", idx);\nflow.set(\"gain_value\", snappedGain);\n\n// Output ONLY the index\nreturn { payload: idx };\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 910,
+        "y": 380,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "2b21185de4b87b4d",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Derivative time constant",
+        "label": "Derivative time constant (milliseconds)",
+        "order": 2,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "21",
+        "max": "25",
+        "step": "0.125",
+        "tooltip": "",
+        "delay": "2000",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 670,
+        "y": 420,
+        "wires": [
+            [
+                "882ac9e689f6d93a"
+            ]
+        ]
+    },
+    {
+        "id": "882ac9e689f6d93a",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "snap and store diff. tc",
+        "func": "// PID differentiation time constant (mS) parameters\nconst minVal = 21       // minimum value\nconst incr   = 0.125;   // step size\nconst minIdx = 0;       // minimum step\nconst maxIdx = 32;      // maximum step\n\n// Incoming DIFF.TIME CONST. VALUE from spinner (0.5 ... 0.9)\nlet difTimeConst = Number(msg.payload);\n\n// Snap the t.c. to the nearest valid step\nlet snappedDifTimeConst = minVal + Math.round((difTimeConst - minVal) / incr) * incr;\n\n// Compute index from snapped dif.time constant\nlet idx = Math.round((snappedDifTimeConst - minVal) / incr);\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setDifTimeAdjust\", idx);\nflow.set(\"difTime_value\", snappedDifTimeConst);\n\n// Output ONLY the index\nreturn { payload: idx };\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 420,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "43a98b5d7d85d870",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Integral time constant",
+        "label": "Integral time constant (seconds)",
+        "order": 3,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "2",
+        "max": "18",
+        "step": "0.5",
+        "tooltip": "",
+        "delay": "2000",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 660,
+        "y": 460,
+        "wires": [
+            [
+                "058375a4846789a1"
+            ]
+        ]
+    },
+    {
+        "id": "058375a4846789a1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "snap and store digg.tc",
+        "func": "// PID integration time constant (second) parameters\nconst minVal = 2;       // minimum value \nconst incr   = 0.5;     // step size\nconst minIdx   = 0;     // minimum step\nconst maxIdx   = 32;    // maximum step\n\n// Incoming INT.TIME CONST. VALUE from spinner (0.5 ... 0.9)\nlet intTimeConst = Number(msg.payload);\n\n// Snap the t.c. to the nearest valid step\nlet snappedIntTimeConst = minVal + Math.round((intTimeConst - minVal) / incr) * incr;\n\n// Compute index from snapped int.time constant\nlet idx = Math.round((snappedIntTimeConst - minVal) / incr);\n\n// Clamp index\nidx = Math.max(minIdx, Math.min(maxIdx, idx));\n\n// Store for restore logic\nflow.set(\"setIntTimeAdjust\", idx);\nflow.set(\"intTime_value\", snappedIntTimeConst);\n\n// Output ONLY the index\nreturn { payload: idx };",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 460,
+        "wires": [
+            [
+                "4af8fdd4f6be62de"
+            ]
+        ]
+    },
+    {
+        "id": "49c57703f8dc9cef",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "restore values",
+        "func": "const keys = [\n    \"gain_value\",\n    \"difTime_value\",\n    \"intTime_value\"\n];\n\n// Read values from context\nlet values = keys.map(k => {\n    let v = flow.get(k);\n    return (v === undefined) ? \"\" : v;   // preserve 0, replace only undefined\n});\n\n// Send to the three dropdowns\nreturn [\n    { payload: values[0] },\n    { payload: values[1] },\n    { payload: values[2] }\n];\n\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 460,
+        "wires": [
+            [
+                "7577b91a357e119a"
+            ],
+            [
+                "2b21185de4b87b4d"
+            ],
+            [
+                "43a98b5d7d85d870"
+            ]
+        ]
+    },
+    {
+        "id": "9e6094c163ce1dd8",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "link in 3",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 135,
+        "y": 440,
+        "wires": [
+            [
+                "49c57703f8dc9cef"
+            ]
+        ]
+    },
+    {
+        "id": "188c2e97c8f52f01",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "link in 4",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 135,
+        "y": 480,
+        "wires": [
+            [
+                "49c57703f8dc9cef"
+            ]
+        ]
+    },
+    {
+        "id": "3cf93c0ed4d086ca",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "vert.pos. label",
+        "order": 5,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Vertical position \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 640,
+        "y": 580,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "595e3cd3f9bf92de",
+        "type": "ui-dropdown",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "group": "59b84ef62cd6fe8a",
+        "name": "vertical position select",
+        "label": "Select a vertical position",
+        "tooltip": "",
+        "order": 6,
+        "width": 4,
+        "height": "1",
+        "passthru": false,
+        "multiple": false,
+        "chips": false,
+        "clearable": false,
+        "options": [
+            {
+                "label": "1500 mV",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "1800 mV",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "2100 mV",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "2400 mV",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "2700 mV",
+                "value": 4,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "topic",
+        "topicType": "msg",
+        "className": "",
+        "typeIsComboBox": true,
+        "msgTrigger": "onChange",
+        "x": 660,
+        "y": 620,
+        "wires": [
+            [
+                "801ca75dc8dce0ba"
+            ]
+        ]
+    },
+    {
+        "id": "b1d227912346df30",
+        "type": "ui-number-input",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "group": "59b84ef62cd6fe8a",
+        "name": "Coil phase adjust",
+        "label": "Set coil phase adjustment (degrees)",
+        "order": 9,
+        "width": "4",
+        "height": "1",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": "-180",
+        "max": "178",
+        "step": "2",
+        "tooltip": "Select values from -180 to 178 degrees (2-degree steps)",
+        "delay": "2000",
+        "passthru": false,
+        "sendOnDelay": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "spinner": "default",
+        "x": 630,
+        "y": 860,
+        "wires": [
+            [
+                "d67728702a5d4507"
+            ]
+        ]
+    },
+    {
+        "id": "9cd69a6195f91f34",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "group": "59b84ef62cd6fe8a",
+        "page": "",
+        "ui": "",
+        "name": "Coil phase label",
+        "order": 8,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Rotation \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 620,
+        "y": 820,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "db5a4498e412d15b",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "group": "3efc13ea56e33523",
+        "page": "",
+        "ui": "",
+        "name": "LEDS. label",
+        "order": 8,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        LEDs \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 610,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3c2dd0659e4232b8",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "",
+        "topic": "globe/vertPosSetpoint",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 620,
+        "wires": [
+            [
+                "595e3cd3f9bf92de"
+            ]
+        ]
+    },
+    {
+        "id": "97fc4bc9df65e85b",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "Vertical pos. setpoint",
+        "topic": "globe/vertPosSetpoint/set",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1460,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "801ca75dc8dce0ba",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "store vert. position",
+        "func": "flow.set(\"setVertPosIndex\", msg.payload);\nflow.set(\"vertPosIndex_value\", msg.payload);\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 620,
+        "wires": [
+            [
+                "8986b55b64c97fd1"
+            ]
+        ]
+    },
+    {
+        "id": "8986b55b64c97fd1",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "vertical position JSON builder",
+        "func": "let vertPos = flow.get(\"setVertPosIndex\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setVertPosSetpoint: Number(vertPos),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1170,
+        "y": 620,
+        "wires": [
+            [
+                "97fc4bc9df65e85b"
+            ]
+        ]
+    },
+    {
+        "id": "5b66d1cb256e8bef",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "restore value",
+        "func": "let v = flow.get(\"vertPosIndex_value\");\nmsg.payload = (v === undefined) ? \"\" : v;\nreturn {payload: msg.payload};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 700,
+        "wires": [
+            [
+                "595e3cd3f9bf92de"
+            ]
+        ]
+    },
+    {
+        "id": "64af60a3b70c6b0a",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "link in 5",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 135,
+        "y": 680,
+        "wires": [
+            [
+                "5b66d1cb256e8bef"
+            ]
+        ]
+    },
+    {
+        "id": "2eb48e41e0b6ad68",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "d7dc17b30bdecd5e",
+        "name": "link in 6",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 135,
+        "y": 720,
+        "wires": [
+            [
+                "5b66d1cb256e8bef"
+            ]
+        ]
+    },
+    {
+        "id": "4af8fdd4f6be62de",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "b53693742c0be9a9",
+        "name": "PID settings JSON builder",
+        "func": "let gain   = flow.get(\"setGainAdjust\");\nlet diffTC = flow.get(\"setDifTimeAdjust\");\nlet intTc  = flow.get(\"setIntTimeAdjust\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setGainAdjust: Number(gain),\n    setDifTimeAdjust: Number(diffTC),\n    setIntTimeAdjust: Number(intTc),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1190,
+        "y": 420,
+        "wires": [
+            [
+                "81342ace28fbbbca"
+            ]
+        ]
+    },
+    {
+        "id": "c0f68d89a5d72101",
+        "type": "mqtt in",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "coil phase adjust in",
+        "topic": "globe/coilPhaseAdjust",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 860,
+        "wires": [
+            [
+                "f1e7792e63d88958"
+            ]
+        ]
+    },
+    {
+        "id": "5ff55bd7853382c6",
+        "type": "mqtt out",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "Coil phase adjust out",
+        "topic": "globe/coilPhaseAdjust/set",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 1460,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "d555f1bb02b8fa5d",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "link in 7",
+        "links": [
+            "22fbdb2340531b80"
+        ],
+        "x": 135,
+        "y": 960,
+        "wires": [
+            [
+                "cba685514a38da5f"
+            ]
+        ]
+    },
+    {
+        "id": "ee09ea4a6790976c",
+        "type": "link in",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "link in 8",
+        "links": [
+            "cb4bcbdd08831955"
+        ],
+        "x": 135,
+        "y": 920,
+        "wires": [
+            [
+                "cba685514a38da5f"
+            ]
+        ]
+    },
+    {
+        "id": "cba685514a38da5f",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "restore value",
+        "func": "let coilPhase = flow.get(\"coilPhaseAdjust_value\");\ncoilPhase = (coilPhase === undefined) ? \"\" : coilPhase;\nif (coilPhase >= 90) { coilPhase = coilPhase - 180; }\nreturn {payload: coilPhase*2};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 940,
+        "wires": [
+            [
+                "b1d227912346df30"
+            ]
+        ]
+    },
+    {
+        "id": "d67728702a5d4507",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "store coil phase adjust",
+        "func": "let coilPhaseOut = msg.payload;                             // valid values: -180 to 178 degrees\n\ncoilPhaseOut = Math.round(coilPhaseOut /2);                 \ncoilPhaseOut = Math.max(-90, Math.min(89, coilPhaseOut));   // Clamp to -90 to 89 \nif(coilPhaseOut < 0) {coilPhaseOut += 180;}                 // -90 to -1 => 90 to 179 \n\nlet snappedValue = coilPhaseOut;                        // Clamped to -180 to 178 degrees           \n\nflow.set(\"setCoilPhaseAdjust\", coilPhaseOut);\nflow.set(\"coilPhaseAdjust_value\", snappedValue);\n\nreturn {payload: coilPhaseOut};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 860,
+        "wires": [
+            [
+                "44d38c3d1e679073"
+            ]
+        ]
+    },
+    {
+        "id": "44d38c3d1e679073",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "coil phase adjust JSON builder",
+        "func": "let coilPhase = flow.get(\"setCoilPhaseAdjust\");\nlet isLocal = global.get(\"localNetwork\");\n\nmsg.payload = {\n    setCoilPhaseAdjust: Number(coilPhase),\n    token: isLocal ? \"gl0be_L0cal_9x\" : \"\"\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1170,
+        "y": 860,
+        "wires": [
+            [
+                "5ff55bd7853382c6"
+            ]
+        ]
+    },
+    {
+        "id": "f1e7792e63d88958",
+        "type": "function",
+        "z": "0bc71bd3ce48e106",
+        "g": "7f8ea520f8ea4212",
+        "name": "scale value",
+        "func": "let coilPhaseMessage = Number(msg.payload);\nif(coilPhaseMessage >= 90) {coilPhaseMessage = coilPhaseMessage -180;}\ncoilPhaseMessage *=2;\nreturn {payload: coilPhaseMessage};\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 860,
+        "wires": [
+            [
+                "b1d227912346df30"
+            ]
+        ]
+    },
+    {
+        "id": "a97827625c4001d1",
+        "type": "ui-template",
+        "z": "0bc71bd3ce48e106",
+        "g": "03f4b9fd7441a8a5",
+        "group": "3efc13ea56e33523",
+        "page": "",
+        "ui": "",
+        "name": "Globe rotation speed label",
+        "order": 3,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Rotation \n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 650,
+        "y": 100,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9ce2a848ad04d06b",
+        "type": "mqtt in",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "name": "globe telemetry",
+        "topic": "globe/telemetry",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 240,
+        "y": 200,
+        "wires": [
+            [
+                "5438ec7973664c91"
+            ]
+        ]
+    },
+    {
+        "id": "5438ec7973664c91",
+        "type": "function",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "name": "Fan out values",
+        "func": "let data = msg.payload;\n\nlet temp = { payload: data.heatsinkTemp} ;\nlet magnetDuteCycle = { payload: data.magnetDutyCycle};\nlet isrDuration = { payload: data.ISRduration};\nlet load = {payload: data.load};\nlet vertPosError = {payload: data.vertPosError};\nlet TTTintegrationTerm = {payload: data.TTTintegrTerm};\n\n// --- last message timestamp --- \nlet now = new Date(); let timeString = now.toLocaleString(); // e.g. \"3/2/2026, 16:51:12\" \nlet timestampMsg = { payload: timeString };\n\nreturn [temp, magnetDuteCycle, isrDuration, load, vertPosError, TTTintegrationTerm, timestampMsg];",
+        "outputs": 7,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 200,
+        "wires": [
+            [
+                "0543c27de6849d2e"
+            ],
+            [
+                "8866da973f4eac9f"
+            ],
+            [
+                "4b9b7e20efcdc729"
+            ],
+            [
+                "6f6457d836c9c991"
+            ],
+            [
+                "63d57d10c47fcfbd"
+            ],
+            [
+                "1010e953774e1ff3"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "0543c27de6849d2e",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 2,
+        "width": 5,
+        "height": 1,
+        "name": "Heatsink temperature",
+        "label": "Heatsink temperature",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "6f6457d836c9c991",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 6,
+        "width": 5,
+        "height": 1,
+        "name": "Processor load",
+        "label": "Processor load",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 760,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "63d57d10c47fcfbd",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 9,
+        "width": 5,
+        "height": 1,
+        "name": "Globe position error",
+        "label": "Globe position error",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "4b9b7e20efcdc729",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 4,
+        "width": 5,
+        "height": 1,
+        "name": "Timer ISR duration",
+        "label": "Timer ISR duration",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "8866da973f4eac9f",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 3,
+        "width": 5,
+        "height": 1,
+        "name": "Magnet duty cycle",
+        "label": "Magnet Duty Cycle",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 770,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "1010e953774e1ff3",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "988e7d91de7a4e40",
+        "group": "ea63517411fb6671",
+        "order": 7,
+        "width": 5,
+        "height": 1,
+        "name": "TTT integration term",
+        "label": "Integration term",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 780,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "e193c70d412f8e50",
+        "type": "ui-gauge",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "name": "Globe wire comm. quality",
+        "group": "6248321fba17eec3",
+        "order": 2,
+        "value": "payload",
+        "valueType": "msg",
+        "width": "4",
+        "height": "3",
+        "gtype": "gauge-half",
+        "gstyle": "needle",
+        "title": "Transmission quality",
+        "alwaysShowTitle": false,
+        "floatingTitlePosition": "top-left",
+        "units": "%",
+        "icon": "",
+        "prefix": "",
+        "suffix": "",
+        "segments": [
+            {
+                "from": "0",
+                "color": "#ea5353",
+                "text": "No link",
+                "textType": "str"
+            },
+            {
+                "from": "1",
+                "color": "#ffc800",
+                "text": "Degraded",
+                "textType": "str"
+            },
+            {
+                "from": "99",
+                "color": "#5cd65c",
+                "text": "OK",
+                "textType": "str"
+            }
+        ],
+        "min": 0,
+        "max": "100",
+        "sizeThickness": 16,
+        "sizeGap": "0",
+        "sizeKeyThickness": "0",
+        "styleRounded": true,
+        "styleGlow": false,
+        "className": "",
+        "x": 810,
+        "y": 500,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8058abb25677b79b",
+        "type": "ui-template",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "group": "6248321fba17eec3",
+        "page": "",
+        "ui": "",
+        "name": "Actions",
+        "order": 6,
+        "width": "4",
+        "height": "1",
+        "head": "",
+        "format": "<template>\n    <div style=\"font-size: 20px; margin-top: 8px; color: white\">\n        Actions\n    </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 810,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "58ed680aa77c5d4f",
+        "type": "mqtt in",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "name": "",
+        "topic": "globe/wireCommQuality",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "fdd710dae9bf6772",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 260,
+        "y": 500,
+        "wires": [
+            [
+                "c866431b3b900e1a"
+            ]
+        ]
+    },
+    {
+        "id": "4f276314a1d9efc7",
+        "type": "ui-text",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "group": "6248321fba17eec3",
+        "order": 3,
+        "width": "0",
+        "height": "0",
+        "name": "comm quality label",
+        "label": "",
+        "format": "{{msg.payload}}",
+        "layout": "row-center",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 830,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "c866431b3b900e1a",
+        "type": "function",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "name": "wire quality display",
+        "func": "if (msg.topic === \"globe/wireCommQuality\") {\n    flow.set(\"lastWireQuality\", parseInt(msg.payload));\n}\n\nlet online = global.get(\"esp32Online\");\nlet v = online ? (flow.get(\"lastWireQuality\") || 0) : 0;\n\nlet gaugeMsg = { payload: v };\nlet labelMsg = { payload: v === 0 ? \"No link\" : (v === 100 ? \"OK\" : \"Degraded\") };\n\nreturn [gaugeMsg, labelMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 550,
+        "y": 540,
+        "wires": [
+            [
+                "e193c70d412f8e50"
+            ],
+            [
+                "4f276314a1d9efc7"
+            ]
+        ]
+    },
+    {
+        "id": "e2750b432cde6e1f",
+        "type": "link in",
+        "z": "f59cc94fad2f5bd1",
+        "g": "0c027005ac2d7844",
+        "name": "link in 9",
+        "links": [
+            "dbb0e900c0e659db"
+        ],
+        "x": 275,
+        "y": 560,
+        "wires": [
+            [
+                "c866431b3b900e1a"
+            ]
+        ]
+    },
+    {
+        "id": "823a451d64f073b9",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6",
+            "@flowfuse/node-red-dashboard": "1.30.2"
+        }
+    }
+]

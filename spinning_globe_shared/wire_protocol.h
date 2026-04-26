@@ -354,7 +354,7 @@ struct __attribute__((packed)) I2C_m_status {
 struct __attribute__((packed)) I2C_m_greenwich {
     uint32_t actualRotationTime;
     int32_t globeSlip_time;                         // positive: coil slips, negative: globe ahead of coil rotation 
-    int32_t globeSlip_degrees16;                    // positive: coil slips, negative: globe ahead of coil rotation
+    float globeSlip_degrees;                        // positive: coil slips, negative: globe ahead of coil rotation
     uint8_t status;
 };
 
