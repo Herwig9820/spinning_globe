@@ -247,13 +247,14 @@ void WireSlaveMessages::convertGlobeGreenwichCueToMQTT(I2C_m_greenwich* p) {
     }
     else { JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ACT_TIME, "\"--.-- s\""); }
 
+    // globe lead (-) /lag (+) with respect to rotating magnetic field (coils), in ms and in degrees
     if (p->status == rotLocked) {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ROT_SYNC_ERROR, "\"%.2f s\"", p->rotationOutOfSyncTime / 1000.);
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GREENWICH_LAG, "\"%.2ld degrees\"", p->greenwichLag);      // already in degrees
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GLOBE_SLIP_MS, "\"%.2f s\"", p->globeSlip_time / 1000.);             // milliseconds
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GLOBE_SLIP_DEGREES, "\"%.1f degrees\"", p->globeSlip_degrees);       // degrees 
     }
     else {
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_ROT_SYNC_ERROR, "\"--.-- s\"");
-        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GREENWICH_LAG, "\"--- degrees\"");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GLOBE_SLIP_MS, "\"--.-- s\"");
+        JsonAssemble::add(msg.payload, sizeof(msg.payload), PL_KEY_GLOBE_SLIP_DEGREES, "\"---.- degrees\"");
     }
     JsonAssemble::closeJson(msg.payload, sizeof(msg.payload));
     msg.retain = true;
@@ -440,7 +441,7 @@ void WireSlaveMessages::replyAndFlagSlaveDataAvailable(uint8_t msgSequence) {
     p.ack = 0x0;        // not used
     p.requestMasterMsgType = thisAckResponse.requestMasterMsgType;
     p.action = thisAckResponse.action;
-    if (!wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p), msgSequence)){};
+    if (!wireSlave.pushOutgoingWireMsg(MsgType::S_MSG_ACK, &p, sizeof(p), msgSequence)) {};
 
 }
 

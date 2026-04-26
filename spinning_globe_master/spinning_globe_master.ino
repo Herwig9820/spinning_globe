@@ -166,7 +166,7 @@ constexpr char str_ErrTemp[] PROGMEM = "E! temp too high";
 
 constexpr char str_rotTimeSet[] PROGMEM = "rot time>";          // '>': user setting         
 constexpr char str_rotTimeAct[] PROGMEM = "rot t act";
-constexpr char str_syncError[] PROGMEM = "sync err ";
+constexpr char str_syncError[] PROGMEM = "sync err";
 constexpr char str_tLocked[] PROGMEM = "t locked ";
 constexpr char str_tFloat[] PROGMEM = "t float  ";
 constexpr char str_tempAct[] PROGMEM = "temp     ";
@@ -174,13 +174,13 @@ constexpr char str_avgDutyC[] PROGMEM = "avg duty c";
 constexpr char str_vertPos[] PROGMEM = "vert pos!";
 constexpr char str_errSigVar[] PROGMEM = "vp avg err";
 constexpr char str_intTerm[] PROGMEM = "integ term";
-constexpr char str_avgPhase[] PROGMEM = "rot lag ";             // with respect to (stable) magnetic field rotation
+constexpr char str_avgPhase[] PROGMEM = "gl.slip";              // with respect to (stable) magnetic field rotation
 constexpr char str_isrTime[] PROGMEM = "adc isr t";
 constexpr char str_procLoad[] PROGMEM = "proc load";
 constexpr char str_gain[] PROGMEM = "gain!";                    // '!': system setting (take care when changing these settings)
 constexpr char str_intTimeCst[] PROGMEM = "int t c!";
 constexpr char str_difTimeCst[] PROGMEM = "dif t c!";
-constexpr char str_phaseAdj[] PROGMEM = "phas adj!";
+constexpr char str_phaseAdj[] PROGMEM = "ph adj!";
 
 constexpr char str_editValue[] PROGMEM = "  << +, - to change value, E to end edit, C to cancel";
 constexpr char str_editValueWithDefault[] PROGMEM = "  << +, - to change value, R for reset value, E to end edit, C to cancel";     // during edit
@@ -339,7 +339,7 @@ constexpr float autoLockRange_high[2]{ 1.02, 1.1 };
 // unlocked globe rotation: rotation speed ratio's used to calculate new rotation time
 // -----------------------------------------------------------------------------------
 
-// first the speed ratio to use is calculated by interpolating the speed ratio's set for fast (T=1s) and slow (T=12S) rotation times, using the measured rotation time 
+// first, the speed ratio to use is calculated by interpolating the speed ratio's set for fast (T=1s) and slow (T=12S) rotation times, using the measured rotation time 
 // new rotation time to set is then calculated based on the (measured) rotation time and the calculated speed ratio
 // NOTE: when rotation time / target rotation time ratio is in the center range (see above), magnetic field range is adjusted to target rotation time
 
@@ -1606,10 +1606,10 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
             break;
         }
 
-        case 2: {                                               // sync error
-            strcpy(s, "  -.--s");
+        case 2: {                                               // change v2.00: globe lead (-) /lag (+) with respect to rotating magnetic field (coils), in seconds
+            strcpy(s, "   -.--s");
             if (statusData.rotationStatus == rotLocked) {       // from latest status change event before write
-                dtostrf(((float)greenwichData.rotationOutOfSyncTime) / 1000., 6, 2, s);
+                dtostrf(((float)greenwichData.globeBehindCoilField_time) / 1000., 7, 2, s);
                 strcat(s, "s");
             }
             break;
@@ -1629,28 +1629,28 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
             break;
         }
 
-        case 5: {                                                 // temperature
+        case 5: {                                               // temperature
             dtostrf(((float)tempSmooth) / 100., 5, 1, s);
             strcat(s, degreesSymbol);
             break;
         }
 
-        case 6: {                                                // avg duty cycle
+        case 6: {                                               // avg duty cycle
             // divide by sampling periods to get average ON cycles, divide by magnet cycles available to get ratio, x 100%
             dtostrf((smoothedMeasurements.magnetOnCyclesSmooth / fastDataRateSamplingPeriods) * 100. / ((float)timer1Top), 5, 1, s); // in tenths of percent
             strcat(s, "%");
             break;
         }
 
-        case 7: {                                                // globe lifting: reference for hall detector in milliVolt as read by Arduino (sensor value x analog gain)
+        case 7: {                                               // globe lifting: reference for hall detector in milliVolt as read by Arduino (sensor value x analog gain)
             paramValue = *(globeMetrics_valueListsPointers[attributeIndex] + attributeValue);
             sprintf(s, "%5ldmV", paramValue);
             break;
         }
 
-        case 8: {                                                // error signal variance in milliVolt as read by Arduino (sensor value x analog gain)
+        case 8: {                                               // error signal variance in milliVolt as read by Arduino (sensor value x analog gain)
             strcpy(s, " ---mV");
-            if (statusData.isFloating) {                         // from latest fast rate update event before write
+            if (statusData.isFloating) {                        // from latest fast rate update event before write
                 // divide by sampling periods to get avg error ADC steps, divide by 1024 steps, multiply by 5000 milliVolt range
                 dtostrf((smoothedMeasurements.errSignalMagnitudeSmooth / fastDataRateSamplingPeriods) * ADCvolt / (float)ADCsteps, 4, 0, s);
                 strcat(s, "mV");
@@ -1658,28 +1658,32 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
             break;
         }
 
-        case 9: {                                                // integration term
+        case 9: {                                               // integration term
             sprintf(s, "%6ld", secondData.realTTTintegrationTerm);
             break;
         }
 
-        case 10: {                                               // average phase measured while locked
-            strcpy(s, "  ---deg");
+        case 10: {                                              // change v2.00: globe lead (-) /lag (+) with respect to rotating magnetic field (coils), in degrees
+            strcpy(s, " --.- deg");
             if (statusData.rotationStatus == rotLocked) {
-                int angle = (greenwichData.greenwichLag * 360) / targetGlobeRotationTime;
-                sprintf(s, "%+5ddeg", angle);                   // lag (>180 degrees: lead)
+                uint8_t rotTimeIndex = globeMetrics[attributeIndex_rotTimes];
+                int setRotTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + rotTimeIndex);
+                float angle = (greenwichData.globeBehindCoilField_time * 360.F) / setRotTime;
+                if (abs(angle) < 100.f) { dtostrf(angle, 5, 1, s); }
+                else { dtostrf(angle, 5, 0, s); }
+                strcat(s, " deg");
             }
             break;
         }
 
 
-        case 11: {                                               // ADC conversion complete ISR routine duration measured
+        case 11: {                                              // ADC conversion complete ISR routine duration measured
             dtostrf(smoothedMeasurements.ISRdurationSmooth / fastDataRateSamplingPeriods, 5, 0, s); // divide by sampling periods to get average
             strcat(s, microSecSymbol);
             break;
         }
 
-        case 12: {                                               // processor load
+        case 12: {                                              // processor load
             // idleLoopMicrosSmooth: smoothed total idle micro seconds in 128 sample periods
             // 1000 * fastDataRateSamplingPeriods: total microseconds available in 128 sample periods
             dtostrf(((1E3F * (float)fastDataRateSamplingPeriods - smoothedMeasurements.idleLoopMicrosSmooth) * 100.F / (1E3F * (float)fastDataRateSamplingPeriods)), 6, 1, s); // as a percentage (whole number)
@@ -1703,7 +1707,7 @@ void fetchAttributeValue(char* s, long attributeIndex, int attributeValue) {
         }
         case 16: {
             // coil phase in 2-degrees increments (0: 0 degrees, 89: 178 degrees, 90: -180 degrees, 179: -2 degrees
-            sprintf(s, "%+4ddeg", (attributeValue < 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
+            sprintf(s, "%+5d deg", (attributeValue < 90) ? (attributeValue << 1) : (attributeValue << 1) - 360);
             break;
         }
     }
@@ -1935,7 +1939,7 @@ void saveAndUseGlobeAttribute(uint8_t attributeIndex, uint8_t attributeValue)
      // only items that can be changed need to have an entry here 
 
 
-    if(attributeIndex >= globeMetricsCount) {return ;}
+    if (attributeIndex >= globeMetricsCount) { return; }
 
     globeMetrics[attributeIndex] = attributeValue;
 
@@ -2293,7 +2297,7 @@ SIGNAL(ADC_vect) {
     static int greenwichBounceTimer{ 0 };                                                       // position sensor reading (true = sync)
     static long globeRotationTimeCount{ 0 };
     static long lockedRotations{ 0 }, lockedSecond{ 0 }, liftingSecond{ 0 };
-    static long greenwichLag{ 0 };
+    static long globeBehindCoilField_time{ 0 };
     static long globeRotationTime{ 0 }, rotationOutOfSyncTime{ 0 };
 
     // safety and associated readings
@@ -2436,20 +2440,24 @@ SIGNAL(ADC_vect) {
                 switch (rotationStatus) {
 
 
+
+
                     case rotNoPosSync:                                                          // no position sync since a while
-                    case rotFreeRunning: {                                                      // NOT USED                        
+                    case rotFreeRunning:                                                        // NOT USED                        
+                    {
                         lastTurnsInAutoLockRangeCount = 0;                                      // reset counter
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
                         rotationStatus = rotMeasuring;                                          // measure time of first rotation
                     } break;
 
                     // last turn was only measuring time
-                    case rotMeasuring: {
+                    case rotMeasuring:
                         rotationStatus = rotUnlocked;                                           // unlock
                         // no break here: continue
 
                     // last turn was unlocked 
-                    case rotUnlocked: {
+                    case rotUnlocked:
+                    {
                         globeRotationTime = globeRotationTimeCount + 1;                         // time of last full globe rotation, in sampling periods
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
 
@@ -2491,7 +2499,7 @@ SIGNAL(ADC_vect) {
                             if (lastTurnsInAutoLockRangeCount >= requiredTurnsInAutoLockRange) {    // minimum number of globe rotations in autolock range ?
                                 lockedRotations = 0;
                                 rotationOutOfSyncTime = 0;
-                                greenwichLag = 0;
+                                globeBehindCoilField_time = 0;                                     // name CHANGED v2.00                                               
                                 rotationStatus = rotLocked;
                                 break;
                             }
@@ -2532,54 +2540,67 @@ SIGNAL(ADC_vect) {
                         trackFree();
                     #endif
 
-                    } break;
+                    }
+                    break;
 
 
                     // last turn was locked: keep track of sync error and unlock if above limit
-                    case rotLocked: {
-
+                    case rotLocked:
+                    {
                         lockedRotations++;
                         globeRotationTime = globeRotationTimeCount + 1;                         // time of last full globe rotation, in sampling periods
                         globeRotationTimeCount = 0;                                             // start counting time of current globe rotation
 
-                        // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-                        // when rotation is locked to clock, the magnetic field generated by the 6 coils rotates at a fixed pace. This is the reference.
-                        // The rotation time of each successive 360-degrees turn of the globe (displayed as 'actual rotation time') will slowly converge to this (coils) magnetic field rotation time,...
-                        //... oscillating around it with a decreasing amplitude.
-                        // This actual globe rotation time can be measured at each passing of the globe's 'Greenwich' magnet (signaling passing of the Greenwich meridian).
+                        /*
+                        ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                        when rotation is locked to the clock, the magnetic field generated by the 6 coils rotates at a fixed pace. This is the reference.
+                        The rotation time of each successive 360-degrees turn of the globe (displayed as 'actual rotation time') will slowly converge to the
+                        rotation time of this magnetic field, oscillating around it with a decreasing amplitude.
+                        This time of the last full globe rotation is measured  using a hall detector registering the time of each pass of the globe's 'ANTI_Greenwich'
+                        magnet (placed at the equator of the globe at 180 degrees longitude).
 
-                        // Once the globe rotation time has converged to the set rotation time (coils magnetic field), ideally, the globe's two 'rotation' magnets will reside more or less in the center point...
-                        // ...of the two poles of the rotating magnetic field. If the globe rotates a little too fast/too slow, the magnets will slow down/speed up globe rotation (and vice versa).
-                        // But there's also the air resistance, which increases quadratically with the globe's rotation speed. The resulting force needs to be counteracted to get an equilibrium again:
-                        // for higher speeds, the globe's rotation will lag a little more behind (resulting in a slightly higher force pushing the globe forward).
+                        Calculating the globe 'slip'
+                        ----------------------------
+                        If the coil is not slipping (and not ahead of the rotating magnetic field):
+                        The placement of the coils and the hall detector with respect to each other is such that at the start of one rotation of the magnetic field (t=0),
+                        the globe's anti-meridian (180 degrees longitude) is still 90 degrees away from the hall detector and approaching.
+                        The Greenwich meridian is then already 90 degrees past the hall detector (counterclockwise rotation).
+                        So, the hall detector pulse comes 1/4 of a turn too late: t(pulse) is 1/4 T (T: time of one turn of the coil's magnetic field rotation) if
+                        the globe is not slipping.
 
-                        // The magnetic field angle is defined as zero when the step number and rotation timer sample period are set to 0.
-                        // The globe rotation angle is set to zero when the 'Greenwich' magnet passes the detector.
-                        // We define the magnetic field rotation as 'leading' be a certain angle if the magnetic field angle is less than 180 degrees when the globe's angle is zero.
-                        // The globe rotation is then lagging behind.
-                        // Fast (slow) rotation times will increase (decrease) the globe rotation lag (lead), because of increased (decreased) air resistance when the globe is turning faster (slower).
+                        => Without correction, it would seem that the globe is 90 degrees behind the magnetic field generated by the coils.
+                           We must subtract that time (1/4  T) to calculate the correct start time of the turn with reference to the coil rotation start time.
 
-                        // Empirically the relationship between speed and globe rotation lag is found to be linear:
-                        // globe rotation lag (degrees) = 51.167 x rotation speed (full rotations / second) + 93.078 degrees
+                        If the globe is slipping, the calculated angle will be a bit greater than zero, if the globe is ahead the angle will be a bit less than 90 degrees.
 
-                        // Just like the actual globe rotation time, the globe rotation lag is measured at each passing of the globe's 'Greenwich' magnet.
-                        // rotation lag (degrees) = ((stepNo * stepTime) + rotationTimerSamplePeriod) * 360 / step count       => when the Greenwich magnet passes the detector
+                        Convergence
+                        -----------
+                        Once the globe rotation time has converged to the set rotation time (coils magnetic field), ideally, the globe's two 'rotation' magnets will reside more or less in the center point...
+                        ...of the two poles of the rotating magnetic field. If the globe rotates a little too fast/too slow, the magnets will slow down/speed up globe rotation (and vice versa).
+                        But there's also the air resistance, which increases quadratically with the globe's rotation speed. The resulting force needs to be counteracted to get an equilibrium again:
+                        for higher speeds, the globe's rotation will lag a little more behind (resulting in a slightly higher force pushing the globe forward).
 
-                        // There is a linear relationship between the globe rotation sync error (the result of adding up individual GLOBE rotation times) and the globe rotation lag.
-                        // But in contrast to the globe rotation lag (degrees), which will always converges to the same angle (in similar circumstances, for a specific rotation speed), ...
-                        // ...the sync error (time) is not, because it is set to zero without taking into account the starting globe rotation lag angle with respect to the magnetic field rotation...
-                        // ...when the status switches to 'locked'.
+                        Empirically the relationship between speed and globe rotation lag is found to be linear:
+                        globe rotation lag (degrees) = 51.167 x rotation speed (full rotations / second) + 3.078 degrees
 
-                        // Globe rotation lag (in degrees) can be very useful as a starting point when defining the 'speed up' and 'slow down' phase adjust constants.
-                        // ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                        Just like the actual globe rotation time, the globe rotation lag is measured at each passing of the globe's 'Greenwich' magnet.
 
-                        rotationOutOfSyncTime = rotationOutOfSyncTime + (targetGlobeRotationTime - globeRotationTime);
-                        bool withinTolerance = (4L * abs(rotationOutOfSyncTime) <= (targetGlobeRotationTime));      // total deviation less than 1/4 rotation (targetStepTime * steps equals 1 rotation)
+                        Globe rotation lag (in degrees) can be useful as a starting point when defining the 'speed up' and 'slow down' phase adjust constants.
+                        ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                        */
+
+                        // change v2.00: globe lead (-) /lag (+) with respect to rotating magnetic field (coils), in seconds
+                        // subtract a quarter turn because of hall sensor placement with respect to 't=0' position of coil magnetic field (see comment above)
+                        globeBehindCoilField_time = (stepNo * targetStepTime) + rotationTimerSamplePeriod - (targetGlobeRotationTime >> 2);   // converted to, and displayed in degrees in main loop
+                        
+                        // total globe lag (slip) or lead less than 1 / 4 rotation(targetStepTime * steps equals 1 rotation) ?
+                        bool withinTolerance = (4L * abs(globeBehindCoilField_time) <= (targetGlobeRotationTime));      
+                        if(globeRotationTime >= 13200){withinTolerance = false;}                                        // protection against globe stalling (12s (slowest rot. time) x 1.1) 
                         if (!withinTolerance) { rotationStatus = rotUnlocked; lastTurnsInAutoLockRangeCount = 0; break; }
 
-                        greenwichLag = (stepNo * targetStepTime) + rotationTimerSamplePeriod;   // converted to, and displayed in degrees in main loop
-                    } break;
+                        rotationOutOfSyncTime = rotationOutOfSyncTime + (targetGlobeRotationTime - globeRotationTime);              
                     }
+                    break;
                 }
             }
             // is NOT a globe position sync 
@@ -2590,9 +2611,9 @@ SIGNAL(ADC_vect) {
                         globeRotationTimeCount++;                                               // no time out yet: continue counting time of current globe rotation 
 
                         if (rotationStatus == rotLocked) {
-                            long cumul = rotationOutOfSyncTime - globeRotationTimeCount;
-                            bool withinTolerance = ((4L * cumul) > (-5L * targetGlobeRotationTime));    // time out: total deviation more than 1/4 rotation = 5/4 rotation since last position sync 
-
+                            // time of current locked rotation still within limits ? yes if time since last Greenwich detect is smaller than 1.25 turns 
+                            bool withinTolerance =  (globeRotationTimeCount<<2) < ((targetGlobeRotationTime<<2) + targetGlobeRotationTime);
+                            if (globeRotationTimeCount >= 13200) { withinTolerance = false; }                                        // protection against globe stalling (12s (slowest rot. time) x 1.1) 
                             if (!withinTolerance) {                                             // only when moving from locked --> unlocked
                                 lastTurnsInAutoLockRangeCount = 0;                              // for next globe position sync timer event
                                 rotationStatus = rotUnlocked;                                   // rotation NOT in sync with clock any more
@@ -2930,8 +2951,8 @@ SIGNAL(ADC_vect) {
             ((GreenwichData*)messagePtr)->eventSecond = globeTime.getSecond();
             ((GreenwichData*)messagePtr)->globeRotationTime = globeRotationTime;
             ((GreenwichData*)messagePtr)->lockedRotations = lockedRotations;
-            ((GreenwichData*)messagePtr)->rotationOutOfSyncTime = rotationOutOfSyncTime;        // drift since first locked rotations
-            ((GreenwichData*)messagePtr)->greenwichLag = greenwichLag;                          // globe rotation start versus magnetic field rotation start (coils)
+            ((GreenwichData*)messagePtr)->rotationOutOfSyncTime = rotationOutOfSyncTime;            // drift since first locked rotations (v2.00: not used any more)
+            ((GreenwichData*)messagePtr)->globeBehindCoilField_time = globeBehindCoilField_time;  // globe rotation start versus magnetic field rotation start (coils)
         }
     }
 

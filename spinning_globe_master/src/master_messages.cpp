@@ -110,7 +110,7 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
                 }
                 else { p.status = wire_notFloating; }
             }
-            p.stateFlags = _visualRing.ringType();       // 0,1,2 = off, ringing, alarm
+            p.stateFlags = _visualRing.ringType();                                          // 0,1,2 = off, ringing, alarm
             _wireMaster.enqueueTx(M_MSG_STATUS, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }
         break;
@@ -124,11 +124,12 @@ void MessageHandling::enqueueI2CmessageToSlave(MsgType& msgTypeOut) {
                 p.actualRotationTime = _greenwichData.globeRotationTime;
             }
             if (p.status == rotLocked) {  // this status does not occur when rotation is OFF
-                p.rotationOutOfSyncTime = _greenwichData.rotationOutOfSyncTime;
-                // multiply by 360 degrees and divide by time of 1 rotation (ms)
                 uint8_t rotTimeIndex = _globeMetrics[attributeIndex_rotTimes];
                 int setRotationTime = *(globeMetrics_valueListsPointers[attributeIndex_rotTimes] + rotTimeIndex);
-                p.greenwichLag = (int32_t)((_greenwichData.greenwichLag * 360) / setRotationTime);
+                // globe ahead of coil rotation (-) / slipping (+) in ms and in degrees 10th of degrees (to keep accuracy)
+                // globe lead (-) /lag (+) with respect to rotating magnetic field (coils)
+                p.globeSlip_time = _greenwichData.globeBehindCoilField_time;                                    // milliseconds
+                p.globeSlip_degrees = ((_greenwichData.globeBehindCoilField_time * 360.F) / setRotationTime);   // degrees (long value is in 16th of degrees)
             }
             _wireMaster.enqueueTx(M_MSG_GREENWICH, sizeof(p), &p, S_MSG_ACK, sizeof(I2C_s_ack));
         }

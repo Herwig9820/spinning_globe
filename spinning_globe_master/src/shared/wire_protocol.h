@@ -222,11 +222,11 @@ Declarations common to the wire master (classic nano) and wire slave (nano ESP32
 // Packet (message) sizing 
 static constexpr uint8_t HEADER_SIZE = 4;               // message type, message size, message sequence number, spare
 static constexpr uint8_t SLAVE_PAYLOAD_MAX = 24;        // max. payload sizes in bytes 
-static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;       
+static constexpr uint8_t MASTER_PAYLOAD_MAX = 24;
 
 // ---- transport layer: frame layout ----
 namespace WireFrame {
-    constexpr uint8_t OFFSET_MSG_TYPE = 0;      
+    constexpr uint8_t OFFSET_MSG_TYPE = 0;
     constexpr uint8_t OFFSET_PAYLOAD_SIZE = 1;
     constexpr uint8_t OFFSET_SEQ_NUM = 2;
     constexpr uint8_t OFFSET_RESERVED = 3;
@@ -353,8 +353,8 @@ struct __attribute__((packed)) I2C_m_status {
 
 struct __attribute__((packed)) I2C_m_greenwich {
     uint32_t actualRotationTime;
-    int32_t rotationOutOfSyncTime;              // can be negative
-    int32_t greenwichLag;                       // can be negative
+    int32_t globeSlip_time;                         // positive: coil slips, negative: globe ahead of coil rotation 
+    float globeSlip_degrees;                        // positive: coil slips, negative: globe ahead of coil rotation
     uint8_t status;
 };
 

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.37027.9
+VisualStudioVersion = 17.14.37203.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "spinning_globe_master", "spinning_globe_master.vcxproj", "{56B812C3-910D-B5D5-078F-16DC528ABAF1}"
 EndProject
@@ -30,6 +30,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {CD4DBBE6-6CDF-4ED5-B6EA-E8951F45B9ED}
+		SolutionGuid = {758393AE-CD6F-44FC-A002-DB1767F32C7E}
 	EndGlobalSection
 EndGlobal

@@ -110,8 +110,8 @@ const long* const globeMetrics_valueListsPointers[] = { rotationTimes, nullptr, 
 struct GreenwichData {                                                              // initialize members, awaiting first event
     uint32_t eventMilliSecond{ 0 }, eventSecond{ 0 };
     long globeRotationTime{ 0 };
-    long rotationOutOfSyncTime{ 0 };
-    long greenwichLag{ 0 };                                                         // versus (steady) magnetic field rotation (coils), when globe rotation is locked to it
+    long rotationOutOfSyncTime{ 0 };                                                // change v2.00: only used for internal calculations, not for reporting
+    long globeBehindCoilField_time{ 0 };                                            // versus (steady) magnetic field rotation (coils), when globe rotation is locked to it
     long lockedRotations{ 0 };
 };
 
