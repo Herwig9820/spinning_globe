@@ -35,12 +35,15 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+
 #include <PubSubClient.h>
 #include "bridge_context.h"
 #include "WiFiConnection.h"
 
 class MQTTmessages {
 
+// Certificate is only used if broker is hiveMQ
+#if MQTT_BROKER_HIVEMQ 
     const char* const ROOT_CA = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -74,8 +77,9 @@ mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
 emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 -----END CERTIFICATE-----
 )EOF";
+#endif
 
-    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 256;         // passed to _MQTTclient.setBufferSize();
+    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 2048;////         // passed to _MQTTclient.setBufferSize();
 
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
@@ -101,7 +105,13 @@ private:
     SharedContext& _sharedContext;
 
     WiFiConnection* _pWiFiConnection;
+    
+#if MQTT_BROKER_HIVEMQ 
     WiFiClientSecure _tlsSocket;
+#else
+    WiFiClient _socket;
+#endif
+    
     PubSubClient     _MQTTclient;
 
 

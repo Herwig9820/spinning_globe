@@ -42,6 +42,8 @@ MQTTmessages* MQTTmessages::_instance = nullptr;
 // MQTT messages: constructor
 // ============================================================================
 MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
+
+#if MQTT_BROKER_HIVEMQ 
     _MQTTclient(_tlsSocket), _sharedContext(sharedContext) {
 
     _instance = this;
@@ -50,6 +52,17 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
     _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
     _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
+#else
+    _MQTTclient(_socket), _sharedContext(sharedContext) {
+
+    _instance = this;
+
+    _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
+    _MQTTclient.setCallback(mqttCallback);
+    _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
+    _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);
+
+#endif
 }
 
 
@@ -57,7 +70,7 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
 // MQTT messages loop: call directly from main loop(), call regularly 
 // ============================================================================
 MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
-    
+
     // first, maintain WiFi and MQTT connections
     maintainMQTT(WiFiConnected);
 
@@ -74,7 +87,12 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             bool publish_OK = _MQTTclient.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
         #if (DEBUG)
             if (!publish_OK) {
-                DEBUG_PRINTLN("WARNING: publish failed (buffer too small or not connected)");
+                if (!_MQTTclient.connected()) {
+                    DEBUG_PRINTLN("WARNING: publish failed (not connected)");
+                }
+                else {
+                    DEBUG_PRINT("WARNING: publish failed (buffer issue, payload len="); Serial.println(strlen(pMsgToMQTT->payload));
+                }
             }
         #endif
             _sharedContext.lastMQTTpublish = millis();
@@ -156,7 +174,7 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
 // The data will be transmitted over wire after wire master requests for it.
 // ============================================================================================
 
-bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
+bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire * pMsgToWire) {
     bool ok{ false };
     unsigned int tmp{};
 
@@ -170,7 +188,7 @@ bool MQTTmessages::convertMQTTtoGlobeSettings(MQTTmsgToWire* pMsgToWire) {
     return ok;
 }
 
-bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
+bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire * pMsgToWire) {
 
     // Token check: only accept PID settings from local network
     char token[32] = "";
@@ -190,7 +208,7 @@ bool MQTTmessages::convertMQTTtoPIDsettings(MQTTmsgToWire* pMsgToWire) {
     return ok;
 }
 
-bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
+bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire * pMsgToWire) {
     // Token check: only accept vertical position setpoint from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
@@ -205,7 +223,7 @@ bool MQTTmessages::convertMQTTtoVertPosSetpoint(MQTTmsgToWire* pMsgToWire) {
     return ok;
 }
 
-bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire* pMsgToWire) {
+bool MQTTmessages::convertMQTTtoCoilPhaseAdjust(MQTTmsgToWire * pMsgToWire) {
     // Token check: only accept coil phase adjustment from local network
     char token[32] = "";
     JsonParse::getString(pMsgToWire->payload, PAYLOAD_SECRET_TOKEN, token, sizeof(token));
@@ -249,7 +267,7 @@ void MQTTmessages::holdRequestForWireMaster(Action m_action) {
 
 // --- static trampoline ---
 
-void MQTTmessages::mqttCallback(char* topic, byte* payload, unsigned int length)
+void MQTTmessages::mqttCallback(char* topic, byte * payload, unsigned int length)
 {
     if (_instance) {
         _instance->pushIncomingMQTTmsg(topic, payload, length);
@@ -257,7 +275,7 @@ void MQTTmessages::mqttCallback(char* topic, byte* payload, unsigned int length)
 }
 
 
-void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte* payload, unsigned int length)
+void MQTTmessages::pushIncomingMQTTmsg(char* topic, byte * payload, unsigned int length)
 {
     // do not loose time here decoding the topic to wire msgType en msgLen
     if (_sharedContext.queueToWire.full()) { return; }
@@ -290,10 +308,19 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         {
             // time for a next MQTT connection attempt ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
+            #if MQTT_BROKER_HIVEMQ
                 _tlsSocket.stop();  // force-close any lingering socket before new attempt                
+            #else
+                _socket.stop();
+            #endif
+
                 char clientId[48];
                 snprintf(clientId, sizeof(clientId), "spinning-globe-esp32-%s", WiFi.macAddress().c_str());
-                _MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true);       // last will: status "99" means 'offline'
+                if (!_MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true))       // last will: status "99" means 'offline'
+                {
+                    Serial.printf("MQTT connect failed, state=%d\n", _MQTTclient.state());
+                }
+
                 _mqttState = MQTT_waitForConnecton;
 
                 if (DEBUG) {

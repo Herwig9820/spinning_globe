@@ -33,17 +33,22 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #ifndef FG_WIFI_CONNECTION_h
 #define FG_WIFI_CONNECTION_h
 
+#include "../secrets.h"
 #include <WiFi.h>
+#if MQTT_BROKER_HIVEMQ 
 #include <WiFiClientSecure.h>
+#else
+#include <WiFiClient.h>
+#endif
+
 #include <PubSubClient.h>
 #include <esp_sntp.h> // needed for sntp_get_sync_status()
-#include "../secrets.h"
 #include "bridge_context.h"
 #include "debug.h"
 
 // Note that next 4 definitions will only be used if using a static IP address.
 // If using DHCP instead (with or without a static lease), outcomment line 
-// "WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress)"  in WiFiConnection.cpp 
+// "WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress)"  in WiFiConnection.cpp ////
 const IPAddress clientAddress(192, 168, 0, 95);     // STATIC client IP (LAN)
 const IPAddress gatewayAddress(192, 168, 0, 1);
 const IPAddress subnetMask(255, 255, 255, 0);

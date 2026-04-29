@@ -39,14 +39,14 @@
     <ClInclude Include="src\master_transport.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\shared\wire_hw_config.h">
       <Filter>shared</Filter>
     </ClInclude>
     <ClInclude Include="src\shared\wire_protocol.h">
       <Filter>shared</Filter>
+    </ClInclude>
+    <ClInclude Include="__vm\.spinning_globe_master.vsarduino.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
