@@ -60,7 +60,7 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
     _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
     _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
-    _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);
+    _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);////    dit staat hier nieuw
 
 #endif
 }
@@ -87,12 +87,11 @@ MQTTmessages::ConnectionState MQTTmessages::loop(bool WiFiConnected) {
             bool publish_OK = _MQTTclient.publish(pMsgToMQTT->topic, pMsgToMQTT->payload, pMsgToMQTT->retain);
         #if (DEBUG)
             if (!publish_OK) {
-                if (!_MQTTclient.connected()) {
-                    DEBUG_PRINTLN("WARNING: publish failed (not connected)");
-                }
-                else {
-                    DEBUG_PRINT("WARNING: publish failed (buffer issue, payload len="); Serial.println(strlen(pMsgToMQTT->payload));
-                }
+                int payloadLen = strlen(pMsgToMQTT->payload);
+                bool connected = _MQTTclient.connected();
+
+                DEBUG_PRINTF("publish failed - topic=%s, payloadLen=%d, connected=%d, state=%d\r\n",
+                    pMsgToMQTT->topic, payloadLen, connected, _MQTTclient.state());
             }
         #endif
             _sharedContext.lastMQTTpublish = millis();
@@ -317,8 +316,9 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 char clientId[48];
                 snprintf(clientId, sizeof(clientId), "spinning-globe-esp32-%s", WiFi.macAddress().c_str());
                 if (!_MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true))       // last will: status "99" means 'offline'
-                {
-                    Serial.printf("MQTT connect failed, state=%d\n", _MQTTclient.state());
+                
+                if (DEBUG){
+                    DEBUG_PRINTLNF("MQTT connect failed, state=%d", _MQTTclient.state());
                 }
 
                 _mqttState = MQTT_waitForConnecton;
@@ -369,7 +369,6 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                         char s[80]; snprintf(s, sizeof(s), "-- %s : MQTT connected", timeBuf);
                         DEBUG_PRINTLN(s);
                     }
-                    _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);
                 }
 
                 else {                                                                  // MQTT is not yet connected

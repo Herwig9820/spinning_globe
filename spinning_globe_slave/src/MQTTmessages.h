@@ -79,7 +79,7 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 )EOF";
 #endif
 
-    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 2048;////         // passed to _MQTTclient.setBufferSize();
+    static constexpr size_t MQTT_CLIENT_BUF_SIZE = 256;////was 256, nu testing met 2048         // passed to _MQTTclient.setBufferSize();
 
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;

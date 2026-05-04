@@ -36,14 +36,14 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #define MQTT_BROKER_HIVEMQ 0                                // if 1: Mosquitto on LAN
 
 // WiFi: SSID and password
-#define WIFI_SSID "Mathurot"
-#define WIFI_PASS "ikbennietgeborenop9augustus"
+#define WIFI_SSID "homeNet2"
+#define WIFI_PASS "appel-telefoon5XR-blijdschap#&-verloren-onderneming"
 
 #if MQTT_BROKER_HIVEMQ 
 #define MQTT_SERVER "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"       // hiveMQ
 #define MQTT_PORT 8883
 #else
-#define MQTT_SERVER "192.168.0.118"                          // Moqquitto
+#define MQTT_SERVER "192.168.1.120"                          // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
 #define MQTT_PORT 1883
 #endif
 
@@ -51,6 +51,11 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #define MQTT_PASS "*8*twtttj^AG@R79"
 
 constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";      // purpose: restrict access to specific settings if node-red dashboard not on esp32 local network
+
+
+
+
+
 
 
 /*
@@ -72,7 +77,7 @@ constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";      // purpose: restrict
     ( note: WAN IP address: 213.119.105.5 - can change over time !)
     NOTE: enable router port forwarding if server will be contacted from outside LAN
 
-    telenet: static IP range 192.168.0.2 to 192.168.0.99
+    telenet: static IP range is 192.168.0.2 to 192.168.0.99
 
     const IPAddress clientAddress(192, 168, 0, 95);     // STATIC server IP (LAN)
 
@@ -93,6 +98,7 @@ constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";      // purpose: restrict
 
     NOTE: the statement: "WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);" MUST BE OUTCOMMENTED
     (just before the WiFi.begin(...) statement)
+
 
     Bouyges: DHCP range is ??? //// (dhcp reservation / static lease)
 */

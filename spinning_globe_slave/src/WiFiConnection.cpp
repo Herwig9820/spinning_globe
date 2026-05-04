@@ -59,8 +59,13 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
                 // WiFi.config(...) is only needed if using a static IP address (not if DHCP, whether you use DHCP reservation ('static lease') or not).
                 // => Outcomment next line if using DHCP (with or without a static lease) instead of assigning a static IP.
-                WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
-                WiFi.begin(WIFI_SSID, WIFI_PASS);
+                
+                
+                
+                
+                
+                ////WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
+                WiFi.begin(WIFI_SSID, WIFI_PASS); 
                 _wifiState = WiFi_waitForConnecton;
 
                 if (DEBUG) {

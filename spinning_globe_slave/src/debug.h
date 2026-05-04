@@ -109,6 +109,22 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
         Serial.println(); \
       } while(0)
 
+// printf-style formatted printing
+#define DEBUG_PRINTF(fmt, ...) \
+      do { \
+          char _buf[128]; \
+          snprintf(_buf, sizeof(_buf), fmt, ##__VA_ARGS__); \
+          Serial.print(_buf); \
+      } while(0)
+
+  // printf-style formatted printing with newline
+#define DEBUG_PRINTLNF(fmt, ...) \
+      do { \
+          char _buf[128]; \
+          snprintf(_buf, sizeof(_buf), fmt, ##__VA_ARGS__); \
+          Serial.println(_buf); \
+      } while(0)
+
 #else
 
   // All debug disabled → compile to nothing
@@ -124,6 +140,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #define DEBUG_PRINT_BIN(val)
 #define DEBUG_PRINTLN_BIN(val)
 #define DEBUG_DUMP_HEX(buf, len)
+#define DEBUG_PRINTF(fmt, ...)
+#define DEBUG_PRINTLNF(fmt, ...)
 
 #endif
 

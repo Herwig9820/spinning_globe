@@ -211,7 +211,7 @@ void printWelcome() {
 
     for (int i = 0; i < 45; i++) { Serial.print('*'); }; Serial.println();
 
-    Serial.print("Spinning Globe Wire Slave and MQTT bridge - v "); Serial.print(SPINNING_GLOBE_BRIDGE_VERSION); Serial.println();
+    Serial.print("Spinning Globe Wire Slave/MQTT bridge - v "); Serial.print(SPINNING_GLOBE_BRIDGE_VERSION); Serial.println();
 
 #if MQTT_BROKER_HIVEMQ
     Serial.println("MQTT broker: HiveMQ Serverless Cloud Cluster");

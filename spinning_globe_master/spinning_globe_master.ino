@@ -53,7 +53,7 @@ Note that, if the program is compiled with this option enabled, hardware buttons
 #include "src/shared/wire_protocol.h"  
 #endif
 
-#define BOARD_VERSION 101                                   // board version: 100 = hardware v1, 101 = v1 rev A and B
+#define BOARD_VERSION 101                                   // main globe board version: 100 = hardware v1, 101 = v1 rev A and B
 #define SPINNING_GLOBE_VERSION 2.00
 
 #define DEBUG 0
