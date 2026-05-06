@@ -1,0 +1,45 @@
+=== /etc/os-release ===
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.4
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+
+=== uname -a ===
+Linux PI-HTA 6.12.75+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.75-1+rpt1 (2026-03-11) aarch64 GNU/Linux
+
+=== hostnamectl ===
+ Static hostname: PI-HTA
+       Icon name: computer
+      Machine ID: 2c157f0128114c7b9be7a97b9fba05cc
+         Boot ID: fc4187ea05ad43429c80a28674f4c26d
+Operating System: Debian GNU/Linux 13 (trixie)
+          Kernel: Linux 6.12.75+rpt-rpi-2712
+    Architecture: arm64
+
+=== Memory (free -h) ===
+               total        used        free      shared  buff/cache   available
+Mem:           4.0Gi       673Mi       1.5Gi        65Mi       1.9Gi       3.3Gi
+Swap:          2.0Gi          0B       2.0Gi
+
+=== Disk (df -h) ===
+Filesystem      Size  Used Avail Use% Mounted on
+udev            2.0G     0  2.0G   0% /dev
+tmpfs           810M   19M  792M   3% /run
+/dev/sda2       229G  7.6G  212G   4% /
+tmpfs           2.0G  400K  2.0G   1% /dev/shm
+tmpfs           5.0M   48K  5.0M   1% /run/lock
+tmpfs           1.0M     0  1.0M   0% /run/credentials/systemd-journald.service
+tmpfs           2.0G  1.2M  2.0G   1% /tmp
+/dev/sda1       505M   78M  427M  16% /boot/firmware
+tmpfs           405M  256K  405M   1% /run/user/1000
+tmpfs           1.0M     0  1.0M   0% /run/credentials/serial-getty@ttyAMA10.service
+tmpfs           1.0M     0  1.0M   0% /run/credentials/getty@tty1.service
+
+=== Uptime ===
+ 15:03:37 up 2 days,  5:44,  3 users,  load average: 0.01, 0.00, 0.00

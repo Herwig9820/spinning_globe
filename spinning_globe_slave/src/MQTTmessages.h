@@ -116,6 +116,8 @@ private:
 
 
     // ========== methods ==========
+    const LocationConfig* findCurrentLocation();
+
     ConnectionState maintainMQTT(bool WiFiConnected);
 
     // --- Callback plumbing ---

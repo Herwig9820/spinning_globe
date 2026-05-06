@@ -35,6 +35,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 
 #include "../secrets.h"
 #include <WiFi.h>
+#include <WiFiMulti.h>
+#include <ESPmDNS.h>
 
 #if MQTT_BROKER_HIVEMQ 
 #include <WiFiClientSecure.h>
@@ -47,6 +49,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #include "bridge_context.h"
 #include "debug.h"
 
+/*
 // Note that next 4 definitions will only be used if using a static IP address.
 // If using DHCP instead (with or without a static lease), outcomment line 
 // "WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress)"  in WiFiConnection.cpp ////
@@ -54,6 +57,10 @@ const IPAddress clientAddress(192, 168, 0, 95);     // STATIC client IP (LAN)
 const IPAddress gatewayAddress(192, 168, 0, 1);
 const IPAddress subnetMask(255, 255, 255, 0);
 const IPAddress DNSaddress(195, 130, 130, 5);
+*/
+
+static constexpr char NANO_ESP32_MQTT_BRIDGE[] = "spinning_globe_mqtt_bridge";
+
 
 class WiFiConnection {
 
@@ -68,13 +75,17 @@ public:
     };
 
 private:
+    const LocationConfig* _networks;
+    size_t _count;    WiFiMulti wifiMulti;
     ConnectionState _wifiState{WiFi_notConnected};
 
     uint32_t _lastWiFiMaintenanceTime{millis()};
     uint32_t _lastWiFiWaitReportedAt{ _lastWiFiMaintenanceTime };
     
 public:
-    void loop();
+    WiFiConnection(const LocationConfig* networks, size_t count);
+    void onWiFiConnected(unsigned long now);
+    void begin();
     ConnectionState maintainWiFi();
 };
 

@@ -5,6 +5,11 @@
 
 /__vm/
 
+# toegevoegd - Herwig
+raspberry_pi_5/**/passwd
+raspberry_pi_5/**/settings.js
+raspberry_pi_5/**/flows_cred.json
+
 # User-specific files
 *.rsuser
 *.suo

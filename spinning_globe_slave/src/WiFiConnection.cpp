@@ -37,6 +37,17 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 // ============================================================================
 // WiFi MAINTENANCE: state machine (call regularly from main loop() )
 // ============================================================================
+
+WiFiConnection::WiFiConnection(const LocationConfig* networks, size_t count)
+    : _networks(networks), _count(count) {
+}
+
+void WiFiConnection::begin() {
+    for (size_t i = 0; i < _count; i++) {
+        wifiMulti.addAP(_networks[i].ssid, _networks[i].wifiPass);
+    }
+}
+
 WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
 
@@ -59,14 +70,8 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 
                 // WiFi.config(...) is only needed if using a static IP address (not if DHCP, whether you use DHCP reservation ('static lease') or not).
                 // => Outcomment next line if using DHCP (with or without a static lease) instead of assigning a static IP.
-                
-                
-                
-                
-                
+
                 ////WiFi.config(clientAddress, gatewayAddress, subnetMask, DNSaddress);
-                WiFi.begin(WIFI_SSID, WIFI_PASS); 
-                _wifiState = WiFi_waitForConnecton;
 
                 if (DEBUG) {
                     char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
@@ -76,6 +81,14 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
                     DEBUG_PRINTLN(s);
                 }
 
+                uint8_t result = wifiMulti.run(0);
+                if (result == WL_CONNECTED) {
+                    onWiFiConnected(now);
+                    _wifiState = WiFi_connected;
+                }
+                else {
+                    _wifiState = WiFi_waitForConnecton;
+                }
                 // remember time of this WiFi connection attempt; this is also the time of the last debug print (if enabled)
                 _lastWiFiWaitReportedAt = _lastWiFiMaintenanceTime = now;
             }
@@ -90,22 +103,8 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
             // WiFi is enabled AND it's time for a next WiFi connection check ?
             if (now - _lastWiFiMaintenanceTime > WIFI_UP_CHECK_INTERVAL) {
                 if (WiFi.status() == WL_CONNECTED) {                                    // WiFi is now connected ?
+                    onWiFiConnected(now);
                     _wifiState = WiFi_connected;
-
-                    // CET: Central European Time; -1: 1 hour east of ETC (UTC+1); CEST: Central European Summer Time (Automatic daylight saving)
-                    // CEST = CET+1 = UTC+2
-                    // last Sunday of March, at 2:00 AM clocks go forward to 3:00 AM; last Sunday of October, at 3:00 AM clocks go back to 2:00 AM
-                    configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
-
-                    if (DEBUG) {
-                        char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
-                            snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
-                        }
-                        IPAddress IP = WiFi.localIP();
-                        char s[80]; snprintf(s, sizeof(s), "-- %s : WiFi connected, Local IP %d.%d.%d.%d(%d dBm)",
-                            timeBuf, IP[0], IP[1], IP[2], IP[3], WiFi.RSSI());
-                        DEBUG_PRINTLN(s);
-                    }
                 }
 
                 else {                                                                  // WiFi is not yet connected
@@ -152,3 +151,23 @@ WiFiConnection::ConnectionState WiFiConnection::maintainWiFi() {
 }
 
 
+void WiFiConnection::onWiFiConnected(unsigned long now) {
+    // CET: Central European Time; -1: 1 hour east of ETC (UTC+1); CEST: Central European Summer Time (Automatic daylight saving)
+    // CEST = CET+1 = UTC+2
+    // last Sunday of March, at 2:00 AM clocks go forward to 3:00 AM; last Sunday of October, at 3:00 AM clocks go back to 2:00 AM
+    configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
+    bool mDNSsuccess = MDNS.begin(NANO_ESP32_MQTT_BRIDGE);
+
+    if (DEBUG) {
+        char timeBuf[32];
+        if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+            snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+        }
+        IPAddress IP = WiFi.localIP();
+        DEBUG_PRINTLNF("-- %s : WiFi connected, Local IP %d.%d.%d.%d (%d dBm), SSID %s",
+            timeBuf, IP[0], IP[1], IP[2], IP[3], WiFi.RSSI(), WiFi.SSID().c_str());
+        DEBUG_PRINTLNF("-- %s : %s%s", timeBuf,
+            (mDNSsuccess ? "mDNS responder started: hostname is " : "mDNS responder failed"),
+            mDNSsuccess ? NANO_ESP32_MQTT_BRIDGE : "");
+    }
+}

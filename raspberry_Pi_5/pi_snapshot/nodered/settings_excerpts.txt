@@ -1,0 +1,8 @@
+=== Relevant non-secret settings.js excerpts ===
+
+    credentialSecret: <REDACTED>
+    adminAuth: {
+    uiHost: "0.0.0.0",
+     contextStorage: {
+
+(Note: full settings.js is NOT exported because it contains secrets.)

@@ -35,16 +35,23 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 
 #define MQTT_BROKER_HIVEMQ 0                                // if 1: Mosquitto on LAN
 
-// WiFi: SSID and password
-#define WIFI_SSID "homeNet2"
-#define WIFI_PASS "appel-telefoon5XR-blijdschap#&-verloren-onderneming"
+// secrets.h
+#define WIFI_SSID_HOME1  "homeNet1"
+#define WIFI_PASS_HOME1  "appel-telefoon5XR-blijdschap#&-verloren-onderneming"
+#define WIFI_SSID_HOME2  "homeNet2"
+#define WIFI_PASS_HOME2  "appel-telefoon5XR-blijdschap#&-verloren-onderneming"
 
 #if MQTT_BROKER_HIVEMQ 
-#define MQTT_SERVER "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"       // hiveMQ
-#define MQTT_PORT 8883
+#define MQTT_SERVER_HOME1 "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud"       // hiveMQ
+#define MQTT_SERVER_HOME2 MQTT_SERVER_HOME1 
+#define MQTT_PORT_HOME1 8883
+#define MQTT_PORT_HOME2 8883
+
 #else
-#define MQTT_SERVER "192.168.1.120"                          // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
-#define MQTT_PORT 1883
+#define MQTT_SERVER_HOME1 "192.168.1.111" ////ROUTER/ IP STATISCH MAKEN  // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
+#define MQTT_SERVER_HOME2 "192.168.1.120"                          // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
+#define MQTT_PORT_HOME1 1883
+#define MQTT_PORT_HOME2 1883
 #endif
 
 #define MQTT_USER "spinning_globe"
@@ -52,6 +59,19 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 
 constexpr const char* SECRET_TOKEN = "gl0be_L0cal_9x";      // purpose: restrict access to specific settings if node-red dashboard not on esp32 local network
 
+
+struct LocationConfig {
+    const char* ssid;
+    const char* wifiPass;
+    const char* mqttServer;
+    uint16_t    mqttPort;
+};
+
+const LocationConfig knownLocations[] = {
+    { WIFI_SSID_HOME1, WIFI_PASS_HOME1, MQTT_SERVER_HOME1, MQTT_PORT_HOME1 },
+    { WIFI_SSID_HOME2, WIFI_PASS_HOME2, MQTT_SERVER_HOME2, MQTT_PORT_HOME2 },
+};
+const size_t knownLocationsCount = sizeof(knownLocations) / sizeof(knownLocations[0]);
 
 
 

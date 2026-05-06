@@ -407,143 +407,6 @@
         "h": 202
     },
     {
-        "id": "fdd710dae9bf6772",
-        "type": "mqtt-broker",
-        "name": "PI - Mosquitto",
-        "broker": "localhost",
-        "port": "1883",
-        "tls": "",
-        "clientid": "",
-        "autoConnect": true,
-        "usetls": false,
-        "protocolVersion": 4,
-        "keepalive": 60,
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthRetain": "false",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closeRetain": "false",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willRetain": "false",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
-    },
-    {
-        "id": "8489d6de51f3d095",
-        "type": "ui_base",
-        "theme": {
-            "name": "theme-light",
-            "lightTheme": {
-                "default": "#0094CE",
-                "baseColor": "#0094CE",
-                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
-                "edited": true,
-                "reset": false
-            },
-            "darkTheme": {
-                "default": "#097479",
-                "baseColor": "#097479",
-                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
-                "edited": false
-            },
-            "customTheme": {
-                "name": "Untitled Theme 1",
-                "default": "#4B7930",
-                "baseColor": "#4B7930",
-                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
-            },
-            "themeState": {
-                "base-color": {
-                    "default": "#0094CE",
-                    "value": "#0094CE",
-                    "edited": false
-                },
-                "page-titlebar-backgroundColor": {
-                    "value": "#0094CE",
-                    "edited": false
-                },
-                "page-backgroundColor": {
-                    "value": "#fafafa",
-                    "edited": false
-                },
-                "page-sidebar-backgroundColor": {
-                    "value": "#ffffff",
-                    "edited": false
-                },
-                "group-textColor": {
-                    "value": "#1bbfff",
-                    "edited": false
-                },
-                "group-borderColor": {
-                    "value": "#ffffff",
-                    "edited": false
-                },
-                "group-backgroundColor": {
-                    "value": "#ffffff",
-                    "edited": false
-                },
-                "widget-textColor": {
-                    "value": "#111111",
-                    "edited": false
-                },
-                "widget-backgroundColor": {
-                    "value": "#0094ce",
-                    "edited": false
-                },
-                "widget-borderColor": {
-                    "value": "#ffffff",
-                    "edited": false
-                },
-                "base-font": {
-                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
-                }
-            },
-            "angularTheme": {
-                "primary": "indigo",
-                "accents": "blue",
-                "warn": "red",
-                "background": "grey",
-                "palette": "light"
-            }
-        },
-        "site": {
-            "name": "Node-RED Dashboard",
-            "hideToolbar": "false",
-            "allowSwipe": "false",
-            "lockMenu": "false",
-            "allowTempTheme": "true",
-            "dateFormat": "DD/MM/YYYY",
-            "sizes": {
-                "sx": 48,
-                "sy": 48,
-                "gx": 6,
-                "gy": 6,
-                "cx": 5,
-                "cy": 5,
-                "px": 0,
-                "py": 0
-            }
-        }
-    },
-    {
-        "id": "5d6f8746db55b172",
-        "type": "ui_tab",
-        "name": "Home",
-        "icon": "dashboard",
-        "disabled": false,
-        "hidden": false
-    },
-    {
         "id": "833b4fa7e6bade67",
         "type": "ui-theme",
         "name": "Spinning globe 1",
@@ -782,8 +645,8 @@
         "name": "spacer",
         "tooltip": "",
         "order": 1,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "className": ""
     },
     {
@@ -793,8 +656,8 @@
         "name": "spacer",
         "tooltip": "",
         "order": 4,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "className": ""
     },
     {
@@ -804,9 +667,160 @@
         "name": "spacer",
         "tooltip": "",
         "order": 5,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "className": ""
+    },
+    {
+        "id": "8489d6de51f3d095",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": true,
+                "reset": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 5,
+                "cy": 5,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "5d6f8746db55b172",
+        "type": "ui_tab",
+        "name": "Home",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "4e3dcd76fc2c96b2",
+        "type": "tls-config",
+        "name": "Hive MQ TLS",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true,
+        "alpnprotocol": ""
+    },
+    {
+        "id": "fdd710dae9bf6772",
+        "type": "mqtt-broker",
+        "name": "PC - hiveMQ",
+        "broker": "e303fcc2b2f344838220e08b26e702b3.s1.eu.hivemq.cloud",
+        "port": "8883",
+        "tls": "4e3dcd76fc2c96b2",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
     },
     {
         "id": "252b08b175e9521e",
@@ -877,7 +891,7 @@
         "type": "exec",
         "z": "846c39736bfcf985",
         "g": "7314ee4ec2843587",
-        "command": "ping -c 1 -w 500 192.168.0.95",
+        "command": "ping -n 3 192.168.0.95",
         "addpay": "",
         "append": "",
         "useSpawn": "false",
@@ -908,7 +922,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 630,
+        "x": 650,
         "y": 140,
         "wires": [
             []
@@ -932,7 +946,7 @@
         "repeat": "",
         "crontab": "",
         "once": true,
-        "onceDelay": "1",
+        "onceDelay": "10",
         "topic": "",
         "payload": "",
         "payloadType": "date",
@@ -1100,8 +1114,8 @@
         "ui": "",
         "name": "IP Access guard banner",
         "order": 10,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "head": "",
         "format": "<template>\n  <div v-if=\"blocked\" style=\"\n      background:#7f0000;\n      color:white;\n      padding:12px;\n      border-radius:6px;\n      font-size:13px;\">\n    ⛔ Remote access ({{ clientIp }}): controls are disabled\n  </div>\n  <div v-else style=\"\n      background:#1a3a1a;\n      color:#40ff40;\n      padding:8px;\n      border-radius:6px;\n      font-size:13px;\">\n    ✅ Local access ({{ clientIp }}): controls are enabled \n  </div>\n</template>\n\n<script>\n  export default {\n  data() {\n    return {\n      clientIp: 'checking...',\n      blocked: false\n    }\n  },\nmounted() {\nfetch('/checkip')\n.then(r => r.json())\n.then(data => {\nthis.clientIp = data.ip;\nthis.blocked = !(\ndata.ip === '127.0.0.1' ||\ndata.ip.startsWith('192.168.')\n);\n})\n.catch(() => {\nthis.clientIp = 'unknown';\nthis.blocked = true;\n});\n}\n}\n</script>",
         "storeOutMessages": true,
@@ -1734,8 +1748,8 @@
         "name": "ring ring",
         "label": "Ring ring",
         "order": 7,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "emulateClick": false,
         "tooltip": "",
         "color": "",
@@ -1774,8 +1788,8 @@
         "name": "alarm",
         "label": "alarm",
         "order": 8,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "emulateClick": false,
         "tooltip": "",
         "color": "",
@@ -2739,9 +2753,7 @@
         "max": "0.9",
         "step": "0.0125",
         "tooltip": "",
-        "delay": "2000",
         "passthru": false,
-        "sendOnDelay": true,
         "sendOnBlur": true,
         "sendOnEnter": true,
         "className": "",
@@ -2775,9 +2787,7 @@
         "max": "25",
         "step": "0.125",
         "tooltip": "",
-        "delay": "2000",
         "passthru": false,
-        "sendOnDelay": true,
         "sendOnBlur": true,
         "sendOnEnter": true,
         "className": "",
@@ -2811,9 +2821,7 @@
         "max": "18",
         "step": "0.5",
         "tooltip": "",
-        "delay": "2000",
         "passthru": false,
-        "sendOnDelay": true,
         "sendOnBlur": true,
         "sendOnEnter": true,
         "className": "",
@@ -2847,9 +2855,7 @@
         "max": "178",
         "step": "2",
         "tooltip": "Select values from -180 to 178 degrees (2-degree steps)",
-        "delay": "2000",
         "passthru": false,
-        "sendOnDelay": true,
         "sendOnBlur": true,
         "sendOnEnter": true,
         "className": "",
@@ -3493,8 +3499,8 @@
         "g": "0c027005ac2d7844",
         "group": "6248321fba17eec3",
         "order": 3,
-        "width": "0",
-        "height": "0",
+        "width": null,
+        "height": null,
         "name": "comm quality label",
         "label": "",
         "format": "{{msg.payload}}",
@@ -3592,12 +3598,12 @@
         ]
     },
     {
-        "id": "25e8a9dcbdb1e3a1",
+        "id": "e9c9684aa407cd02",
         "type": "global-config",
         "env": [],
         "modules": {
-            "node-red-dashboard": "3.6.6",
-            "@flowfuse/node-red-dashboard": "1.30.2"
+            "@flowfuse/node-red-dashboard": "1.30.2",
+            "node-red-dashboard": "3.6.6"
         }
     }
 ]

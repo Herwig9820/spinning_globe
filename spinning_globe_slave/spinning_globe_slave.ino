@@ -32,6 +32,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 
 #include <esp_task_wdt.h>
 #include "src/wireSlave_messages.h"
+#include "secrets.h"
+#include "src/WiFiConnection.h"
 #include "src/MQTTmessages.h"
 #include "src/time_helpers.h"
 
@@ -56,7 +58,8 @@ void setup()
     printWelcome();
 
     // do not define before setup() runs
-    pWiFiConnection = new WiFiConnection;
+    pWiFiConnection = new WiFiConnection(knownLocations, knownLocationsCount);
+    pWiFiConnection->begin();
     pMqttMessages = new MQTTmessages(sharedContext);
 
     pinMode(LED_BUILTIN, OUTPUT);
@@ -95,7 +98,7 @@ void loop()
         char ntpTimeBuf[32];
         if (!timeIsPrinted) {
             if (timeHelpers::getLocalTimeString(ntpTimeBuf, sizeof(ntpTimeBuf))) {
-                char s[80]; snprintf(s, sizeof(s), "-- at %13.3fs : time is now set to %s", millis() / 1000., ntpTimeBuf);
+                char s[80]; snprintf(s, sizeof(s), "-- at %13.3fs : time is now set to %s", millis() / 1000., ntpTimeBuf);//// niet altijd geprint ???
                 timeIsPrinted = true;
                 DEBUG_PRINTLN(s);
             }

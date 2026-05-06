@@ -49,7 +49,7 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
     _instance = this;
 
     _tlsSocket.setCACert(ROOT_CA);                      // Set the Root CA for the secure client
-    _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
+    _MQTTclient.setServer(MQTT_SERVER_HOME2, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
     _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
 #else
@@ -57,7 +57,6 @@ MQTTmessages::MQTTmessages(SharedContext& sharedContext) :
 
     _instance = this;
 
-    _MQTTclient.setServer(MQTT_SERVER, MQTT_PORT);
     _MQTTclient.setCallback(mqttCallback);
     _MQTTclient.setKeepAlive(60);                       // seconds; HiveMQ free tier disconnects after this idle time
     _MQTTclient.setBufferSize(MQTT_CLIENT_BUF_SIZE);////    dit staat hier nieuw
@@ -305,7 +304,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
         // --------------------------------------
         case MQTT_notConnected:
         {
-            // time for a next MQTT connection attempt ?
+    // time for a next MQTT connection attempt ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
             #if MQTT_BROKER_HIVEMQ
                 _tlsSocket.stop();  // force-close any lingering socket before new attempt                
@@ -313,10 +312,64 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 _socket.stop();
             #endif
 
+                // Determine which broker to use based on the connected Wi-Fi network
+                const LocationConfig* loc = findCurrentLocation();
+                if (loc == nullptr) {
+                    if (DEBUG) {
+                        char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                            snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                        }
+                        DEBUG_PRINTLNF("-- %s : ERROR — connected SSID '%s' not in known locations table; cannot connect to MQTT broker",
+                            timeBuf, WiFi.SSID().c_str());
+                    }
+                    _lastMqttMaintenanceTime = now;
+                    break;
+                }
+
+                _MQTTclient.setServer(loc->mqttServer, loc->mqttPort);
+
+                if (DEBUG) {
+                    char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                        snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                    }
+                    DEBUG_PRINTLNF("-- %s : Trying to connect to MQTT broker %s:%u (location: %s)...",
+                        timeBuf, loc->mqttServer, loc->mqttPort, loc->ssid);
+                }
+
+                char clientId[48];
+                snprintf(clientId, sizeof(clientId), "spinning-globe-esp32-%s", WiFi.macAddress().c_str());
+                if (!_MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true)) {     // last will: status "99" means 'offline'
+                    if (DEBUG) {
+                        DEBUG_PRINTLNF("MQTT connect failed, state=%d", _MQTTclient.state());
+                    }
+                }
+
+                _mqttState = MQTT_waitForConnecton;
+
+                // remember time of this MQTT connection attempt; this is also the time of the last debug print (if enabled)
+                _lastMqttWaitReportedAt = _lastMqttMaintenanceTime = now;
+            }
+
+
+
+
+
+
+
+
+            /*
+                    // time for a next MQTT connection attempt ?
+            if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
+            #if MQTT_BROKER_HIVEMQ
+                _tlsSocket.stop();  // force-close any lingering socket before new attempt
+            #else
+                _socket.stop();
+            #endif
+
                 char clientId[48];
                 snprintf(clientId, sizeof(clientId), "spinning-globe-esp32-%s", WiFi.macAddress().c_str());
                 if (!_MQTTclient.connect(clientId, MQTT_USER, MQTT_PASS, TOPIC_STATUS, 0, true, "99", true))       // last will: status "99" means 'offline'
-                
+
                 if (DEBUG){
                     DEBUG_PRINTLNF("MQTT connect failed, state=%d", _MQTTclient.state());
                 }
@@ -334,6 +387,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                 // remember time of this MQTT connection attempt; this is also the time of the last debug print (if enabled)
                 _lastMqttWaitReportedAt = _lastMqttMaintenanceTime = now;
             }
+            */
         }
         break;
 
@@ -421,5 +475,16 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
 
     return _mqttState;
 
+}
+
+const LocationConfig* MQTTmessages::findCurrentLocation() {
+    String currentSSID = WiFi.SSID();
+    if (currentSSID.length() == 0) return nullptr;
+    for (size_t i = 0; i < knownLocationsCount; i++) {
+        if (currentSSID == knownLocations[i].ssid) {
+            return &knownLocations[i];
+        }
+    }
+    return nullptr;
 }
 
