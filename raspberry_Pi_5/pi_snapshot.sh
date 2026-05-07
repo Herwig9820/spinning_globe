@@ -6,8 +6,8 @@
 # selected configuration files into a snapshot folder.
 # 
 # Usage:
-#   ./pi_snapshot.sh           → saves to ~/pi_snapshot/
-#   ./pi_snapshot.sh /tmp/foo  → saves to /tmp/foo/
+#   ./scripts/pi_snapshot.sh           → saves to ~/pi_snapshot/
+#   ./scripts/pi_snapshot.sh /tmp/foo  → saves to /tmp/foo/
 #
 # Designed to be re-run periodically. Each run overwrites
 # the previous snapshot in the same folder.
@@ -17,6 +17,17 @@
 # ============================================================
 
 OUTDIR="${1:-$HOME/pi_snapshot}"
+
+# Defensive: refuse to wipe dangerous paths
+if [ -z "$OUTDIR" ] || [ "$OUTDIR" = "/" ] || [ "$OUTDIR" = "$HOME" ]; then
+    echo "ERROR: refusing to clear suspicious OUTDIR='$OUTDIR'"
+    exit 1
+fi
+
+# Clear any previous snapshot to ensure no stale files
+if [ -d "$OUTDIR" ]; then
+    sudo rm -rf "$OUTDIR"
+fi
 mkdir -p "$OUTDIR"
 
 # ============================================================
@@ -145,6 +156,39 @@ cp "$HOME/.node-red/package-lock.json" "$OUTDIR/nodered/" 2>/dev/null
     echo ""
     echo "(Note: full settings.js is NOT exported because it contains secrets.)"
 } > "$OUTDIR/nodered/settings_excerpts.txt"
+
+# ============================================================
+# Zigbee2MQTT config and state
+# ============================================================
+# NOTE: coordinator_backup.json contains the Zigbee network key
+# required to restore the network's identity (PAN ID, encryption).
+# Treat the snapshot folder as sensitive — review `git status`
+# before committing.
+echo "Capturing Zigbee2MQTT state..."
+mkdir -p "$OUTDIR/zigbee2mqtt"
+snapshot_listing "/opt/zigbee2mqtt/data" "zigbee2mqtt"
+
+# Coordinator backup — critical for full Zigbee network restoration
+cp /opt/zigbee2mqtt/data/coordinator_backup.json "$OUTDIR/zigbee2mqtt/" 2>/dev/null
+
+# Device database — paired devices list (empty until first pairing)
+cp /opt/zigbee2mqtt/data/database.db "$OUTDIR/zigbee2mqtt/" 2>/dev/null
+
+# configuration.yaml with MQTT password redacted
+sed 's/^\(\s*password:\).*/\1 <REDACTED>/' \
+    /opt/zigbee2mqtt/data/configuration.yaml \
+    > "$OUTDIR/zigbee2mqtt/configuration.yaml" 2>/dev/null
+
+# Z2M version + service status (self-contained — does not require
+# modifying the SERVICES list in the section above)
+{
+    echo "=== Z2M version (from package.json) ==="
+    grep '"version"' /opt/zigbee2mqtt/package.json | head -1
+    echo ""
+    echo "=== zigbee2mqtt.service ==="
+    echo "is-enabled: $(systemctl is-enabled zigbee2mqtt 2>&1)"
+    echo "is-active:  $(systemctl is-active zigbee2mqtt 2>&1)"
+} > "$OUTDIR/zigbee2mqtt/service_status.txt"
 
 # ============================================================
 # Installed packages

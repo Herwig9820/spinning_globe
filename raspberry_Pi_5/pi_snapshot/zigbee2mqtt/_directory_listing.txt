@@ -1,0 +1,9 @@
+total 32
+drwxrwxr-x  3 herwig herwig 4096 May  7 19:19 .
+drwxr-xr-x 12 herwig herwig 4096 May  7 18:17 ..
+-rw-rw-r--  1 herwig herwig 1491 May  7 18:12 configuration.example.yaml
+-rw-rw-r--  1 herwig herwig  773 May  7 18:51 configuration.yaml
+-rw-r--r--  1 herwig herwig  778 May  7 19:04 coordinator_backup.json
+-rw-r--r--  1 herwig herwig  560 May  7 19:19 database.db
+drwxrwxr-x  6 herwig herwig 4096 May  7 19:04 log
+-rw-rw-r--  1 herwig herwig    2 May  7 19:19 state.json

@@ -1,8 +1,8 @@
 === Known connections (nmcli) ===
 NAME                    UUID                                  TYPE      DEVICE     
 homeNet2                0425ab36-ad9c-4cdd-8513-e65abaf9d368  wifi      wlan0      
-tailscale0              d4846c4c-0639-465b-a96b-5a13a2dae100  tun       tailscale0 
-lo                      ef95a3cd-a1d8-4fcf-9e94-63ea80c52acd  loopback  lo         
+tailscale0              af9b1c22-1004-4a3e-b339-4c6b553fde61  tun       tailscale0 
+lo                      8a75ab12-eb09-4f7f-a760-52cea29cd7dc  loopback  lo         
 homeNet                 3af57f9d-ceb9-4a4e-be58-bd7bbf0d2675  wifi      --         
 homeNet1                24d450aa-a461-49af-b802-e1ada4c102b5  wifi      --         
 netplan-eth0            75a1216a-9d1a-30cd-8aca-ace5526ec021  ethernet  --         
@@ -11,8 +11,8 @@ netplan-wlan0-Mathurot  5697c22f-489d-3fbc-9786-2eb8a1050942  wifi      --
 === Active connections ===
 NAME        UUID                                  TYPE      DEVICE     
 homeNet2    0425ab36-ad9c-4cdd-8513-e65abaf9d368  wifi      wlan0      
-tailscale0  d4846c4c-0639-465b-a96b-5a13a2dae100  tun       tailscale0 
-lo          ef95a3cd-a1d8-4fcf-9e94-63ea80c52acd  loopback  lo         
+tailscale0  af9b1c22-1004-4a3e-b339-4c6b553fde61  tun       tailscale0 
+lo          8a75ab12-eb09-4f7f-a760-52cea29cd7dc  loopback  lo         
 
 === IP addresses ===
 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
@@ -26,9 +26,9 @@ lo          ef95a3cd-a1d8-4fcf-9e94-63ea80c52acd  loopback  lo
 3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
     link/ether 88:a2:9e:d6:a1:f6 brd ff:ff:ff:ff:ff:ff
     inet 192.168.1.120/24 brd 192.168.1.255 scope global dynamic noprefixroute wlan0
-       valid_lft 63447sec preferred_lft 63447sec
+       valid_lft 85189sec preferred_lft 85189sec
     inet6 2001:861:4447:24f0:2962:d74c:38df:9d6a/64 scope global dynamic noprefixroute 
-       valid_lft 86158sec preferred_lft 14158sec
+       valid_lft 86148sec preferred_lft 14148sec
     inet6 fe80::748f:3500:b029:71e/64 scope link noprefixroute 
        valid_lft forever preferred_lft forever
 4: tailscale0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1280 qdisc fq_codel state UNKNOWN group default qlen 500
@@ -37,7 +37,7 @@ lo          ef95a3cd-a1d8-4fcf-9e94-63ea80c52acd  loopback  lo
        valid_lft forever preferred_lft forever
     inet6 fd7a:115c:a1e0::8d35:794e/128 scope global 
        valid_lft forever preferred_lft forever
-    inet6 fe80::2feb:e736:8fcc:1f17/64 scope link stable-privacy proto kernel_ll 
+    inet6 fe80::5663:adf7:6a06:912c/64 scope link stable-privacy proto kernel_ll 
        valid_lft forever preferred_lft forever
 
 === Routes ===

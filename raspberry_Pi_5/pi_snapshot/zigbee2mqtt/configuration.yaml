@@ -1,0 +1,50 @@
+version: 5
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://localhost:1883
+  user: zigbee2mqtt
+  password: <REDACTED>
+  maximum_packet_size: 1048576
+serial:
+  port: >-
+    /dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_c231de75e9ffef11926998256d9880ab-if00-port0
+  adapter: ember
+  baudrate: 115200
+  rtscts: false
+advanced:
+  log_level: info
+  channel: 15
+  network_key:
+    - 18
+    - 34
+    - 84
+    - 224
+    - 236
+    - 105
+    - 74
+    - 216
+    - 51
+    - 40
+    - 210
+    - 133
+    - 59
+    - 129
+    - 235
+    - 240
+  pan_id: 39116
+  ext_pan_id:
+    - 83
+    - 202
+    - 202
+    - 93
+    - 123
+    - 220
+    - 158
+    - 118
+frontend:
+  enabled: false
+  port: 8080
+homeassistant:
+  enabled: false
+availability:
+  enabled: true
