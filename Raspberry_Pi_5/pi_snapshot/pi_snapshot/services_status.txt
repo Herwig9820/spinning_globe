@@ -1,0 +1,16 @@
+=== tailscaled ===
+is-enabled: enabled
+is-active:  active
+
+=== mosquitto ===
+is-enabled: enabled
+is-active:  active
+
+=== nodered ===
+is-enabled: enabled
+is-active:  active
+
+=== zigbee2mqtt ===
+is-enabled: enabled
+is-active:  active
+

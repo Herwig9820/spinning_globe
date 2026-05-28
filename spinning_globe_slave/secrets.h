@@ -33,7 +33,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #ifndef FG_SECRETS_h
 #define FG_SECRETS_h
 
-#define MQTT_BROKER_HIVEMQ 0                                // if 1: Mosquitto on LAN
+#define MQTT_BROKER_HIVEMQ 0                                // if 1: Mosquitto (local on Pi)
 
 // secrets.h
 #define WIFI_SSID_HOME1  "homeNet1"
@@ -48,8 +48,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #define MQTT_PORT_HOME2 8883
 
 #else
-#define MQTT_SERVER_HOME1 "192.168.1.111" ////ROUTER/ IP STATISCH MAKEN  // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
-#define MQTT_SERVER_HOME2 "192.168.1.120"                          // Moqquitto @ Pi 5 (Merelbeke: static IP, Vaison: static DHCP lease)
+#define MQTT_SERVER_HOME1 "192.168.0.120" ////ROUTER/ IP STATISCH MAKEN // Pi 5 Merelbeke: static IP
+#define MQTT_SERVER_HOME2 "192.168.1.120"                               // Pi 5 Vaison: static DHCP lease for Pi MAC address (router settings)
 #define MQTT_PORT_HOME1 1883
 #define MQTT_PORT_HOME2 1883
 #endif
@@ -68,8 +68,8 @@ struct LocationConfig {
 };
 
 const LocationConfig knownLocations[] = {
-    { WIFI_SSID_HOME1, WIFI_PASS_HOME1, MQTT_SERVER_HOME1, MQTT_PORT_HOME1 },
-    { WIFI_SSID_HOME2, WIFI_PASS_HOME2, MQTT_SERVER_HOME2, MQTT_PORT_HOME2 },
+    { WIFI_SSID_HOME1, WIFI_PASS_HOME1, MQTT_SERVER_HOME1, MQTT_PORT_HOME1 },   // MQTT server Merelbeke: static IP (telenet router: static DHCP lease not available)
+    { WIFI_SSID_HOME2, WIFI_PASS_HOME2, MQTT_SERVER_HOME2, MQTT_PORT_HOME2 },   // MQTT server Vaison   : static DHCP lease (raspberry Pi MAC = 88:a2:9e:d6:a1:f6 )
 };
 const size_t knownLocationsCount = sizeof(knownLocations) / sizeof(knownLocations[0]);
 

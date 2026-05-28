@@ -1,0 +1,20 @@
+total 440
+drwxr-xr-x   5 herwig herwig   4096 May 12 13:09 .
+drwx------  18 herwig herwig   4096 May 14 11:50 ..
+-rw-r--r--   1 herwig herwig  35610 Apr 27 21:03 .config.nodes.json
+-rw-r--r--   1 herwig herwig  23772 Apr 27 21:03 .config.nodes.json.backup
+-rw-r--r--   1 herwig herwig     70 Apr 27 21:01 .config.runtime.json
+-rw-r--r--   1 herwig herwig     40 Apr 27 21:01 .config.runtime.json.backup
+-rw-r--r--   1 herwig herwig    752 Apr 29 11:32 .config.users.json
+-rw-r--r--   1 herwig herwig    713 Apr 29 11:32 .config.users.json.backup
+drwxr-xr-x   6 herwig herwig   4096 Apr 28 20:43 context
+-rw-r--r--   1 herwig herwig     31 Apr 27 18:41 environment
+drwxr-xr-x   3 herwig herwig   4096 Apr 27 19:04 lib
+drwxr-xr-x 157 herwig herwig   4096 Apr 27 21:03 node_modules
+-rw-r--r--   1 herwig herwig    245 Apr 27 21:03 package.json
+-rw-r--r--   1 herwig herwig  77695 Apr 27 21:03 package-lock.json
+-rw-r--r--   1 herwig herwig    891 May 12 13:09 .sessions.json
+-rw-rw-r--   1 herwig herwig  25529 May 12 13:05 settings.js
+-rw-r--r--   1 herwig herwig    151 May  8 17:28 Spinning globe flows_cred.json
+-rw-r--r--   1 herwig herwig 113363 May 10 15:10 Spinning globe flows.json
+-rw-r--r--   1 herwig herwig 113337 May 10 15:10 .Spinning globe flows.json.backup

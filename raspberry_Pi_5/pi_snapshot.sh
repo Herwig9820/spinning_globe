@@ -77,6 +77,9 @@ echo "Capturing system info..."
     echo ""
     echo "=== Uptime ==="
     uptime
+    echo ""
+    echo "=== Docker version ==="
+    docker version 2>/dev/null || echo "Docker not installed"
 } > "$OUTDIR/system_info.txt"
 
 # ============================================================
@@ -116,7 +119,7 @@ echo "Capturing Tailscale status..."
 # systemd services we care about
 # ============================================================
 echo "Capturing service status..."
-SERVICES="tailscaled mosquitto nodered"
+SERVICES="tailscaled mosquitto nodered zigbee2mqtt"
 {
     for svc in $SERVICES; do
         echo "=== $svc ==="
@@ -189,6 +192,34 @@ sed 's/^\(\s*password:\).*/\1 <REDACTED>/' \
     echo "is-enabled: $(systemctl is-enabled zigbee2mqtt 2>&1)"
     echo "is-active:  $(systemctl is-active zigbee2mqtt 2>&1)"
 } > "$OUTDIR/zigbee2mqtt/service_status.txt"
+
+# ============================================================
+# Home Assistant (Docker)
+# ============================================================
+echo "Capturing Home Assistant config..."
+mkdir -p "$OUTDIR/homeassistant"
+snapshot_listing "/opt/homeassistant" "homeassistant"
+
+# docker-compose.yml (no secrets in this file)
+cp /opt/homeassistant/docker-compose.yml "$OUTDIR/homeassistant/" 2>/dev/null
+
+# HA config directory listing (don't copy actual config — may contain tokens/secrets)
+snapshot_listing "/opt/homeassistant/config" "homeassistant"
+
+# Container status
+{
+    echo "=== Docker container status ==="
+    docker ps -a --filter name=homeassistant 2>/dev/null
+    echo ""
+    echo "=== HA container inspect (state only) ==="
+    docker inspect --format '{{.State}}' homeassistant 2>/dev/null
+    echo ""
+    echo "=== HA image ==="
+    docker inspect --format '{{.Config.Image}}' homeassistant 2>/dev/null
+    echo ""
+    echo "=== HA restart count ==="
+    docker inspect --format 'RestartCount: {{.RestartCount}}' homeassistant 2>/dev/null
+} > "$OUTDIR/homeassistant/container_status.txt"
 
 # ============================================================
 # Installed packages

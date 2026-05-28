@@ -357,7 +357,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
 
 
 
-            /*
+            /*  ////
                     // time for a next MQTT connection attempt ?
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
             #if MQTT_BROKER_HIVEMQ
@@ -400,6 +400,7 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
             if (now - _lastMqttMaintenanceTime > MQTT_UP_CHECK_INTERVAL) {
                 if (_MQTTclient.connected()) {                                          // MQTT is now connected ?
                     _mqttFailCount = 0;
+                    _wifiRecycleCount = 0;
                     _mqttState = MQTT_connected;
 
                     _MQTTclient.subscribe(TOPIC_GLOBE_SETTINGS_SET, 1);                 // MQTT publishing settings etc. 
@@ -432,6 +433,18 @@ MQTTmessages::ConnectionState MQTTmessages::maintainMQTT(bool WiFiConnected) {
                         _mqttState = MQTT_notConnected;
                         // WiFi state machine will detect WL_DISCONNECTED  and trigger a full reconnect including fresh TLS stack
                         WiFi.disconnect();
+
+                        // After several full WiFi recycles without MQTT success, restart the ESP32
+                        if (++_wifiRecycleCount >= MAX_WIFI_RECYCLES_BEFORE_REBOOT) {
+                            if (DEBUG) {
+                                char timeBuf[32]; if (!timeHelpers::getLocalTimeString(timeBuf, sizeof(timeBuf))) {
+                                    snprintf(timeBuf, sizeof(timeBuf), "at %13.3fs", now / 1000.);
+                                }
+                                DEBUG_PRINTLNF("-- %s : Too many failed reconnect cycles, restarting ESP32", timeBuf);
+                                delay(200);  // give the print time to flush over serial (delay() is acceptable here because device will restart anyway)
+                            }
+                            ESP.restart();
+                        }
                     }
 
                     if (DEBUG) {                                                        // regularly report status ('still trying...' etc.)

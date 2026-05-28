@@ -84,7 +84,8 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
     static constexpr uint32_t MQTT_UP_CHECK_INTERVAL = 2000;
     static constexpr uint32_t MQTT_REPORT_INTERVAL = 4000;
     static constexpr uint32_t MQTT_PUBLISH_TIMEOUT = 5UL * 60 * 1000; // 5 min
-    static constexpr uint8_t MQTT_MAX_FAIL_COUNT = 6;           // before also disconnecting WiFi and starting all over
+    static constexpr uint8_t MQTT_MAX_FAIL_COUNT = 6;               // before also disconnecting WiFi and starting all over
+    static constexpr uint8_t MAX_WIFI_RECYCLES_BEFORE_REBOOT = 5;
 
 public:
     enum ConnectionState {
@@ -96,6 +97,7 @@ public:
 private:
     bool _MQTTnewMessageFlag{ false };
     uint8_t _mqttFailCount{ 0 };
+    uint8_t _wifiRecycleCount{ 0 };
 
     ConnectionState _mqttState{ MQTT_notConnected };
 
@@ -105,14 +107,14 @@ private:
     SharedContext& _sharedContext;
 
     WiFiConnection* _pWiFiConnection;
-    
+
 #if MQTT_BROKER_HIVEMQ 
     WiFiClientSecure _tlsSocket;
 #else
     WiFiClient _socket;
 #endif
-    
-    PubSubClient     _MQTTclient;
+
+    PubSubClient _MQTTclient;
 
 
     // ========== methods ==========

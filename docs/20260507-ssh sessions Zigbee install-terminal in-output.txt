@@ -1,0 +1,450 @@
+this is a copy of the Terminal ssh window for the Zigbee installation on the raspberry Pi 5. HTA 7/5/2026
+---------------------------------------------------------------------------------------------------------
+
+herwig@PI-HTA:~ $ lsusb
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 002 Device 002: ID 174c:55aa ASMedia Technology Inc. ASM1051E SATA 6Gb/s bridge, ASM1053E SATA 6Gb/s bridge, ASM1153 SATA 3Gb/s bridge, ASM1153E SATA 6Gb/s bridge
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 003 Device 002: ID 10c4:ea60 Silicon Labs CP210x UART Bridge
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+herwig@PI-HTA:~ $ lsusb | grep -i silicon
+Bus 003 Device 002: ID 10c4:ea60 Silicon Labs CP210x UART Bridge
+herwig@PI-HTA:~ $ dmesg | tail -20
+[    7.357310] macb 1f00100000.ethernet eth0: PHY [1f00100000.ethernet-ffffffff:01] driver [Broadcom BCM54213PE] (irq=PO[    7.357319] macb 1f00100000.ethernet eth0: configuring for phy/rgmii-id link mode
+[    7.360110] macb 1f00100000.ethernet: gem-ptp-timer ptp clock registered.
+[    7.368371] brcmfmac: brcmf_cfg80211_set_power_mgmt: power save enabled
+[    7.744526] tun: Universal TUN/TAP device driver, 1.6
+[ 3438.213113] device-mapper: ioctl: 4.48.0-ioctl (2023-03-01) initialised: dm-devel@lists.linux.dev
+[ 9842.764270] ieee80211 phy0: brcmf_p2p_send_action_frame: Unknown Frame: category 0xa, action 0x8
+[151081.778605] ieee80211 phy0: brcmf_proto_bcdc_query_dcmd: brcmf_proto_bcdc_msg failed w/status -110
+[289836.650441] usb 3-2: new full-speed USB device number 2 using xhci-hcd
+[289836.810544] usb 3-2: New USB device found, idVendor=10c4, idProduct=ea60, bcdDevice= 1.00
+[289836.810552] usb 3-2: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[289836.810556] usb 3-2: Product: Sonoff Zigbee 3.0 USB Dongle Plus V2
+[289836.810559] usb 3-2: Manufacturer: Itead
+[289836.810562] usb 3-2: SerialNumber: c231de75e9ffef11926998256d9880ab
+[289836.825095] usbcore: registered new interface driver usbserial_generic
+[289836.825210] usbserial: USB Serial support registered for generic
+[289836.827984] usbcore: registered new interface driver cp210x
+[289836.828107] usbserial: USB Serial support registered for cp210x
+[289836.828148] cp210x 3-2:1.0: cp210x converter detected
+[289836.846273] usb 3-2: cp210x converter now attached to ttyUSB0
+herwig@PI-HTA:~ $ ls -l /dev/serial/by-id/
+total 0
+lrwxrwxrwx 1 root root 13 May  7 17:49 usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_c231de75e9ffef11926998256d9880ab-if00-port0 -> ../../ttyUSB0
+herwig@PI-HTA:~ $ sudo usermod -aG dialout herwig
+[sudo] password for herwig:
+herwig@PI-HTA:~ $ exit
+logout
+Connection to 100.66.121.78 closed.
+PS C:\Users\herwi> ssh pi
+herwig@100.66.121.78's password:
+Linux PI-HTA 6.12.75+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.75-1+rpt1 (2026-03-11) aarch64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Thu May  7 17:50:26 2026 from 100.115.32.54
+herwig@PI-HTA:~ $ groups
+herwig adm dialout cdrom sudo audio video plugdev games users netdev gpio i2c spi render input
+herwig@PI-HTA:~ $ node --version
+v22.22.2
+herwig@PI-HTA:~ $ sudo mosquitto_passwd /etc/mosquitto/passwd zigbee2mqtt
+Warning: File /etc/mosquitto/passwd group is not root. Future versions will refuse to load this file.Password: Error: Empty password.
+herwig@PI-HTA:~ $ sudo mosquitto_passwd /etc/mosquitto/passwd zigbee2mqtt
+Warning: File /etc/mosquitto/passwd group is not root. Future versions will refuse to load this file.Password:
+Reenter password:
+herwig@PI-HTA:~ $ sudo systemctl restart mosquitto
+herwig@PI-HTA:~ $ sudo cat /etc/mosquitto/passwd
+spinning_globe:$7$101$gPHSPy/DSlsnZaC4$OOAiR3LW6nwAD0y4or8q+RbSUWqSUty/Q+pjOgI5IzWGUtm7xUGEdVKY5XcRNqkR5KTbDFXZfD8LL1YJHQqKsg==
+herwig:$7$101$SdYjQtLB0fFyrsEF$BpqKOvuUA86w6Hc0tNoq9f88k/WSu4unHpyrlm18Al9A90uS0gohWx4/j6w+f+gn/gLzajhpY2j4Pl5oR0JeVg==
+zigbee2mqtt:$7$101$3hoauw6YEvWPTPtM$MmFgABcHnA6nysBun7UaD8x6AjEMGfRjuawtqDa3XJqKHjfhu4z9Z7q4XQoiITZVDKvcokKlXj7O/mnm/rJ6VA==
+herwig@PI-HTA:~ $ phrase-hyphen9-rocker-treading
+-bash: phrase-hyphen9-rocker-treading: command not found
+herwig@PI-HTA:~ $ sudo apt update
+Hit:1 http://deb.debian.org/debian trixie InRelease
+Get:2 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+Hit:3 http://deb.debian.org/debian-security trixie-security InRelease
+Hit:4 https://deb.nodesource.com/node_22.x nodistro InRelease
+Get:5 http://archive.raspberrypi.com/debian trixie InRelease [54.9 kB]
+Get:6 https://pkgs.tailscale.com/stable/debian trixie InRelease
+Get:7 http://archive.raspberrypi.com/debian trixie/main arm64 Packages [438 kB]
+Fetched 547 kB in 0s (1,128 kB/s)
+All packages are up to date.
+herwig@PI-HTA:~ $ sudo apt install -y git make g++ gcc libsystemd-dev
+git is already the newest version (1:2.47.3-0+deb13u1).
+git set to manually installed.
+make is already the newest version (4.4.1-2).
+make set to manually installed.
+g++ is already the newest version (4:14.2.0-1).
+g++ set to manually installed.
+gcc is already the newest version (4:14.2.0-1).
+gcc set to manually installed.
+Installing:
+  libsystemd-dev
+
+Installing dependencies:
+  libcap-dev
+
+Summary:
+  Upgrading: 0, Installing: 2, Removing: 0, Not Upgrading: 0
+  Download size: 1,841 kB
+  Space needed: 10.7 MB / 227 GB available
+
+Get:1 http://deb.debian.org/debian trixie/main arm64 libcap-dev arm64 1:2.75-10+b8 [471 kB]
+Get:2 http://deb.debian.org/debian trixie/main arm64 libsystemd-dev arm64 257.9-1~deb13u1 [1,371 kB]
+Fetched 1,841 kB in 0s (10.4 MB/s)
+Selecting previously unselected package libcap-dev:arm64.
+(Reading database ... 126710 files and directories currently installed.)
+Preparing to unpack .../libcap-dev_1%3a2.75-10+b8_arm64.deb ...
+Unpacking libcap-dev:arm64 (1:2.75-10+b8) ...
+Selecting previously unselected package libsystemd-dev:arm64.
+Preparing to unpack .../libsystemd-dev_257.9-1~deb13u1_arm64.deb ...
+Unpacking libsystemd-dev:arm64 (257.9-1~deb13u1) ...
+Setting up libcap-dev:arm64 (1:2.75-10+b8) ...
+Setting up libsystemd-dev:arm64 (257.9-1~deb13u1) ...
+Processing triggers for man-db (2.13.1-1) ...
+herwig@PI-HTA:~ $ sudo corepack enable
+herwig@PI-HTA:~ $ pnpm --version
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.0.8.tgz
+? Do you want to continue? [Y/n] Y
+
+11.0.8
+herwig@PI-HTA:~ $ sudo mkdir /opt/zigbee2mqtt
+herwig@PI-HTA:~ $ sudo chown -R herwig: /opt/zigbee2mqtt
+herwig@PI-HTA:~ $ git clone --depth 1 https://github.com/Koenkk/zigbee2mqtt.git /opt/zigbee2mqtt
+Cloning into '/opt/zigbee2mqtt'...
+remote: Enumerating objects: 170, done.
+remote: Counting objects: 100% (170/170), done.
+remote: Compressing objects: 100% (162/162), done.
+remote: Total 170 (delta 11), reused 82 (delta 6), pack-reused 0 (from 0)
+Receiving objects: 100% (170/170), 959.70 KiB | 8.27 MiB/s, done.
+Resolving deltas: 100% (11/11), done.
+herwig@PI-HTA:~ $ cd /opt/zigbee2mqtt
+herwig@PI-HTA:/opt/zigbee2mqtt $ pnpm install --frozen-lockfile
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-10.18.3.tgz
+? Do you want to continue? [Y/n] Y
+
+Lockfile is up to date, resolution step is skipped
+Packages: +270
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ WARN  Tarball download average speed 15 KiB/s (size 21 KiB) is below 50 KiB/s: https://registry.npmjs.org/cac/-/cac-6.7.14.tgz (GET)biomejs/cli-linux-arm64@2.4.13: 3.15 MB/18.16 MB
+Downloading @biomejs/cli-linux-arm64@2.4.13: 18.16 MB/18.16 MB, done
+Downloading @biomejs/cli-linux-arm64-musl@2.4.13: 17.80 MB/17.80 MB, done
+Progress: resolved 270, reused 0, downloaded 270, added 270, done
+node_modules/.pnpm/unix-dgram@2.0.6/node_modules/unix-dgram: Running install script, done in 5.7s
+node_modules/.pnpm/unix-dgram@2.0.7/node_modules/unix-dgram: Running install script, done in 5.8s
+node_modules/.pnpm/@serialport+bindings-cpp@13.0.1/node_modules/@serialport/bindings-cpp: Running install script, done in 150msdules/.pnpm/esbuild@0.25.5/node_modules/esbuild: Running postinstall script, done in 75ms
+
+dependencies:
++ ajv 8.20.0
++ bind-decorator 1.0.11
++ debounce 3.0.0
++ express-static-gzip 3.0.0
++ fast-deep-equal 3.1.3
++ finalhandler 2.1.1
++ humanize-duration 3.33.2
++ js-yaml 4.1.1
++ json-stable-stringify-without-jsonify 1.0.1
++ jszip 3.10.1
++ mqtt 5.15.1
++ object-assign-deep 0.4.0
++ rimraf 6.1.3
++ semver 7.7.4
++ source-map-support 0.5.21
++ throttleit 2.1.0
++ winston 3.19.0
++ winston-syslog 2.7.1
++ winston-transport 4.9.0
++ ws 8.20.0
++ zigbee-herdsman 10.0.7
++ zigbee-herdsman-converters 26.42.0
++ zigbee2mqtt-frontend 0.9.21
++ zigbee2mqtt-windfront 2.11.2
+
+optionalDependencies:
++ unix-dgram 2.0.7
+
+devDependencies:
++ @biomejs/biome 2.4.13
++ @types/finalhandler 1.2.4
++ @types/humanize-duration 3.27.4
++ @types/js-yaml 4.0.9
++ @types/node 24.12.2
++ @types/object-assign-deep 0.4.3
++ @types/readable-stream 4.0.23
++ @types/serve-static 2.2.0
++ @types/ws 8.18.1
++ @vitest/coverage-v8 3.2.4
++ tmp 0.2.5
++ typescript 6.0.3
++ vitest 3.2.4
+
+Done in 14.9s using pnpm v10.18.3
+herwig@PI-HTA:/opt/zigbee2mqtt $ cd /opt/zigbee2mqtt
+herwig@PI-HTA:/opt/zigbee2mqtt $ node index.js
+Starting Zigbee2MQTT without watchdog.
+Building Zigbee2MQTT... (initial build), finished
+Onboarding page is available at http://0.0.0.0:8080/
+[2026-05-07 18:51:26] info:     z2m: Logging to console, file (filename: log.log)
+[2026-05-07 18:51:26] info:     z2m: Starting Zigbee2MQTT version 2.10.0 (commit #4639243c)
+[2026-05-07 18:51:26] info:     z2m: Starting zigbee-herdsman (10.0.7)
+[2026-05-07 18:51:27] info:     zh:ember: Using default stack config.
+[2026-05-07 18:51:27] info:     zh:ember: ======== Ember Adapter Starting ========
+[2026-05-07 18:51:27] info:     zh:ember:ezsp: ======== EZSP starting ========
+[2026-05-07 18:51:27] info:     zh:ember:uart:ash: ======== ASH Adapter reset ========
+[2026-05-07 18:51:27] info:     zh:ember:uart:ash: RTS/CTS config is off, enabling software flow control.
+[2026-05-07 18:51:27] info:     zh:ember:uart:ash: Serial port opened
+[2026-05-07 18:51:27] info:     zh:ember:uart:ash: ======== ASH starting ========
+[2026-05-07 18:51:28] info:     zh:ember:uart:ash: ======== ASH connected ========
+[2026-05-07 18:51:28] info:     zh:ember:uart:ash: ======== ASH started ========
+[2026-05-07 18:51:28] info:     zh:ember:ezsp: ======== EZSP started ========
+[2026-05-07 18:51:28] info:     zh:ember: Adapter EZSP protocol version (14) lower than Host. Switched.
+[2026-05-07 18:51:28] info:     zh:ember: Adapter version info: {"ezsp":14,"revision":"8.0.2 [GA]","build":397,"major":8,"minor":0,"patch":2,"special":0,"type":170}
+[2026-05-07 18:51:28] info:     zh:ember: [INIT TC] No valid backup found.
+[2026-05-07 18:51:28] info:     zh:ember: [INIT TC] Forming from config.
+[2026-05-07 18:51:28] info:     zh:ember: [INIT FORM] Forming new network with: {"panId":39116,"extendedPanId":[83,202,202,93,123,220,158,118],"radioTxPower":5,"radioChannel":15,"joinMethod":0,"nwkManagerId":0,"nwkUpdateId":0,"channels":134215680}
+[2026-05-07 18:51:28] info:     zh:ember: [STACK STATUS] Network up.
+[2026-05-07 18:51:28] info:     zh:ember: [INIT FORM] New network formed!
+[2026-05-07 18:51:28] info:     zh:ember: [CONCENTRATOR] Started source route discovery. 1248ms until next broadcast.
+[2026-05-07 18:51:28] info:     zh:controller: Wrote coordinator backup to '/opt/zigbee2mqtt/data/coordinator_backup.json'
+[2026-05-07 18:51:28] info:     z2m: zigbee-herdsman started (reset)
+[2026-05-07 18:51:28] info:     z2m: Coordinator firmware version: '{"meta":{"build":397,"ezsp":14,"major":8,"minor":0,"patch":2,"revision":"8.0.2 [GA]","special":0,"type":170},"type":"EmberZNet"}'
+[2026-05-07 18:51:28] info:     z2m: Currently 0 devices are joined.
+[2026-05-07 18:51:28] info:     z2m: Connecting to MQTT server at mqtt://localhost:1883
+[2026-05-07 18:51:28] info:     z2m: Connected to MQTT server
+[2026-05-07 18:51:28] info:     z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"online"}'
+[2026-05-07 18:51:28] info:     z2m: Zigbee2MQTT started!
+^C[2026-05-07 18:56:58] info:   z2m: Stopping Zigbee2MQTT (restart=false, code=0, signal=SIGINT)
+[2026-05-07 18:56:58] info:     z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bridge/state', payload '{"state":"offline"}'
+[2026-05-07 18:56:58] info:     z2m: Disconnecting from MQTT server
+[2026-05-07 18:56:58] info:     z2m: Stopping zigbee-herdsman...
+[2026-05-07 18:56:59] info:     zh:controller: Wrote coordinator backup to '/opt/zigbee2mqtt/data/coordinator_backup.json'
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash: ASH COUNTERS since last clear:
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Total frames: RX=64, TX=120
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Cancelled   : RX=0, TX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   DATA frames : RX=63, TX=55
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   DATA bytes  : RX=1059, TX=686
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Retry frames: RX=0, TX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   ACK frames  : RX=0, TX=64
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   NAK frames  : RX=0, TX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   nRdy frames : RX=0, TX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   CRC errors      : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Comm errors     : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Length < minimum: RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Length > maximum: RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Bad controls    : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Bad lengths     : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Bad ACK numbers : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Out of buffers  : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Retry dupes     : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   Out of sequence : RX=0
+[2026-05-07 18:56:59] info:     zh:ember:uart:ash:   ACK timeouts    : RX=0
+[2026-05-07 18:57:04] info:     zh:ember:uart:ash: Port closed, error=null
+[2026-05-07 18:57:04] info:     zh:ember:uart:ash: ======== ASH stopped ========
+[2026-05-07 18:57:04] info:     zh:ember:ezsp: ======== EZSP stopped ========
+[2026-05-07 18:57:04] info:     zh:ember: ======== Ember Adapter Stopped ========
+[2026-05-07 18:57:04] info:     z2m: Stopped zigbee-herdsman
+[2026-05-07 18:57:04] info:     z2m: Stopped Zigbee2MQTT
+
+herwig@PI-HTA:/opt/zigbee2mqtt $ sudo systemctl daemon-reload
+vice'.
+herwig@PI-HTA:/opt/zigbee2mqtt $ sudo systemctl start zigbee2mqtt
+herwig@PI-HTA:/opt/zigbee2mqtt $ systemctl status zigbee2mqtt
+● zigbee2mqtt.service - zigbee2mqtt
+     Loaded: loaded (/etc/systemd/system/zigbee2mqtt.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-05-07 18:59:16 CEST; 20s ago
+ Invocation: 8f6709ffcd724bf4bc48168309473bbf
+   Main PID: 632177 (node)
+      Tasks: 11 (limit: 4755)
+        CPU: 1.654s
+     CGroup: /system.slice/zigbee2mqtt.service
+             └─632177 /usr/bin/node index.js
+
+May 07 18:59:15 PI-HTA node[632177]: [2026-05-07 18:59:15] info:         zh:ember: [INIT TC] Adapter network matches co>
+May 07 18:59:15 PI-HTA node[632177]: [2026-05-07 18:59:15] info:         zh:ember: [CONCENTRATOR] Started source route >
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: zigbee-herdsman started (resumed)
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: Coordinator firmware version: '{"meta":{">
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: Currently 0 devices are joined.
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: Connecting to MQTT server at mqtt://local>
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: Connected to MQTT server
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/bri>
+May 07 18:59:16 PI-HTA node[632177]: [2026-05-07 18:59:16] info:         z2m: Zigbee2MQTT started!
+May 07 18:59:16 PI-HTA systemd[1]: Started zigbee2mqtt.service - zigbee2mqtt.
+herwig@PI-HTA:/opt/zigbee2mqtt $ sudo reboot
+herwig@PI-HTA:/opt/zigbee2mqtt $ client_loop: send disconnect: Connection reset
+PS C:\Users\herwi> ssh pi
+ssh: connect to host 100.66.121.78 port 22: Connection timed out
+PS C:\Users\herwi> ssh pi
+PS C:\Users\herwi> ssh pi
+herwig@100.66.121.78's password:
+Linux PI-HTA 6.12.75+rpt-rpi-2712 #1 SMP PREEMPT Debian 1:6.12.75-1+rpt1 (2026-03-11) aarch64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Thu May  7 17:59:45 2026 from 100.115.32.54
+herwig@PI-HTA:~ $ systemctl is-active mosquitto nodered zigbee2mqtt tailscaled
+active
+active
+active
+active
+herwig@PI-HTA:~ $ systemctl status mosquitto nodered zigbee2mqtt tailscaled --no-pager
+● mosquitto.service - Mosquitto MQTT Broker
+     Loaded: loaded (/usr/lib/systemd/system/mosquitto.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-05-07 19:04:33 CEST; 1min 18s ago
+ Invocation: 04f180b79ef74dcd9acfb37feb157de6
+       Docs: man:mosquitto.conf(5)
+             man:mosquitto(8)
+    Process: 1941 ExecStartPre=/bin/mkdir -m 740 -p /var/log/mosquitto (code=exited, status=0/SUCCESS)
+    Process: 1944 ExecStartPre=/bin/chown mosquitto:mosquitto /var/log/mosquitto (code=exited, status=0/SUCCESS)
+    Process: 1946 ExecStartPre=/bin/mkdir -m 740 -p /run/mosquitto (code=exited, status=0/SUCCESS)
+    Process: 1949 ExecStartPre=/bin/chown mosquitto:mosquitto /run/mosquitto (code=exited, status=0/SUCCESS)
+   Main PID: 1951 (mosquitto)
+      Tasks: 1 (limit: 4759)
+        CPU: 46ms
+     CGroup: /system.slice/mosquitto.service
+             └─1951 /usr/sbin/mosquitto -c /etc/mosquitto/mosquitto.conf
+
+May 07 19:04:33 PI-HTA systemd[1]: Starting mosquitto.service - Mosquitto MQTT Broker...
+May 07 19:04:33 PI-HTA mosquitto[1951]: 1778173473: Loading config file /etc/mosquitto/conf.d/local.conf
+May 07 19:04:33 PI-HTA systemd[1]: Started mosquitto.service - Mosquitto MQTT Broker.
+
+● nodered.service - Node-RED graphical event wiring tool
+     Loaded: loaded (/usr/lib/systemd/system/nodered.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-05-07 19:04:24 CEST; 1min 27s ago
+ Invocation: dd568d620d5c47e9ab33c11381054812
+       Docs: http://nodered.org/docs/hardware/raspberrypi.html
+   Main PID: 724 (node-red)
+      Tasks: 12 (limit: 4759)
+        CPU: 2.703s
+     CGroup: /system.slice/nodered.service
+             ├─ 724 node-red
+             └─2241 ping -c 1 -W 1 spinning_globe_mqtt_bridge.local
+
+May 07 19:04:27 PI-HTA Node-RED[724]: 7 May 19:04:27 - [info] [mqtt-broker:PI - Mosquitto] Connection failed to…ost:1883
+May 07 19:04:34 PI-HTA Node-RED[724]: 7 May 19:04:34 - [warn] [function:check ping result] [object Object]
+May 07 19:04:42 PI-HTA Node-RED[724]: 7 May 19:04:42 - [info] [mqtt-broker:PI - Mosquitto] Connected to broker:…ost:1883
+May 07 19:04:44 PI-HTA Node-RED[724]: 7 May 19:04:44 - [warn] [function:check ping result] [object Object]
+May 07 19:04:54 PI-HTA Node-RED[724]: 7 May 19:04:54 - [warn] [function:check ping result] [object Object]
+May 07 19:05:04 PI-HTA Node-RED[724]: 7 May 19:05:04 - [warn] [function:check ping result] [object Object]
+May 07 19:05:14 PI-HTA Node-RED[724]: 7 May 19:05:14 - [warn] [function:check ping result] [object Object]
+May 07 19:05:24 PI-HTA Node-RED[724]: 7 May 19:05:24 - [warn] [function:check ping result] [object Object]
+May 07 19:05:34 PI-HTA Node-RED[724]: 7 May 19:05:34 - [warn] [function:check ping result] [object Object]
+May 07 19:05:44 PI-HTA Node-RED[724]: 7 May 19:05:44 - [warn] [function:check ping result] [object Object]
+
+● zigbee2mqtt.service - zigbee2mqtt
+     Loaded: loaded (/etc/systemd/system/zigbee2mqtt.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-05-07 19:04:49 CEST; 1min 2s ago
+ Invocation: 6b9f5ee096fd487caca35dc76959c794
+   Main PID: 2002 (node)
+      Tasks: 11 (limit: 4759)
+        CPU: 1.776s
+     CGroup: /system.slice/zigbee2mqtt.service
+             └─2002 /usr/bin/node index.js
+
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         zh:ember: [INIT TC] Adapter network matc… config.
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         zh:ember: [CONCENTRATOR] Started source …oadcast.
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: zigbee-herdsman started (resumed)
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: Coordinator firmware version: '{"me…rZNet"}'
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: Currently 0 devices are joined.
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: Connecting to MQTT server at mqtt:/…ost:1883
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: Connected to MQTT server
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m:mqtt: MQTT publish: topic 'zigbee2mq…nline"}'
+May 07 19:04:49 PI-HTA node[2002]: [2026-05-07 19:04:49] info:         z2m: Zigbee2MQTT started!
+May 07 19:04:49 PI-HTA systemd[1]: Started zigbee2mqtt.service - zigbee2mqtt.
+
+● tailscaled.service - Tailscale node agent
+     Loaded: loaded (/usr/lib/systemd/system/tailscaled.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-05-07 19:04:28 CEST; 1min 24s ago
+ Invocation: ece45905825f4f6580dcb76669f202bc
+       Docs: https://tailscale.com/docs/
+   Main PID: 1286 (tailscaled)
+     Status: "Connected; herwig.taveirne@gmail.com; 100.66.121.78 fd7a:115c:a1e0::8d35:794e"
+      Tasks: 11 (limit: 4759)
+        CPU: 517ms
+     CGroup: /system.slice/tailscaled.service
+             └─1286 /usr/sbin/tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled…
+
+May 07 19:04:32 PI-HTA tailscaled[1286]: Rebind; defIf="wlan0", ips=[192.168.1.120/24 2001:861:4447:24f0:2962:d…:71e/64]
+May 07 19:04:32 PI-HTA tailscaled[1286]: magicsock: 1 active derp conns: derp-18=cr478ms,wr478ms
+May 07 19:04:32 PI-HTA tailscaled[1286]: post-rebind ping of DERP region 18 okay
+May 07 19:04:33 PI-HTA tailscaled[1286]: monitor: RTM_NEWROUTE: src=, dst=2001:861:4447:24f0:2962:d74c:38df:9d6…able=255
+May 07 19:04:45 PI-HTA tailscaled[1286]: wgengine: idle peer [AoMpP] now active, reconfiguring WireGuard
+May 07 19:04:45 PI-HTA tailscaled[1286]: wgengine: Reconfig: configuring userspace WireGuard config (with 1/3 peers)
+May 07 19:04:46 PI-HTA tailscaled[1286]: magicsock: disco: node [AoMpP] d:35427610d0edae68 now using 192.168.1.…b6fc7080
+May 07 19:04:59 PI-HTA tailscaled[1286]: magicsock: endpoints changed: 31.39.207.74:41642 (portmap), 31.39.207.… (local)
+May 07 19:04:59 PI-HTA tailscaled[1286]: control: NetInfo: NetInfo{varies=false ipv6=true ipv6os=true udp=true …efault"}
+May 07 19:05:21 PI-HTA tailscaled[1286]: logtail: upload succeeded after 1 failures and 54s
+Hint: Some lines were ellipsized, use -l to show in full.
+herwig@PI-HTA:~ $ echo $PATH
+/usr/local/sbin:/u
+
+herwig@PI-HTA:~ $ source ~/.bashrc
+herwig@PI-HTA:~ $ echo $PATH
+/home/herwig/scripts:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
+herwig@PI-HTA:~ $ cd /
+herwig@PI-HTA:/ $ pi_snapshot
+-bash: pi_snapshot: command not found
+herwig@PI-HTA:/ $ pi_snapshot.sh
+
+Capturing system info...
+Capturing network config...
+Capturing Tailscale status...
+Capturing service status...
+Capturing Mosquitto config...
+Capturing Node-RED config...
+Capturing Zigbee2MQTT state...
+Capturing installed packages list...
+Capturing listening ports...
+
+Snapshot saved to: /home/herwig/pi_snapshot
+
+total 152
+drwxrwxr-x  5 herwig herwig   4096 May  7 19:33 .
+drwx------ 18 herwig herwig   4096 May  7 19:33 ..
+-rw-rw-r--  1 herwig herwig 106895 May  7 19:33 apt_packages.txt
+-rw-rw-r--  1 herwig herwig   1430 May  7 19:33 listening_ports.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 mosquitto
+-rw-rw-r--  1 herwig herwig   3255 May  7 19:33 network_config.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 nodered
+-rw-rw-r--  1 herwig herwig    173 May  7 19:33 services_status.txt
+-rw-rw-r--  1 herwig herwig     65 May  7 19:33 _snapshot_info.txt
+-rw-rw-r--  1 herwig herwig   1715 May  7 19:33 system_info.txt
+-rw-rw-r--  1 herwig herwig    520 May  7 19:33 tailscale_status.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 zigbee2mqtt
+herwig@PI-HTA:/ $ pi_snapshot.sh
+
+Capturing system info...
+Capturing network config...
+Capturing Tailscale status...
+Capturing service status...
+Capturing Mosquitto config...
+Capturing Node-RED config...
+Capturing Zigbee2MQTT state...
+Capturing installed packages list...
+Capturing listening ports...
+
+Snapshot saved to: /home/herwig/pi_snapshot
+
+total 152
+drwxrwxr-x  5 herwig herwig   4096 May  7 19:33 .
+drwx------ 18 herwig herwig   4096 May  7 19:33 ..
+-rw-rw-r--  1 herwig herwig 106895 May  7 19:33 apt_packages.txt
+-rw-rw-r--  1 herwig herwig   1430 May  7 19:33 listening_ports.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 mosquitto
+-rw-rw-r--  1 herwig herwig   3255 May  7 19:33 network_config.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 nodered
+-rw-rw-r--  1 herwig herwig    173 May  7 19:33 services_status.txt
+-rw-rw-r--  1 herwig herwig     65 May  7 19:33 _snapshot_info.txt
+-rw-rw-r--  1 herwig herwig   1715 May  7 19:33 system_info.txt
+-rw-rw-r--  1 herwig herwig    520 May  7 19:33 tailscale_status.txt
+drwxrwxr-x  2 herwig herwig   4096 May  7 19:33 zigbee2mqtt
+herwig@PI-HTA:/ $

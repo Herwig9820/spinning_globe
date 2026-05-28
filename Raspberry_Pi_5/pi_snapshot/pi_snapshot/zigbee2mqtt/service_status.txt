@@ -1,0 +1,6 @@
+=== Z2M version (from package.json) ===
+    "version": "2.10.0",
+
+=== zigbee2mqtt.service ===
+is-enabled: enabled
+is-active:  active

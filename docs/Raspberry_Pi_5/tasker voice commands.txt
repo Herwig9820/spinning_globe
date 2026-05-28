@@ -1,0 +1,509 @@
+smartphone: Samsung A36. Trying to set up a link between Google Assistant voice commands and Tasker (which needs to send a webhook to Home Assistant server). I don't succeed. Tasker is correctly set up (profile + task). Can you - very carefully - examine what could be the problem ?
+
+Yes. This kind of setup is unfortunately one of those “everything individually works, but the chain breaks in one hidden place” problems.
+
+Your chain is roughly:
+
+Voice command on Samsung phone
+Google Assistant interprets it
+Assistant triggers Tasker
+Tasker executes task
+Tasker sends webhook to Home Assistant
+Home Assistant reacts
+
+The important thing is to isolate exactly where the chain breaks.
+
+First: the most important question
+
+What EXACTLY happens when you speak the command?
+
+For example:
+
+Assistant says “I don’t understand”
+Assistant opens a web search
+Assistant says “Done” but Tasker never runs
+Tasker runs manually but webhook fails
+Tasker never receives anything
+It used to work and stopped
+Works with button press but not voice
+
+Each symptom points to a very different failure.
+
+But before asking you to test random things, let’s systematically go through the common failure points on modern Samsung/Android systems.
+
+Reality check: Google Assistant + Tasker has become harder
+
+This is important context.
+
+Google has gradually restricted:
+
+direct Assistant → Tasker integrations
+custom voice actions
+background launches
+automation APIs
+
+Especially on:
+
+Android 13+
+Android 14+
+Samsung OneUI devices
+
+Your Samsung One UI layer can additionally interfere with:
+
+battery optimization
+background execution
+notification permissions
+accessibility services
+
+So even if tutorials say “just use AutoVoice,” many are outdated.
+
+The clean architecture that still works reliably today
+
+Usually the reliable modern setup is:
+
+Google Assistant
+→ AutoVoice plugin
+→ Tasker
+→ HTTP Request
+→ Home Assistant webhook/API
+
+The critical piece is often:
+AutoVoice
+
+Without AutoVoice, Assistant frequently cannot directly trigger Tasker anymore.
+
+Step 1 — Verify Tasker itself works
+
+This is the foundation.
+
+Inside Tasker:
+
+manually press the “play” button on the task
+
+Does:
+
+the webhook reach Home Assistant?
+Home Assistant react correctly?
+
+If NO:
+the problem is NOT Google Assistant.
+
+Then we focus on:
+
+HTTP request
+URL
+SSL
+authentication
+network
+Tailscale/local IP/etc.
+
+If YES:
+then Tasker is fine and the issue is the Assistant trigger.
+
+This single test already cuts the problem space in half.
+
+Step 2 — Verify Tasker profile triggers WITHOUT Assistant
+
+This is the next isolation step.
+
+For example:
+
+create a temporary Tasker widget/button
+or simple event trigger
+
+Question:
+does the Tasker profile itself trigger correctly?
+
+Because sometimes:
+
+task works manually
+but profile conditions never activate
+Step 3 — The most common modern failure:
+Google Assistant cannot launch Tasker anymore
+
+This is EXTREMELY common now.
+
+Historically people used:
+
+“Ok Google, run X in Tasker”
+
+That no longer reliably works.
+
+Google removed or weakened many custom Assistant hooks.
+
+Current reliable solutions
+Option A — AutoVoice (recommended)
+
+Install:
+
+Tasker official site
+AutoVoice official page
+
+Then:
+
+AutoVoice intercepts Assistant phrases
+passes them to Tasker
+
+This is currently the standard serious setup.
+
+Step 4 — Samsung battery restrictions
+
+Samsung phones are notorious for killing automation apps.
+
+On your Samsung Galaxy A36 check:
+
+Settings →
+Battery →
+Background usage limits
+
+Make sure:
+
+Tasker = unrestricted
+AutoVoice = unrestricted
+
+Also:
+Settings →
+Apps →
+Tasker →
+Battery →
+Unrestricted
+
+And:
+
+disable sleeping/deep sleeping for both apps
+
+This alone fixes many “works once then never again” issues.
+
+Step 5 — Permissions audit
+
+Tasker often silently fails because one permission is missing.
+
+Inside Android settings verify Tasker has:
+
+Notifications
+Run in background
+Accessibility service (if requested)
+Alarms & reminders
+Microphone (if voice involved)
+Display over other apps (sometimes needed)
+
+Inside Tasker:
+Menu →
+More →
+Android Settings
+
+Tasker itself usually shows missing permissions.
+
+Step 6 — Home Assistant webhook specifics
+
+If Tasker executes but HA never reacts:
+
+Common causes:
+
+Local URL problem
+
+Example:
+
+phone on mobile data
+HA only reachable locally
+
+Then:
+
+192.168.x.x webhook fails outside WiFi
+
+Solutions:
+
+Home Assistant Cloud
+Tailscale
+reverse proxy
+
+Since you already use Tailscale on your Pi systems, this may actually be the best route.
+
+HTTPS certificate problems
+
+Tasker HTTP Request may reject:
+
+self-signed certs
+local certs
+expired certs
+
+Test:
+open the webhook URL directly in phone browser.
+
+If browser warns:
+Tasker probably also fails.
+
+Wrong webhook method
+
+Home Assistant webhook automations are often:
+
+POST only
+
+If Tasker sends GET:
+nothing happens.
+
+Step 7 — Debug the chain properly
+
+The professional way:
+
+In Tasker:
+
+enable Run Log
+
+Tasker →
+Menu →
+Monitoring →
+Run Log
+
+Then test voice command.
+
+You’ll immediately see:
+
+whether Tasker was triggered at all
+
+This is hugely valuable.
+
+Step 8 — A modern alternative that is often easier
+
+Honestly, today many people skip Google Assistant → Tasker entirely.
+
+Instead:
+
+Google Assistant
+→ Home Assistant Assist / exposed entities
+→ automation inside Home Assistant
+
+Much cleaner.
+
+Especially because:
+
+Google keeps changing Assistant APIs
+Tasker voice integration is increasingly fragile
+My suspicion ranking (most likely first)
+
+Given:
+
+Samsung phone
+modern Android
+Tasker already configured
+
+Most likely causes:
+
+Assistant no longer directly triggers Tasker
+Samsung battery restrictions
+Missing AutoVoice
+Permission issue
+Webhook networking issue
+What I need from you next
+
+Please tell me:
+
+EXACT voice phrase you use
+EXACT observed behavior
+Does manual Tasker execution work?
+Are you using:
+AutoVoice?
+Google Home routines?
+direct Assistant integration?
+Does Home Assistant receive the webhook if you manually open the URL in browser?
+
+With those answers, we can probably pinpoint the actual failure very quickly.
+
+it translates my command to text correctly ('light on') but then it either says that lights haven't been setup yet, or it opens a brightness setting
+
+That is actually a very useful symptom. It strongly suggests the failure happens before Tasker is even involved.
+
+What is happening:
+
+You say:
+
+“light on”
+
+Google Assistant interprets that as a native smart-home command.
+
+So Assistant thinks:
+
+you want to control a Google Home light
+or adjust phone brightness
+
+It never forwards the phrase to Tasker at all.
+
+That explains:
+
+“lights haven’t been set up yet”
+brightness UI opening
+
+Those are classic Assistant intent-matching behaviors.
+
+Important concept
+
+Google Assistant does intent recognition first.
+
+Your phrase:
+
+“light on”
+
+is extremely generic.
+
+Assistant classifies it as:
+
+home automation
+brightness control
+
+NOT as:
+
+“send this phrase to Tasker”
+
+So the issue is probably not your webhook or Tasker profile.
+
+The fix: use a trigger phrase Assistant does NOT hijack
+
+This is the key.
+
+Avoid generic phrases like:
+
+light on
+light off
+brightness
+kitchen light
+lamp on
+
+These are reserved territory for Assistant.
+
+Instead use something unique like:
+
+“activate blue mode”
+“computer alpha”
+“project nightfall”
+“run terrace”
+“banana protocol”
+
+Seriously. Strange phrases work better.
+
+But there’s another critical detail:
+HOW are you linking Assistant to Tasker?
+
+There are several methods.
+
+Which one are you using?
+
+Because the solution depends entirely on this.
+
+For example:
+
+Method A — AutoVoice
+
+Typical trigger:
+
+“Ask AutoVoice to turn terrace on”
+
+or
+
+“Tell AutoVoice light on”
+
+Method B — Google Assistant routine
+
+Example:
+
+Assistant hears “terrace on”
+routine launches Tasker shortcut/intention
+Method C — Old deprecated “run task in Tasker”
+
+This barely works anymore.
+
+Most likely scenario
+
+I suspect:
+
+you created a Tasker profile waiting for spoken text
+but Assistant never hands over the text to Tasker
+
+Instead Assistant consumes it internally.
+
+That is why the recognized text is visible, yet Tasker never reacts.
+
+What usually works reliably today
+Option 1 — Google Assistant Routine (best simple method)
+
+In Google Home:
+
+Create a routine:
+
+trigger phrase:
+“terrace lights”
+
+Action:
+
+open app / trigger Tasker secondary app / shortcut
+
+Then Tasker handles webhook.
+
+This bypasses Assistant semantic interpretation.
+
+Option 2 — AutoVoice (most flexible)
+
+Using:
+AutoVoice
+
+You say:
+
+“Ask AutoVoice to terrace lights”
+
+This explicitly routes the command to AutoVoice instead of native Assistant handling.
+
+This is usually the most robust setup.
+
+Why “light on” is especially bad
+
+Because Assistant has built-in categories for:
+
+lights
+brightness
+smart home devices
+media
+timers
+
+You accidentally picked one of the most collision-prone phrases possible.
+
+Quick experiment (very important)
+
+Try saying something absurd like:
+
+“Ok Google, banana spaceship”
+
+If Assistant:
+
+web-searches it
+or says it doesn’t understand
+
+then the phrase is not reserved.
+
+Now try:
+
+“Ok Google, ask AutoVoice banana spaceship”
+
+If Tasker suddenly reacts:
+problem confirmed.
+
+Another possible hidden problem
+
+Samsung phones sometimes default to:
+Bixby
+behavior mixed with Assistant actions.
+
+Especially for device controls like brightness.
+
+But your symptom still overwhelmingly points to:
+Assistant intercepting the command before Tasker.
+
+My recommendation
+
+Do NOT fight Assistant’s built-in vocabulary.
+
+Use:
+
+unique phrases
+routines
+or AutoVoice explicit routing
+
+That is the stable path in 2026 Android ecosystems.

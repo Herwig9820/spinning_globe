@@ -156,6 +156,9 @@ void WiFiConnection::onWiFiConnected(unsigned long now) {
     // CEST = CET+1 = UTC+2
     // last Sunday of March, at 2:00 AM clocks go forward to 3:00 AM; last Sunday of October, at 3:00 AM clocks go back to 2:00 AM
     configTzTime("CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org");
+    
+    // The 'ping esp32' exec node in node-red uses the 'NANO_ESP32_MQTT_BRIDGE' value + .local to ping the nano esp32,
+    // allowing the nano esp32 not to have a fixed IP¨address (static IP or static DHCP lease not mandatory).
     bool mDNSsuccess = MDNS.begin(NANO_ESP32_MQTT_BRIDGE);
 
     if (DEBUG) {

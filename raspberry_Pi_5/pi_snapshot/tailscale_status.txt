@@ -1,8 +1,0 @@
-=== tailscale status ===
-100.66.121.78   pi-hta       herwig.taveirne@  linux    -                                                        
-100.75.62.93    herwig-s9    herwig.taveirne@  android  offline, last seen 20d ago                               
-100.124.162.45  herwigs-a36  herwig.taveirne@  android  -                                                        
-100.115.32.54   msi          herwig.taveirne@  windows  active; direct 192.168.1.254:41641, tx 145436 rx 130140  
-
-=== tailscale ip -4 ===
-100.66.121.78
