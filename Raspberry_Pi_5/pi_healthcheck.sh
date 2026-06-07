@@ -355,11 +355,15 @@ if command -v docker >/dev/null 2>&1; then
     fi
 fi
 
-# HA HTTP port 8123 responding
-if curl -sf --max-time 5 http://localhost:8123 >/dev/null 2>&1; then
-    pass "Home Assistant HTTP responding on port 8123"
+# HA API responding (deeper than just HTTP — confirms backend is functional)
+if api_response=$(curl -sf --max-time 5 http://localhost:8123/api/ 2>/dev/null); then
+    if echo "$api_response" | grep -q '"message"'; then
+        pass "Home Assistant API responding on port 8123"
+    else
+        warn "Home Assistant HTTP up but API response unexpected" "got: $api_response"
+    fi
 else
-    warn "Home Assistant HTTP not responding on port 8123" "may still be starting up — retry in 60s"
+    warn "Home Assistant API not responding on port 8123" "may still be starting up — retry in 60s"
 fi
 
 # docker-compose.yml present
@@ -367,6 +371,14 @@ if [ -f /opt/homeassistant/docker-compose.yml ]; then
     pass "docker-compose.yml found at /opt/homeassistant/docker-compose.yml"
 else
     fail "docker-compose.yml missing" "expected: /opt/homeassistant/docker-compose.yml"
+fi
+
+# ha-composite-tracker present (required for presence detection)
+if [ -d "/opt/homeassistant/config/custom_components/composite" ]; then
+    pass "custom_components: ha-composite-tracker present"
+else
+    fail "custom_components: ha-composite-tracker MISSING" \
+         "presence detection will not work — reinstall via HACS"
 fi
 
 # ============================================================

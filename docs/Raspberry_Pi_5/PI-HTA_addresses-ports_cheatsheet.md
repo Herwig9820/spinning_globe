@@ -7,9 +7,9 @@
 | Network | Interface | Address | How set | Notes |
 |---------|-----------|---------|---------|-------|
 | Tailscale (always works) | `tailscale0` | `100.66.121.78` | Tailscale | Works from anywhere |
-| Home 2 LAN | `wlan0` (WiFi) | `192.168.1.120` | Static DHCP lease (MAC `88:a2:9e:d6:a1:f6`) | Home 2 only |
-| Home 1 LAN | `eth0` (Ethernet) | `192.168.0.120` | Static IP via nmcli (`home1-eth` profile) | Home 1 only — primary |
+| Home 1 LAN | `eth0` (Ethernet) | `192.168.0.119` | Static IP via nmcli (`home1-eth` profile) | Home 1 only — primary |
 | Home 1 LAN | `wlan0` (WiFi) | `192.168.0.120` | Static IP via nmcli (`homeNet1` profile) | Home 1 only — fallback |
+| Home 2 LAN | `wlan0` (WiFi) | `192.168.1.120` | Static DHCP lease (MAC `88:a2:9e:d6:a1:f6`) | Home 2 only |
 
 ### Gateways
 | Home | Gateway |
@@ -29,7 +29,7 @@
 | Node-RED Dashboard 2 | 1880 | `http://192.168.x.120:1880/dashboard` | `http://100.66.121.78:1880/dashboard` | — |
 | Mosquitto MQTT broker | 1883 | `mqtt://localhost:1883` | — | username + password |
 
-> Replace `192.168.x.120` with `192.168.1.120` (home 2) or `192.168.0.120` (home 1)
+> Replace `192.168.x.120` with `192.168.0.120` (home 1) or `192.168.1.120` (home 2)
 
 ---
 
@@ -49,8 +49,9 @@
 | Alias | Address | Use |
 |-------|---------|-----|
 | `ssh pi` | `100.66.121.78` | Via Tailscale — works anywhere |
-| `ssh pi-lan1` | `192.168.0.120` | LAN only (home 1) |
-| `ssh pi-lan2` | `192.168.1.120` | LAN only (home 2) |
+| `ssh pi-eth`  | `192.168.0.119` | LAN only-ethernet (home 1) |
+| `ssh pi-lan1` | `192.168.0.120` | LAN only-WiFi     (home 1) |
+| `ssh pi-lan2` | `192.168.1.120` | LAN only-WiFi     (home 2) |
 
 - Key-based auth only — password login disabled
 - `scp` uses same aliases: `scp file.txt pi:~/destination/`
@@ -61,9 +62,9 @@
 
 | Profile name | SSID | Home | IP |
 |-------------|------|------|----|
-| `homeNet1` | `homeNet1` | Home 1 | `192.168.0.120` (static) |
-| `homeNet2` | `homeNet2` | Home 2 | `192.168.1.120` (DHCP lease) |
-| `home1-eth` | — (Ethernet) | Home 1 | `192.168.0.120` (static) |
+| `home1-eth` | — (Ethernet) | Home 1 | `192.168.0.119` (static) |
+| `homeNet1`  | `homeNet1`   | Home 1 | `192.168.0.120` (static) |
+| `homeNet2`  | `homeNet2`   | Home 2 | `192.168.1.120` (static DHCP lease) |
 
 > Both WiFi networks share the same password by design.
 

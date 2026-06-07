@@ -29,7 +29,7 @@ For our use case (HA control), **tasks + widgets** are what matter. Profiles are
 2. Add action: **Net → HTTP Post**
    *(important: HTTP Post works; HTTP Request does not in our setup)*
 3. Configure:
-   - **Server:Port** — `http://192.168.1.120:8123` (LAN) or `http://100.66.121.78:8123` (Tailscale)
+   - **Server:Port** — `http://192.168.0.120:8123` (LAN) or `http://100.66.121.78:8123` (Tailscale)
    - **Path** — `/api/webhook/niko_on` (or whatever the HA webhook ID is)
    - **Body** — empty
    - **Headers** — empty (HA webhooks don't require auth)
@@ -76,5 +76,5 @@ Samsung kills background apps aggressively. For Tasker to stay reliable:
 Tasker → three-dot menu → **More → Run Log** — chronological list of every task execution and result. The first place to look when a widget tap doesn't produce the expected result.
 
 If Tasker fires correctly but HA doesn't act:
-- Test the webhook URL directly in a phone browser (or `curl` from a laptop) — `POST` to `http://192.168.1.120:8123/api/webhook/niko_on`
+- Test the webhook URL directly in a phone browser (or `curl` from a laptop) — `POST` to `http://192.168.0.120:8123/api/webhook/niko_on`
 - Check HA's Logbook (Sidebar → Logbook) for the automation firing or not

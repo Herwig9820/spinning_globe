@@ -33,7 +33,7 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #ifndef FG_SECRETS_h
 #define FG_SECRETS_h
 
-#define MQTT_BROKER_HIVEMQ 0                                // if 1: Mosquitto (local on Pi)
+#define MQTT_BROKER_HIVEMQ 0                                // if 0: Mosquitto (local on Pi), 1: HiveMQ serverless (cloud)
 
 // secrets.h
 #define WIFI_SSID_HOME1  "homeNet1"
@@ -48,8 +48,8 @@ https://www.instructables.com/Floating-and-Spinning-Earth-Globe/
 #define MQTT_PORT_HOME2 8883
 
 #else
-#define MQTT_SERVER_HOME1 "192.168.0.120" ////ROUTER/ IP STATISCH MAKEN // Pi 5 Merelbeke: static IP
-#define MQTT_SERVER_HOME2 "192.168.1.120"                               // Pi 5 Vaison: static DHCP lease for Pi MAC address (router settings)
+#define MQTT_SERVER_HOME1 "192.168.0.120"                   // Pi 5 Merelbeke: static IP (Pi 5: set with 'nmcli'sudo nmcli connection modify ...' command)
+#define MQTT_SERVER_HOME2 "192.168.1.120"                   // Pi 5 Vaison: static DHCP lease for Pi MAC address (router settings)
 #define MQTT_PORT_HOME1 1883
 #define MQTT_PORT_HOME2 1883
 #endif

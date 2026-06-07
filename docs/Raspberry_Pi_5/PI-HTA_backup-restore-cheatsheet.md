@@ -17,22 +17,21 @@ Both are **complementary** — the snapshot is fast and readable; the image is t
 
 ### A. Config snapshot (fast, ~10 seconds)
 
-Run on the Pi:
-```bash
-sudo ~/scripts/pi_snapshot.sh
-```
-Output lands in `~/pi_snapshot/`. To archive it to OneDrive, tar it up from Windows PowerShell:
+**Step 1 – run the snapshot on the Pi**
 ```powershell
-ssh pi "tar czf ~/pi_snapshot_$(date +%Y%m%d).tar.gz ~/pi_snapshot"
+ssh pi "~/scripts/pi_snapshot.sh"
 ```
-Then copy to OneDrive:
+
+**Step 2 – copy to a temp folder, then move to OneDrive**
+
+Windows `scp.exe` cannot handle spaces in the destination path, so we stage via a temp folder:
 ```powershell
-scp pi:~/pi_snapshot_*.tar.gz "D:\herwig\cloud\OneDrive\Onedrive Documents\myLab\Arduino\spinning_globe\raspberry_Pi_5\"
+Remove-Item -Recurse -Force D:\pi_snapshot_tmp -ErrorAction SilentlyContinue
+scp -r pi:~/pi_snapshot D:\pi_snapshot_tmp
+robocopy D:\pi_snapshot_tmp "D:\herwig\cloud\OneDrive\Onedrive Documents\myLab\Arduino\spinning_globe\Raspberry_Pi_5\pi_snapshot" /E /PURGE
+Remove-Item -Recurse -Force D:\pi_snapshot_tmp
 ```
-Clean up on Pi afterward:
-```bash
-rm ~/pi_snapshot_*.tar.gz
-```
+`/E` copies all subfolders; `/PURGE` removes stale files at the destination — no manual delete needed.
 
 ### B. Full SSD image (slow, 60 min)
 
@@ -61,22 +60,27 @@ Expected output file size: ~5–6 GB.
 
 ### Scenario 1 — Single config file gone wrong
 
-Restore from snapshot tar. Example: restore Mosquitto config:
+**Step 1 — Copy the snapshot back from OneDrive to the Pi** (from PowerShell):
+```powershell
+scp -r "D:\herwig\cloud\OneDrive\Onedrive Documents\myLab\Arduino\spinning_globe\Raspberry_Pi_5\pi_snapshot" pi:~/pi_snapshot_restore
+```
+> Spaces in the *source* path are fine — the scp mkdir issue only affects the *destination*. Here the destination is the Pi, which has no spaces.
+
+**Step 2 — Copy the file you need back into place** (on the Pi):
 ```bash
-# Extract snapshot on Pi
-tar xzf ~/pi_snapshot_YYYYMMDD.tar.gz -C /tmp
-# Copy the file you need back into place
-sudo cp /tmp/pi_snapshot/mosquitto/local.conf /etc/mosquitto/conf.d/
+# Example: restore Mosquitto config
+sudo cp ~/pi_snapshot_restore/mosquitto/local.conf /etc/mosquitto/conf.d/
 sudo systemctl restart mosquitto
 ```
-Same pattern for any other service config.
+Same pattern for any other service config — just adjust the source path and destination.
 
 ### Scenario 2 — Service broken, OS intact
 
 1. Run healthcheck to identify what's broken: `pi_healthcheck.sh`
-2. Restore relevant config files from snapshot (see Scenario 1)
-3. If Docker/HA broken: `cd /opt/homeassistant && docker compose down && docker compose up -d`
-4. If Z2M broken: restore `configuration.yaml` and `coordinator_backup.json` from snapshot, then `sudo systemctl restart zigbee2mqtt`
+2. Restore the snapshot from OneDrive to the Pi (see Scenario 1, Step 1)
+3. Restore relevant config files from `~/pi_snapshot_restore/` (see Scenario 1, Step 2)
+4. If Docker/HA broken: `cd /opt/homeassistant && docker compose down && docker compose up -d`
+5. If Z2M broken: restore `configuration.yaml` and `coordinator_backup.json` from the snapshot, then `sudo systemctl restart zigbee2mqtt`
 
 > ⚠️ The `coordinator_backup.json` contains the Zigbee network key.
 > Without it, all paired devices must be re-paired from scratch.
@@ -118,10 +122,10 @@ sync
 
 | File/Location | Contents | Sensitivity |
 |---------------|----------|-------------|
-| `~/pi_snapshot/` | Config files, service state | Medium — contains redacted configs |
+| `~/pi_snapshot/` (on Pi) | Config files, service state | Medium — contains configs |
 | `~/pi_snapshot/zigbee2mqtt/coordinator_backup.json` | Zigbee network key | 🔴 High — keep secure |
+| `...\raspberry_Pi_5\pi_snapshot\` (OneDrive) | Config snapshot folder | Medium |
 | `D:\herwig\pi-backup-YYYYMMDD\*.img.gz` | Full SSD image | 🔴 High — contains all secrets |
-| OneDrive snapshot tar | Config snapshot archive | Medium |
 
 ---
 
@@ -130,7 +134,9 @@ sync
 | Alias | When to use | Address |
 |-------|-------------|---------|
 | `ssh pi` | Always works (via Tailscale) | 100.66.121.78 |
-| `ssh pi-lan` | When on same LAN as Pi | 192.168.1.120 |
+| `ssh pi-eth`  | When on same LAN as Pi (ethernet) | 192.168.0.119 |
+| `ssh pi-lan1` | When on same LAN as Pi (homeNet1) | 192.168.0.120 |
+| `ssh pi-lan2` | When on same LAN as Pi (homeNet2) | 192.168.1.120 |
 
 - Key-based auth only — **password login is disabled**
 - Private key lives on Windows at default SSH key location
@@ -145,7 +151,7 @@ sync
 pi_healthcheck.sh
 
 # Config snapshot
-sudo pi_snapshot.sh
+sudo ~/scripts/pi_snapshot.sh
 
 # Check all services at a glance
 sudo systemctl is-active mosquitto zigbee2mqtt nodered && docker ps

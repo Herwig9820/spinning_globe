@@ -27,6 +27,7 @@ and wait ~60s for full boot. Everything comes up on its own.
 
 ## Update the Home Assistant Home Location (HA server functional setting)
 
+'http://100.66.121.78:8123' (tailScale IP address:port) → 
 Settings → System → Home Information holds the home location (lat/long),
 unit system, time zone, currency, country. The home location set here should
 match the Home zone. During prototyping in the second home (Vaison-la-Romaine, France)

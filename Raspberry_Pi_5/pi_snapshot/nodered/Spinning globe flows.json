@@ -78,8 +78,7 @@
             "e75d515615169946",
             "ac66b6ad2cada2d8",
             "5f75578d44616adc",
-            "f70e908e5ba06752",
-            "edcca9b6a5da1feb"
+            "f70e908e5ba06752"
         ],
         "x": 94,
         "y": 91.5,
@@ -346,7 +345,8 @@
             "987f3a3e707f9550",
             "04c9ad0a88c6e701",
             "60c3a78823a22fa2",
-            "1805bd067b9557bb"
+            "1805bd067b9557bb",
+            "c77720fb512516c4"
         ],
         "x": 54,
         "y": 19,
@@ -942,12 +942,8 @@
             [
                 "eac90b2baeb2d480"
             ],
-            [
-                "edcca9b6a5da1feb"
-            ],
-            [
-                "edcca9b6a5da1feb"
-            ]
+            [],
+            []
         ]
     },
     {
@@ -1107,16 +1103,6 @@
         "wires": []
     },
     {
-        "id": "d064d0d903b90979",
-        "type": "comment",
-        "z": "846c39736bfcf985",
-        "name": "Enter local nano esp32 IP address (192.168....) in exec node 'ping ESP32' below",
-        "info": "",
-        "x": 640,
-        "y": 60,
-        "wires": []
-    },
-    {
         "id": "f70e908e5ba06752",
         "type": "mqtt out",
         "z": "846c39736bfcf985",
@@ -1217,30 +1203,13 @@
         ]
     },
     {
-        "id": "edcca9b6a5da1feb",
-        "type": "debug",
-        "z": "846c39736bfcf985",
-        "g": "7314ee4ec2843587",
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 720,
-        "y": 200,
-        "wires": []
-    },
-    {
         "id": "3b447212f2fc19a1",
         "type": "function",
         "z": "cb6dceeb25cbc3d8",
         "g": "f84e11031bcc38a1",
         "name": "overall status",
-        "func": "// OFFLINE case\nif (msg.topic === \"__offline__\" || msg.topic === \"offline\") {\n    let offline = {\n        text: \"OFFLINE\",\n        style: \"color:red\",\n        code: \"0\"\n    };\n    flow.set(\"lastStatus\", offline);\n    flow.set(\"floatingSinceState\", \"none\");\n    flow.set(\"floatingSinceTime\", null);\n    global.set(\"esp32Online\", false);\n\n    msg.payload = `<div style=\"${offline.style}\">${offline.text}</div>`;\n    let msg2 = { payload: \"\" };\n    return [msg, msg2];\n}\n\n// FLASH case\nif (msg.topic === \"flashTrigger\") {\n    let st = flow.get(\"lastStatus\");\n    if (!st) return [null, null];\n\n    if (msg.payload === \"__flash__\") {\n        // dot ON\n        msg.payload = `<div><span style=\"color:lime;\">●</span> <span style=\"${st.style}\">${st.text}</span></div>`;\n    } else {\n        // dot OFF\n        msg.payload = `<div style=\"${st.style}\">${st.text}</div>`;\n    }\n    return [msg, null];\n}\n\n// Ignore everything except real status messages\nif (msg.topic !== \"globe/status\") {\n    return [null, null];\n}\n\n// NORMAL STATUS case\nlet code = (\"\" + msg.payload).trim();\n\nlet statusMap = {\n    \"0\": { text: \"wait for globe position sync\", style: \"color:yellow;\" },\n    \"1\": { text: \"free running\", style: \"color:yellow;\" },\n    \"2\": { text: \"measuring rotation speed\", style: \"color:yellow\" },\n    \"3\": { text: \"rotation not locked to clock\", style: \"color:yellow\" },\n    \"4\": { text: \"rotation locked to clock\", style: \"color:#40ff40\" },\n    \"5\": { text: \"rotation is OFF\", style: \"color:#40ff40;\" },\n    \"6\": { text: \"globe is not floating\", style: \"color:yellow;font-weight:bold;\" },\n    \"17\": { text: \"Error: dropped globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"18\": { text: \"Error: sticky globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"19\": { text: \"Error: overload\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"20\": { text: \"Error: temp too high\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"99\": { text: \"OFFLINE\", style: \"color:red;\" }                // last will\n};\n\nlet mapped = statusMap[code];\n\n// safety only (should never occur)\nif (!mapped) {\n    mapped = { text: \"OFFLINE\", style: \"color:red\", code: \"0\" };\n}\n\nmapped.code = code;\nflow.set(\"lastStatus\", mapped);\n\nif (code === \"99\") {\n    global.set(\"esp32Online\", false);\n} else {\n    global.set(\"esp32Online\", true);\n}\n\nmsg.payload = `<div style=\"${mapped.style || \"\"}\">${mapped.text}</div>`;\nreturn [msg, null];",
-        "outputs": 2,
+        "func": "let msg3_overallStatusText = { payload: \"\" };        // pure text, no formatting\n\n// OFFLINE case\nif (msg.topic === \"__offline__\" || msg.topic === \"offline\") {\n    let offline = {\n        text: \"OFFLINE\",\n        style: \"color:red\",\n        code: \"0\"\n    };\n    flow.set(\"lastStatus\", offline);\n    flow.set(\"floatingSinceState\", \"none\");\n    flow.set(\"floatingSinceTime\", null);\n    global.set(\"esp32Online\", false);\n\n    msg.payload = `<div style=\"${offline.style}\">${offline.text}</div>`;\n    let msg2 = { payload: \"\" };\n    msg3_overallStatusText.payload = offline.text;\n    return [msg, msg2, msg3_overallStatusText];\n}\n\n// FLASH case\nif (msg.topic === \"flashTrigger\") {\n    let st = flow.get(\"lastStatus\");\n    if (!st) return [null, null, null];\n\n    if (msg.payload === \"__flash__\") {\n        // dot ON\n        msg.payload = `<div><span style=\"color:lime;\">●</span> <span style=\"${st.style}\">${st.text}</span></div>`;\n    } else {\n        // dot OFF\n        msg.payload = `<div style=\"${st.style}\">${st.text}</div>`;\n    }\n    msg3_overallStatusText.payload = st.text;\n    return [msg, null, msg3_overallStatusText];\n}\n\n// Ignore everything except real status messages\nif (msg.topic !== \"globe/status\") {\n    return [null, null, null];\n}\n\n// NORMAL STATUS case\nlet code = (\"\" + msg.payload).trim();\n\nlet statusMap = {\n    \"0\": { text: \"wait for globe position sync\", style: \"color:yellow;\" },\n    \"1\": { text: \"free running\", style: \"color:yellow;\" },\n    \"2\": { text: \"measuring rotation speed\", style: \"color:yellow\" },\n    \"3\": { text: \"rotation not locked to clock\", style: \"color:yellow\" },\n    \"4\": { text: \"rotation locked to clock\", style: \"color:#40ff40\" },\n    \"5\": { text: \"rotation is OFF\", style: \"color:#40ff40;\" },\n    \"6\": { text: \"globe is not floating\", style: \"color:yellow;font-weight:bold;\" },\n    \"17\": { text: \"Error: dropped globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"18\": { text: \"Error: sticky globe\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"19\": { text: \"Error: overload\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"20\": { text: \"Error: temp too high\", style: \"color:red;font-weight:bold;background:#ffcccc;\" },\n    \"99\": { text: \"OFFLINE\", style: \"color:red;\" }                // last will\n};\n\nlet mapped = statusMap[code];\n\n// safety only (should never occur)\nif (!mapped) {\n    mapped = { text: \"OFFLINE\", style: \"color:red\", code: \"0\" };\n}\n\nmapped.code = code;\nflow.set(\"lastStatus\", mapped);\n\nif (code === \"99\") {\n    global.set(\"esp32Online\", false);\n} else {\n    global.set(\"esp32Online\", true);\n}\n\nmsg.payload = `<div style=\"${mapped.style || \"\"}\">${mapped.text}</div>`;\n\nmsg3_overallStatusText.payload = mapped.text;\nreturn [msg, null, msg3_overallStatusText];",
+        "outputs": 3,
         "timeout": "10",
         "noerr": 0,
         "initialize": "",
@@ -1254,6 +1223,9 @@
             ],
             [
                 "16c1a9b8444ed0ea"
+            ],
+            [
+                "c77720fb512516c4"
             ]
         ]
     },
@@ -1899,7 +1871,7 @@
         "value": "payload",
         "valueType": "msg",
         "x": 800,
-        "y": 400,
+        "y": 380,
         "wires": []
     },
     {
@@ -2226,6 +2198,25 @@
         "wires": [
             []
         ]
+    },
+    {
+        "id": "c77720fb512516c4",
+        "type": "mqtt out",
+        "z": "cb6dceeb25cbc3d8",
+        "g": "f84e11031bcc38a1",
+        "name": "overall status",
+        "topic": "globe/overall_status",
+        "qos": "0",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "fdd710dae9bf6772",
+        "x": 810,
+        "y": 420,
+        "wires": []
     },
     {
         "id": "737e0bcbe75e0832",

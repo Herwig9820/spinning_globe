@@ -1,0 +1,23 @@
+total 38648
+drwxr-xr-x 9 root   root       4096 Jun  5 13:58 .
+drwxr-xr-x 3 herwig herwig     4096 May 13 13:54 ..
+-rw-r--r-- 1 root   root       3408 Jun  4 19:34 automations.yaml
+drwxr-xr-x 5 root   root       4096 Jun  4 17:25 blueprints
+drwxr-xr-x 3 root   root       4096 May 14 09:58 .cache
+drwxr-xr-x 2 root   root       4096 May 13 13:56 .cloud
+-rw-r--r-- 1 root   root        631 Jun  4 18:09 configuration.yaml
+drwxr-xr-x 4 root   root       4096 Jun  4 18:50 custom_components
+drwxr-xr-x 2 root   root       4096 May 13 13:56 deps
+-rw-r--r-- 1 root   root         83 Jun  5 13:58 .ha_run.lock
+-rw-r--r-- 1 root   root          8 May 13 13:56 .HA_VERSION
+-rw-r--r-- 1 root   root     705181 Jun  7 13:55 home-assistant.log
+-rw-r--r-- 1 root   root       5824 Jun  5 13:57 home-assistant.log.1
+-rw-r--r-- 1 root   root          0 Jun  5 13:58 home-assistant.log.fault
+-rw-r--r-- 1 root   root   34488320 Jun  7 13:54 home-assistant_v2.db
+-rw-r--r-- 1 root   root      32768 Jun  7 13:56 home-assistant_v2.db-shm
+-rw-r--r-- 1 root   root    4260112 Jun  7 13:56 home-assistant_v2.db-wal
+-rw-r--r-- 1 root   root          0 May 13 13:56 scenes.yaml
+-rw-r--r-- 1 root   root        179 May 14 18:29 scripts.yaml
+-rw-r--r-- 1 root   root        161 May 13 13:56 secrets.yaml
+drwxr-xr-x 2 root   root       4096 Jun  7 13:55 .storage
+drwxr-xr-x 2 root   root       4096 May 13 13:56 tts

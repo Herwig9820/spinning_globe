@@ -1,6 +1,6 @@
 total 48
 drwxr-xr-x   5 root root       4096 May 13 13:42 .
-drwxr-xr-x 136 root root      12288 May 14 09:37 ..
+drwxr-xr-x 136 root root      12288 Jun  5 14:00 ..
 -rw-r--r--   1 root root        230 Mar  6  2025 aclfile.example
 drwxr-xr-x   2 root root       4096 Apr 27 17:44 ca_certificates
 drwxr-xr-x   2 root root       4096 Apr 27 17:44 certs

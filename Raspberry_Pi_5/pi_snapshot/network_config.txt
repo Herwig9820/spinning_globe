@@ -1,0 +1,76 @@
+=== Known connections (nmcli) ===
+NAME          UUID                                  TYPE      DEVICE     
+netplan-eth0  75a1216a-9d1a-30cd-8aca-ace5526ec021  ethernet  eth0       
+homeNet1      24d450aa-a461-49af-b802-e1ada4c102b5  wifi      wlan0      
+tailscale0    6366962d-4fe8-4c0c-8dcd-729fdc9c87c8  tun       tailscale0 
+lo            c021985d-e48a-454b-b259-2f2b2b352c2b  loopback  lo         
+docker0       1fdc1104-5aa6-4158-8b79-6533564b3434  bridge    docker0    
+homeNet2      0425ab36-ad9c-4cdd-8513-e65abaf9d368  wifi      --         
+
+=== Active connections ===
+NAME          UUID                                  TYPE      DEVICE     
+netplan-eth0  75a1216a-9d1a-30cd-8aca-ace5526ec021  ethernet  eth0       
+homeNet1      24d450aa-a461-49af-b802-e1ada4c102b5  wifi      wlan0      
+tailscale0    6366962d-4fe8-4c0c-8dcd-729fdc9c87c8  tun       tailscale0 
+lo            c021985d-e48a-454b-b259-2f2b2b352c2b  loopback  lo         
+docker0       1fdc1104-5aa6-4158-8b79-6533564b3434  bridge    docker0    
+
+=== IP addresses ===
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 88:a2:9e:d6:a1:f5 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.119/24 brd 192.168.0.255 scope global noprefixroute eth0
+       valid_lft forever preferred_lft forever
+    inet6 2a02:1811:e50c:5200:8aa2:9eff:fed6:a1f5/64 scope global dynamic noprefixroute 
+       valid_lft 219232sec preferred_lft 86292sec
+    inet6 fe80::8aa2:9eff:fed6:a1f5/64 scope link noprefixroute 
+       valid_lft forever preferred_lft forever
+3: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 88:a2:9e:d6:a1:f6 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.120/24 brd 192.168.0.255 scope global noprefixroute wlan0
+       valid_lft forever preferred_lft forever
+    inet6 2a02:1811:e50c:5200:1100:c291:618f:5cb2/64 scope global dynamic noprefixroute 
+       valid_lft 219232sec preferred_lft 86292sec
+    inet6 fe80::3ec0:34b1:e713:d236/64 scope link noprefixroute 
+       valid_lft forever preferred_lft forever
+4: tailscale0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1280 qdisc fq_codel state UNKNOWN group default qlen 500
+    link/none 
+    inet 100.66.121.78/32 scope global tailscale0
+       valid_lft forever preferred_lft forever
+    inet6 fd7a:115c:a1e0::8d35:794e/128 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::b58a:9091:6096:8fcc/64 scope link stable-privacy proto kernel_ll 
+       valid_lft forever preferred_lft forever
+5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 96:c2:f8:1a:24:29 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+       valid_lft forever preferred_lft forever
+
+=== Routes ===
+default via 192.168.0.1 dev eth0 proto static metric 100 
+default via 192.168.0.1 dev wlan0 proto static metric 600 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+192.168.0.0/24 dev eth0 proto kernel scope link src 192.168.0.119 metric 100 
+192.168.0.0/24 dev wlan0 proto kernel scope link src 192.168.0.120 metric 600 
+
+=== /etc/hosts ===
+# Your system has configured 'manage_etc_hosts' as True.
+# As a result, if you wish for changes to this file to persist
+# then you will need to either
+# a.) make changes to the master file in /etc/cloud/templates/hosts.debian.tmpl
+# b.) change or remove the value of 'manage_etc_hosts' in
+#     /etc/cloud/cloud.cfg or cloud-config from user-data
+#
+127.0.1.1 PI-HTA PI-HTA
+127.0.0.1 localhost
+
+# The following lines are desirable for IPv6 capable hosts
+::1 localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+

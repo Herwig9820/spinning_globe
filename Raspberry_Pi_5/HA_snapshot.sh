@@ -8,6 +8,8 @@
 #   - MQTT integration config
 #   - Home zone / location settings
 #   - Main configuration.yaml
+#   - Custom components (HACS integrations, e.g. ha-composite-tracker)
+#   - Blueprints
 #
 # SCOPE: Application config only — NOT the OS, NOT Docker itself,
 #   NOT Mosquitto or Zigbee2MQTT (those are in pi_snapshot.sh).
@@ -117,6 +119,32 @@ fi
 if [ -d "$HA_CONFIG/www" ]; then
     echo "Capturing www/ (custom frontend files)..."
     cp -r "$HA_CONFIG/www" "$OUTDIR/"
+fi
+
+# ============================================================
+# custom_components/ — HACS and manually installed integrations
+#   (e.g. ha-composite-tracker). Losing this means reinstalling
+#   HACS and re-adding custom repositories.
+# ============================================================
+if [ -d "$HA_CONFIG/custom_components" ]; then
+    echo "Capturing custom_components/..."
+    cp -r "$HA_CONFIG/custom_components" "$OUTDIR/"
+    component_count=$(find "$OUTDIR/custom_components" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    echo "  captured $component_count custom component(s)"
+else
+    echo "  INFO: no custom_components/ found — skipping"
+fi
+
+# ============================================================
+# blueprints/ — automation and script blueprints
+# ============================================================
+if [ -d "$HA_CONFIG/blueprints" ]; then
+    echo "Capturing blueprints/..."
+    cp -r "$HA_CONFIG/blueprints" "$OUTDIR/"
+    blueprint_count=$(find "$OUTDIR/blueprints" -name "*.yaml" | wc -l)
+    echo "  captured $blueprint_count blueprint(s)"
+else
+    echo "  INFO: no blueprints/ found — skipping"
 fi
 
 # ============================================================

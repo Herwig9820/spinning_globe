@@ -4,7 +4,7 @@
 
 | File | Contains | Used by | Notes |
 |------|----------|---------|-------|
-| `config` | SSH aliases (Host, HostName, User, IdentityFile) | SSH & SCP client on Windows | Defines `pi`, `pi-lan1`, `pi-lan2` shortcuts |
+| `config` | SSH aliases (Host, HostName, User, IdentityFile) | SSH & SCP client on Windows | Defines `pi`, `pi-eth`, `pi-lan1`, `pi-lan2` shortcuts |
 | `id_ed25519` | **Your private key** | SSH & SCP client on Windows | 🔴 Never share, never copy to cloud. If lost, generate a new keypair and re-register on the Pi |
 | `id_ed25519.pub` | **Your public key** | Copied to the Pi during setup | Safe to share — this is what gets placed in `authorized_keys` on the server |
 | `authorized_keys` | Public keys of clients allowed to connect **to this Windows machine** | Windows OpenSSH server (if enabled) | Normally empty/unused if you don't SSH *into* Windows |
